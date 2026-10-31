@@ -24,6 +24,8 @@ class AlertSnapshotTests(unittest.TestCase):
             "direction": "BUY",
             "alert_type": "BUY-A",
             "strength_label": "STRONG",
+            "strength_score": "0.625000",
+            "strength_features": {"cst_alignment": 1, "engulf": 1},
             "cct": "uptrend",
             "cst": "uptrend",
             "candle": {
@@ -57,6 +59,11 @@ class AlertSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot["symbol"], "XAUUSD")
         self.assertEqual(snapshot["tf"], "M1")
         self.assertEqual(snapshot["variant"], "A")
+        self.assertEqual(snapshot["strength_score"], "0.625000")
+        self.assertEqual(
+            snapshot["strength_features"],
+            {"cst_alignment": 1, "engulf": 1},
+        )
         self.assertTrue(snapshot["engulf"])
         self.assertEqual(snapshot["alert_candle_ohlc"]["open"], "100")
         self.assertEqual(snapshot["prev_candle_ohlc"]["close"], "100")

@@ -1058,7 +1058,6 @@ class LabService:
             source_sha256=source_data.sha256,
             spec=replay_spec,
             settings_fingerprint=settings_fingerprint,
-            variant_b=variant_b,
             simulation_settings=simulation_settings,
             alert_policy=self.current_policy(),
             mtf_records=mtf_records,

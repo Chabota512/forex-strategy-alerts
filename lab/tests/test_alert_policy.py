@@ -7,6 +7,7 @@ from lab.alert_policy import (
     load_policy,
     passthrough_policy,
     policy_rejection_reasons,
+    validate_policy_settings,
 )
 
 
@@ -71,10 +72,10 @@ class AlertPolicyTests(unittest.TestCase):
     def test_legacy_variant_b_false_cannot_disable_merged_variant(self) -> None:
         policy = passthrough_policy()
         policy["mode"] = "active"
-        policy["settings"] = {
+        policy["settings"] = validate_policy_settings({
             **policy["settings"],
             "variant_b": False,
-        }
+        })
         self.assertNotIn("variant_b", policy["settings"])
 
         reasons = policy_rejection_reasons(

@@ -7,7 +7,7 @@ import json
 import re
 import sys
 from collections import defaultdict
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -21,6 +21,7 @@ _FEATURE_AXES = (
     "period",
     "direction",
     "strength",
+    "strength_score",
     "wp_state",
     "engulf",
     "cst",
@@ -110,6 +111,18 @@ def _groups_for_axis(
             left = _eligible_value(row.get("cst"))
             right = _eligible_value(row.get("hier_state"))
             value = f"{left}|{right}" if left and right else None
+        elif axis == "strength_score":
+            raw_score = row.get("strength_score")
+            try:
+                score = Decimal(str(raw_score))
+            except (InvalidOperation, TypeError, ValueError):
+                value = None
+            else:
+                value = (
+                    format(score.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP), ".1f")
+                    if score.is_finite() and Decimal("0") <= score <= Decimal("1")
+                    else None
+                )
         else:
             value = _eligible_value(row.get(axis))
         if value is not None:

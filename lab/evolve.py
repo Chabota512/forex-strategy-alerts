@@ -37,12 +37,17 @@ if __package__:
     from .engine import (
         SMALLER_BODY_NOTE_RATIO,
         Candle,
+        DEFAULT_STRENGTH_THRESHOLDS as ENGINE_DEFAULT_STRENGTH_THRESHOLDS,
+        DEFAULT_STRENGTH_WEIGHTS as ENGINE_DEFAULT_STRENGTH_WEIGHTS,
+        STRENGTH_FEATURES,
         body_engulfs_previous,
+        calculate_strength,
         classify_cct,
         compute_cst,
         detect_trigger,
         detect_trigger_b,
-        strength_for,
+        normalize_strength_thresholds,
+        normalize_strength_weights,
     )
     from .llm_client import (
         LLMProposalResponse,
@@ -76,12 +81,17 @@ else:
     from engine import (
         SMALLER_BODY_NOTE_RATIO,
         Candle,
+        DEFAULT_STRENGTH_THRESHOLDS as ENGINE_DEFAULT_STRENGTH_THRESHOLDS,
+        DEFAULT_STRENGTH_WEIGHTS as ENGINE_DEFAULT_STRENGTH_WEIGHTS,
+        STRENGTH_FEATURES,
         body_engulfs_previous,
+        calculate_strength,
         classify_cct,
         compute_cst,
         detect_trigger,
         detect_trigger_b,
-        strength_for,
+        normalize_strength_thresholds,
+        normalize_strength_weights,
     )
     from llm_client import (
         LLMProposalResponse,
@@ -115,11 +125,18 @@ MIN_VALIDATION_TRADES_PER_TIMEFRAME = 100
 MIN_COVERED_MONTHS = 8
 STARTING_BALANCE = Decimal("10000")
 PROMOTION_MARGIN = Decimal("0.10")
-MAX_DIFF_ITEMS = 12
+MAX_DIFF_ITEMS = 13
+DEFAULT_STRENGTH_WEIGHTS = {
+    feature: float(weight)
+    for feature, weight in ENGINE_DEFAULT_STRENGTH_WEIGHTS.items()
+}
+DEFAULT_STRENGTH_THRESHOLDS = {
+    key: float(value)
+    for key, value in ENGINE_DEFAULT_STRENGTH_THRESHOLDS.items()
+}
 
 DEFAULT_OPTIONS: dict[str, Any] = {
     "timeframes": ["M5", "M15"],
-    "variant_b": False,
     "require_wp_agree": False,
     "require_mtf_agree": False,
     "require_engulf": False,
@@ -130,12 +147,13 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "cooldown_candles": 0,
     "cct.window": 15,
     "note_body_ratio": float(SMALLER_BODY_NOTE_RATIO),
+    "strength_weights": DEFAULT_STRENGTH_WEIGHTS,
+    "strength_thresholds": DEFAULT_STRENGTH_THRESHOLDS,
 }
 ALLOWED_PATHS = frozenset(DEFAULT_OPTIONS)
 STRUCTURAL_PATHS = frozenset(
     {
         "timeframes",
-        "variant_b",
         "require_wp_agree",
         "require_mtf_agree",
         "require_engulf",
@@ -145,7 +163,7 @@ STRUCTURAL_PATHS = frozenset(
     }
 )
 BOOL_PATHS = frozenset(
-    {"variant_b", "require_wp_agree", "require_mtf_agree", "require_engulf"}
+    {"require_wp_agree", "require_mtf_agree", "require_engulf"}
 )
 
 
@@ -311,6 +329,18 @@ def _validate_option(path: str, value: Any) -> Any:
         if not isinstance(value, bool):
             raise EvolutionError(f"{path} must be a boolean.")
         return value
+    if path == "strength_weights":
+        try:
+            normalized = normalize_strength_weights(value)
+        except ValueError as exc:
+            raise EvolutionError(str(exc)) from exc
+        return {feature: float(normalized[feature]) for feature in STRENGTH_FEATURES}
+    if path == "strength_thresholds":
+        try:
+            normalized = normalize_strength_thresholds(value)
+        except ValueError as exc:
+            raise EvolutionError(str(exc)) from exc
+        return {key: float(normalized[key]) for key in ("strong_min", "neutral_min")}
     if path == "min_strength":
         if not isinstance(value, str) or value not in {"NONE", "NEUTRAL", "STRONG"}:
             raise EvolutionError("min_strength must be NONE, NEUTRAL, or STRONG.")
@@ -348,13 +378,16 @@ def options_for_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
     stored = spec.get("optimizer_settings", {})
     if not isinstance(stored, dict):
         raise EvolutionError("optimizer_settings must be an object.")
-    unknown = set(stored) - (ALLOWED_PATHS - {"cct.window"})
+    legacy_variant_b = stored.get("variant_b")
+    if legacy_variant_b is not None and not isinstance(legacy_variant_b, bool):
+        raise EvolutionError("Legacy variant_b optimizer setting must be a boolean.")
+    unknown = set(stored) - (ALLOWED_PATHS - {"cct.window"}) - {"variant_b"}
     if unknown:
         raise EvolutionError(
             f"Champion contains unsupported optimizer settings: {', '.join(sorted(unknown))}."
         )
     options = dict(DEFAULT_OPTIONS)
-    options.update(stored)
+    options.update({key: value for key, value in stored.items() if key != "variant_b"})
     options["cct.window"] = spec.get("cct", {}).get("window")
     return {path: _validate_option(path, value) for path, value in options.items()}
 
@@ -678,7 +711,7 @@ def build_prompt(
         "Validation data and validation results are withheld and must not be inferred or requested.\n\n"
         "Allowed diff paths and bounds:\n"
         "- timeframes: a non-empty subset of [M5, M15, H1, H4, D1]\n"
-        "- variant_b: boolean\n"
+        "- Variant B is always on and cannot be disabled or tuned.\n"
         "- require_wp_agree: boolean\n"
         "- require_mtf_agree: boolean; M5 direction must agree with the last closed M15 CST\n"
         "- require_engulf: boolean\n"
@@ -689,14 +722,19 @@ def build_prompt(
         "- cooldown_candles: integer 0 through 48, where 0 disables cooldown\n"
         "- cct.window: integer 5 through 50\n"
         "- note_body_ratio: 0.1 through 0.9; explanatory note only\n"
+        "- strength_weights: all seven supported features, each 0 through 1; "
+        "the positive weights are normalized to sum to 1\n"
+        "- strength_thresholds: strong_min and neutral_min, each 0 through 1, "
+        "with neutral_min below strong_min\n"
         "Every change to timeframes, a trigger filter, cooldown_candles, or cct.window is structural and must include "
         "\"structural\": true on that diff item. Other items must not include that key.\n"
         "Exploration guardrail: Prefer exploring settings not recently tried; the whitelist is the search space — vary 2–3 related settings per proposal.\n"
         "Return either {\"diff\":[{\"path\":\"...\",\"value\":...}],"
         "\"rationale\":\"...\",\"expected_effect\":\"...\"} or exactly "
         "{\"no_change\":true}.\n\n"
-        "For example, a structural change uses "
-        "{\"path\":\"variant_b\",\"value\":true,\"structural\":true}.\n\n"
+        "Strength weights and thresholds are non-structural. For example, "
+        "{\"path\":\"strength_thresholds\",\"value\":{\"strong_min\":0.7,"
+        "\"neutral_min\":0.35}}.\n\n"
         "CHAMPION STRATEGY PROJECTION:\n"
         f"{json.dumps(_strategy_projection(champion, options), sort_keys=True, indent=2)}\n\n"
         "RECENTLY REJECTED (do not re-propose without new evidence)\n"
@@ -867,14 +905,12 @@ def generate_candidate_alerts(
         direction = detect_trigger(previous, current)
         if direction is not None:
             typed_signals.append((str(direction), f"{direction}-A"))
-        if options["variant_b"]:
-            variant_b = detect_trigger_b(previous, current)
-            if variant_b is not None:
-                variant_direction = "SELL" if str(variant_b) == "SELL-B" else "BUY"
-                typed_signals.append((variant_direction, str(variant_b)))
+        variant_b = detect_trigger_b(previous, current)
+        if variant_b is not None:
+            variant_direction = "SELL" if str(variant_b) == "SELL-B" else "BUY"
+            typed_signals.append((variant_direction, str(variant_b)))
 
         for signal_direction, alert_type in typed_signals:
-            strength = str(strength_for(signal_direction, cst_states[index]))
             engulfing = body_engulfs_previous(
                 previous, current, signal_direction  # type: ignore[arg-type]
             )
@@ -901,6 +937,27 @@ def generate_candidate_alerts(
             )
             mtf_wp_agree = mtf_wp == (
                 "up-pressure" if signal_direction == "BUY" else "down-pressure"
+            )
+            cct = str(
+                classify_cct(
+                    candles[max(0, index + 1 - cct_window) : index + 1],
+                    window=cct_window,
+                    swing_neighbors=cct_neighbors,
+                )
+            )
+            strength_score, strength, strength_features = calculate_strength(
+                signal_direction,  # type: ignore[arg-type]
+                cct=cct,
+                cst=str(cst_states[index]),
+                wick_pressure=pressure,
+                engulfing=engulfing,
+                mtf_cst=mtf_cst,
+                mtf_wick_pressure=mtf_wp,
+                dual_tf_alert=bool(
+                    mtf.get("dual_tf_directions", {}).get(signal_direction, False)
+                ),
+                weights=options["strength_weights"],
+                thresholds=options["strength_thresholds"],
             )
             if (
                 timeframe == "M5"
@@ -951,13 +1008,7 @@ def generate_candidate_alerts(
                 "direction": signal_direction,
                 "alert_type": alert_type,
                 "strength_label": strength,
-                "cct": str(
-                    classify_cct(
-                        candles[max(0, index + 1 - cct_window) : index + 1],
-                        window=cct_window,
-                        swing_neighbors=cct_neighbors,
-                    )
-                ),
+                "cct": cct,
                 "cst": str(cst_states[index]),
                 "dc_state": shadow_states[index]["dc_state"],
                 "hier_state": shadow_states[index]["hier_state"],
@@ -974,6 +1025,8 @@ def generate_candidate_alerts(
                 ),
                 "wick_pressure": pressure,
                 "engulfing": engulfing,
+                "strength_score": str(strength_score),
+                "strength_features": strength_features,
                 "note": (
                     "smaller body"
                     if abs(current.close - current.open)
@@ -1162,7 +1215,6 @@ def evaluate_strategy(
             spec=spec,
             cct_window=int(options["cct.window"]),
             m15_alerts_by_index=m15_alerts,
-            variant_b=bool(options["variant_b"]),
         )
         m5_alerts, m5_monthly = generate_candidate_alerts(
             m5_records,

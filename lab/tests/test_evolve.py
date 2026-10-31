@@ -363,6 +363,8 @@ class EvolutionLoopTests(unittest.TestCase):
         self.assertNotIn("987654321.25", prompt)
         self.assertNotIn("proposal-10", prompt)
         self.assertIn("verdict-10", prompt)
+        self.assertIn("Variant B is always on", prompt)
+        self.assertNotIn("- variant_b:", prompt)
         self.assertNotIn("verdict-2", prompt)
         self.assertIn("−0.0768R", prompt)
         self.assertIn("→", prompt)
@@ -524,13 +526,12 @@ class EvolutionLoopTests(unittest.TestCase):
             self.assertEqual(simulation_options[1]["r_multiple"], 2.5)
             self.assertEqual(report["rounds"][0]["decision"], "not_eligible")
 
-    def test_valid_diff_applies_all_twelve_whitelisted_settings_to_a_copy(self) -> None:
+    def test_valid_diff_applies_all_thirteen_whitelisted_settings_to_a_copy(self) -> None:
         spec = _seed_spec()
         original = copy.deepcopy(spec)
         options = evolve.options_for_spec(spec)
         diff = [
             {"path": "timeframes", "value": ["M5"], "structural": True},
-            {"path": "variant_b", "value": True, "structural": True},
             {"path": "require_wp_agree", "value": True, "structural": True},
             {"path": "require_mtf_agree", "value": True, "structural": True},
             {"path": "require_engulf", "value": True, "structural": True},
@@ -541,6 +542,22 @@ class EvolutionLoopTests(unittest.TestCase):
             {"path": "cooldown_candles", "value": 48, "structural": True},
             {"path": "cct.window", "value": 50, "structural": True},
             {"path": "note_body_ratio", "value": 0.9},
+            {
+                "path": "strength_weights",
+                "value": {
+                    "cst_alignment": 0.4,
+                    "cct_alignment": 0.1,
+                    "wp_agree": 0.1,
+                    "engulf": 0.1,
+                    "mtf_trend_agree": 0.1,
+                    "mtf_wp_agree": 0.1,
+                    "dual_tf_alert": 0.1,
+                },
+            },
+            {
+                "path": "strength_thresholds",
+                "value": {"strong_min": 0.75, "neutral_min": 0.3},
+            },
         ]
 
         candidate, candidate_options, changes = evolve.apply_model_diff(
@@ -551,7 +568,7 @@ class EvolutionLoopTests(unittest.TestCase):
             expected_effect="Test behavior.",
         )
 
-        self.assertEqual(len(changes), 12)
+        self.assertEqual(len(changes), 13)
         self.assertEqual(spec, original)
         self.assertEqual(candidate["version"], "1.5.1")
         self.assertFalse(candidate["frozen"])
@@ -563,6 +580,9 @@ class EvolutionLoopTests(unittest.TestCase):
         self.assertEqual(candidate_options["timeframes"], ["M5"])
         self.assertTrue(candidate_options["require_mtf_agree"])
         self.assertEqual(set(candidate_options), set(evolve.ALLOWED_PATHS))
+        self.assertNotIn("variant_b", candidate_options)
+        self.assertEqual(candidate_options["strength_thresholds"]["strong_min"], 0.75)
+        self.assertAlmostEqual(sum(candidate_options["strength_weights"].values()), 1)
 
     def test_whitelist_rejects_invalid_types_and_bounds(self) -> None:
         spec = _seed_spec()
@@ -577,6 +597,23 @@ class EvolutionLoopTests(unittest.TestCase):
             {"path": "cooldown_candles", "value": 49, "structural": True},
             {"path": "cct.window", "value": 4, "structural": True},
             {"path": "note_body_ratio", "value": 0.91},
+            {
+                "path": "strength_weights",
+                "value": {
+                    "cst_alignment": 0,
+                    "cct_alignment": 0,
+                    "wp_agree": 0,
+                    "engulf": 0,
+                    "mtf_trend_agree": 0,
+                    "mtf_wp_agree": 0,
+                    "dual_tf_alert": 0,
+                },
+            },
+            {
+                "path": "strength_thresholds",
+                "value": {"strong_min": 0.2, "neutral_min": 0.3},
+            },
+            {"path": "variant_b", "value": True, "structural": True},
             {"path": "timeframes", "value": []},
             {"path": "timeframes", "value": ["M1"]},
             {"path": "timeframes", "value": ["M5", "M5"]},
@@ -601,7 +638,7 @@ class EvolutionLoopTests(unittest.TestCase):
         invalid = [
             {"path": "timeframes", "value": ["M5"]},
             {"path": "require_mtf_agree", "value": True},
-            {"path": "variant_b", "value": True},
+            {"path": "variant_b", "value": True, "structural": True},
             {"path": "cct.window", "value": 16, "structural": False},
             {"path": "r_multiple", "value": 2.5, "structural": True},
             {"path": "exit_model", "value": "candle_geometry", "structural": True},
@@ -635,7 +672,7 @@ class EvolutionLoopTests(unittest.TestCase):
                 with self.assertRaises(evolve.EvolutionError):
                     evolve.parse_model_proposal(text, spec, options)
 
-    def test_alert_generation_applies_variant_b_filters_and_note_ratio(self) -> None:
+    def test_alert_generation_always_emits_variant_b_and_applies_filters(self) -> None:
         records = [
             {
                 "time": f"2025-01-01T00:0{i}:00Z",
@@ -650,7 +687,6 @@ class EvolutionLoopTests(unittest.TestCase):
         options = evolve.options_for_spec(spec)
         options.update(
             {
-                "variant_b": True,
                 "require_wp_agree": True,
                 "require_engulf": True,
                 "min_strength": "STRONG",
@@ -661,7 +697,22 @@ class EvolutionLoopTests(unittest.TestCase):
             patch("lab.evolve.compute_cst", return_value=["undefined"] * 4),
             patch("lab.evolve.detect_trigger", side_effect=["BUY", "SELL", None]),
             patch("lab.evolve.detect_trigger_b", side_effect=["BUY-B", None, None]),
-            patch("lab.evolve.strength_for", return_value="STRONG"),
+            patch(
+                "lab.evolve.calculate_strength",
+                return_value=(
+                    Decimal("0.9"),
+                    "STRONG",
+                    {
+                        "cst_alignment": 1,
+                        "cct_alignment": 1,
+                        "wp_agree": 1,
+                        "engulf": 1,
+                        "mtf_trend_agree": 0,
+                        "mtf_wp_agree": 0,
+                        "dual_tf_alert": 0,
+                    },
+                ),
+            ),
             patch("lab.evolve.body_engulfs_previous", return_value=True),
             patch("lab.evolve.StreamingWickPressure") as pressure_class,
         ):
@@ -678,6 +729,7 @@ class EvolutionLoopTests(unittest.TestCase):
             [item["alert_type"] for item in alerts[1]],
             ["BUY-A", "BUY-B"],
         )
+        self.assertEqual(alerts[1][0]["strength_score"], "0.9")
         self.assertNotIn(2, alerts)
         self.assertEqual(months["2025-01"], 2)
         self.assertEqual(alerts[1][0]["note"], "smaller body")

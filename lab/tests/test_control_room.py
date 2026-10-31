@@ -417,7 +417,7 @@ class ControlRoomServiceTests(unittest.TestCase):
             method="POST",
             payload={"toIndex": 1, "viewStart": 0, "viewEnd": 1},
         )
-        self.assertFalse(
+        self.assertTrue(
             any(
                 item["alert"]["alertType"].endswith("-B")
                 for item in default_advance["newAlerts"]
@@ -427,7 +427,7 @@ class ControlRoomServiceTests(unittest.TestCase):
         status, started = self.request_json(
             "/api/lab/replay/sessions",
             method="POST",
-            payload={**base_payload, "variant_b": True},
+            payload={**base_payload, "variant_b": False},
         )
         self.assertEqual(status, 201)
         self.assertEqual(started["wickPressureStates"], [{"index": 0, "state": "balanced"}])

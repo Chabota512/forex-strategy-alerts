@@ -358,6 +358,36 @@ class CstTests(unittest.TestCase):
         ]
         self.assertEqual(prefix_states, full)
 
+    def test_cct_cst_audit_fixtures_match_every_candle(self):
+        fixture_path = Path(__file__).with_name("cct_cst_audit_fixtures.json")
+        fixture_file = json.loads(fixture_path.read_text(encoding="utf-8"))
+        neighbors = fixture_file["swing_neighbors"]
+        for fixture in fixture_file["fixtures"]:
+            with self.subTest(fixture=fixture["id"]):
+                candles = [
+                    Candle.from_values(
+                        f"2025-01-01T00:{index:02d}:00Z",
+                        *row,
+                    )
+                    for index, row in enumerate(fixture["candles"])
+                ]
+                cct_states = [
+                    classify_cct(
+                        candles[: index + 1],
+                        window=15,
+                        swing_neighbors=neighbors,
+                    )
+                    for index in range(len(candles))
+                ]
+                cst_states = compute_cst(
+                    candles,
+                    swing_neighbors=neighbors,
+                    break_basis=fixture_file["break_basis"],
+                )
+
+                self.assertEqual(cct_states, fixture["expected_cct"])
+                self.assertEqual(cst_states, fixture["expected_cst"])
+
     def test_strength_labels_do_not_suppress_weak_alerts(self):
         self.assertEqual(strength_for("BUY", "uptrend"), "STRONG")
         self.assertEqual(strength_for("BUY", "downtrend"), "WEAK")

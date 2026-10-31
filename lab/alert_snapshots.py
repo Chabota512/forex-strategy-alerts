@@ -163,6 +163,8 @@ def build_alert_snapshot(
         "direction": direction,
         "variant": "B" if alert_type.endswith("-B") else "A",
         "strength": str(_get(alert, "strength_label", "strengthLabel", "strength", default="")),
+        "strength_score": _decimal_text(_decimal(alert.get("strength_score"))),
+        "strength_features": alert.get("strength_features"),
         "engulf": bool(engulf),
         "period": period,
         "input_source": str(_get(alert, "input_source", "source", default="")),

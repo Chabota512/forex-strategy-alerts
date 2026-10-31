@@ -146,7 +146,7 @@ class StreamingWickPressureTests(unittest.TestCase):
 
 
 class ReplayFeatureStreamingTests(unittest.TestCase):
-    def make_session(self, *, variant_b: bool) -> ReplaySession:
+    def make_session(self) -> ReplaySession:
         records = [
             {
                 "time": "2025-01-01T00:00:00Z",
@@ -175,21 +175,19 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
             source_sha256=SOURCE_SHA256,
             spec=spec,
             settings_fingerprint="test-settings",
-            variant_b=variant_b,
         )
 
-    def test_variant_b_is_opt_in_and_pressure_stream_is_additive(self):
-        disabled = self.make_session(variant_b=False)
-        disabled_start = disabled.initial_response()
-        disabled_advance = disabled.advance(to_index=1, view_start=0, view_end=1)
+    def test_variant_b_is_always_on_and_pressure_stream_is_available(self):
+        session = self.make_session()
+        started = session.initial_response()
+        advanced = session.advance(to_index=1, view_start=0, view_end=1)
 
-        enabled = self.make_session(variant_b=True)
-        enabled_start = enabled.initial_response()
-        enabled_advance = enabled.advance(to_index=1, view_start=0, view_end=1)
-
-        self.assertNotIn("wickPressure", disabled_start["states"][0])
         self.assertEqual(
-            set(disabled_advance["newStates"][0]),
+            started["wickPressureStates"],
+            [{"index": 0, "state": "balanced"}],
+        )
+        self.assertEqual(
+            set(advanced["newStates"][0]),
             {
                 "index",
                 "cct",
@@ -203,21 +201,14 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            enabled_start["wickPressureStates"],
-            [{"index": 0, "state": "balanced"}],
-        )
-        self.assertEqual(
-            enabled_advance["newWickPressureStates"],
+            advanced["newWickPressureStates"],
             [{"index": 1, "state": "down-pressure"}],
         )
         self.assertEqual(
-            [item["alert"]["alert_type"] for item in disabled_advance["newAlerts"]],
-            [],
-        )
-        self.assertEqual(
-            [item["alert"]["alert_type"] for item in enabled_advance["newAlerts"]],
+            [item["alert"]["alert_type"] for item in advanced["newAlerts"]],
             ["SELL-B"],
         )
+        self.assertIn("strength_score", advanced["newAlerts"][0]["alert"])
 
     def test_month_boundary_advances_one_session_and_keeps_simulation_state(self):
         records = [

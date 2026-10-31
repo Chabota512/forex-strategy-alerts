@@ -31,9 +31,12 @@ if __package__:
     from .engine import (
         Candle,
         CandleDataError,
+        body_engulfs_previous,
+        calculate_strength,
         classify_cct,
         compute_cst,
         detect_trigger,
+        detect_trigger_b,
         score_alert,
         smaller_body_note,
         strength_for,
@@ -55,9 +58,12 @@ else:
     from engine import (
         Candle,
         CandleDataError,
+        body_engulfs_previous,
+        calculate_strength,
         classify_cct,
         compute_cst,
         detect_trigger,
+        detect_trigger_b,
         score_alert,
         smaller_body_note,
         strength_for,
@@ -283,61 +289,70 @@ def run_pair(
     for index in range(1, len(candles)):
         previous = candles[index - 1]
         current = candles[index]
+        typed_signals: list[tuple[str, str]] = []
         direction = detect_trigger(previous, current)
-        if direction is None:
+        if direction is not None:
+            typed_signals.append((str(direction), f"{direction}-A"))
+        variant_b = detect_trigger_b(previous, current)
+        if variant_b is not None:
+            variant_direction = "SELL" if str(variant_b) == "SELL-B" else "BUY"
+            typed_signals.append((variant_direction, str(variant_b)))
+        if not typed_signals:
             continue
 
         cct_window = int(cct_settings["window"])
         context = candles[max(0, index + 1 - cct_window) : index + 1]
         cst_state = cst_states[index]
-        reward_score, reward_status = score_alert(
-            direction,
-            current.close,
-            candles[index + 1 : index + 1 + lookahead],
-            d_min=d_min,
-            a_max=a_max,
-            lookahead=lookahead,
-            speed_bonus_candles=int(speed_bonus["within_candles"]),
-            same_candle_tie=reward_settings["same_candle_tie"],
-            follow_through_per_unit=_decimal(
-                follow_through["score_per_unit"], "reward.follow_through_bonus.score_per_unit"
-            ),
-            follow_through_cap=_decimal(
-                follow_through["maximum_score"], "reward.follow_through_bonus.maximum_score"
-            ),
+        cct = classify_cct(
+            context,
+            window=cct_window,
+            swing_neighbors=int(cct_settings["swing_neighbors"]),
         )
-        alerts.append(
-            {
-                "time": current.time,
-                "symbol": symbol,
-                "tf": timeframe,
-                "direction": direction,
-                "alert_type": f"{direction}-A",
-                "cct": classify_cct(
-                    context,
-                    window=cct_window,
-                    swing_neighbors=int(cct_settings["swing_neighbors"]),
+        for signal_direction, alert_type in typed_signals:
+            reward_score, reward_status = score_alert(
+                signal_direction,  # type: ignore[arg-type]
+                current.close,
+                candles[index + 1 : index + 1 + lookahead],
+                d_min=d_min,
+                a_max=a_max,
+                lookahead=lookahead,
+                speed_bonus_candles=int(speed_bonus["within_candles"]),
+                same_candle_tie=reward_settings["same_candle_tie"],
+                follow_through_per_unit=_decimal(
+                    follow_through["score_per_unit"], "reward.follow_through_bonus.score_per_unit"
                 ),
-                "cst": cst_state,
-                "strength_label": strength_for(direction, cst_state),
-                "note": smaller_body_note(previous, current) or "",
-                "period": period_for_time(
-                    current.time,
-                    months,
-                    int(reward_settings["validation"]["training_months"]),
+                follow_through_cap=_decimal(
+                    follow_through["maximum_score"], "reward.follow_through_bonus.maximum_score"
                 ),
-                "reward_score": decimal_text(reward_score),
-                "reward_status": reward_status,
-                "spec_version": str(spec["version"]),
-                "spec_status": str(spec.get("status", "unspecified")),
-                "settings_fingerprint": config_fingerprint,
-                "cst_settings_json": canonical_json(cst_settings),
-                "reward_settings_json": canonical_json(reward_settings),
-                "input_source": source,
-                "input_sha256": input_sha256,
-                "run_id": run_id,
-            }
-        )
+            )
+            alerts.append(
+                {
+                    "time": current.time,
+                    "symbol": symbol,
+                    "tf": timeframe,
+                    "direction": signal_direction,
+                    "alert_type": alert_type,
+                    "cct": str(cct),
+                    "cst": str(cst_state),
+                    "strength_label": str(strength_for(signal_direction, cst_state)),  # type: ignore[arg-type]
+                    "note": smaller_body_note(previous, current) or "",
+                    "period": period_for_time(
+                        current.time,
+                        months,
+                        int(reward_settings["validation"]["training_months"]),
+                    ),
+                    "reward_score": decimal_text(reward_score),
+                    "reward_status": reward_status,
+                    "spec_version": str(spec["version"]),
+                    "spec_status": str(spec.get("status", "unspecified")),
+                    "settings_fingerprint": config_fingerprint,
+                    "cst_settings_json": canonical_json(cst_settings),
+                    "reward_settings_json": canonical_json(reward_settings),
+                    "input_source": source,
+                    "input_sha256": input_sha256,
+                    "run_id": run_id,
+                }
+            )
     return alerts
 
 
@@ -364,41 +379,50 @@ def run_pair_smoke(
     for index in range(1, len(candles)):
         previous = candles[index - 1]
         current = candles[index]
+        typed_signals: list[tuple[str, str]] = []
         direction = detect_trigger(previous, current)
-        if direction is None:
+        if direction is not None:
+            typed_signals.append((str(direction), f"{direction}-A"))
+        variant_b = detect_trigger_b(previous, current)
+        if variant_b is not None:
+            variant_direction = "SELL" if str(variant_b) == "SELL-B" else "BUY"
+            typed_signals.append((variant_direction, str(variant_b)))
+        if not typed_signals:
             continue
         context = candles[
             max(0, index + 1 - int(cct_settings["window"])) : index + 1
         ]
         cst_state = cst_states[index]
-        alerts.append(
-            {
-                "time": current.time,
-                "symbol": symbol,
-                "tf": timeframe,
-                "direction": direction,
-                "alert_type": f"{direction}-A",
-                "cct": classify_cct(
-                    context,
-                    window=int(cct_settings["window"]),
-                    swing_neighbors=int(cct_settings["swing_neighbors"]),
-                ),
-                "cst": cst_state,
-                "strength_label": strength_for(direction, cst_state),
-                "note": smaller_body_note(previous, current) or "",
-                "period": "SMOKE",
-                "reward_score": "",
-                "reward_status": "NOT_SCORED",
-                "spec_version": str(spec["version"]),
-                "spec_status": str(spec.get("status", "unspecified")),
-                "settings_fingerprint": config_fingerprint,
-                "cst_settings_json": canonical_json(cst_settings),
-                "reward_settings_json": canonical_json(spec["reward"]),
-                "input_source": source,
-                "input_sha256": input_sha256,
-                "run_id": run_id,
-            }
+        cct = classify_cct(
+            context,
+            window=int(cct_settings["window"]),
+            swing_neighbors=int(cct_settings["swing_neighbors"]),
         )
+        for signal_direction, alert_type in typed_signals:
+            alerts.append(
+                {
+                    "time": current.time,
+                    "symbol": symbol,
+                    "tf": timeframe,
+                    "direction": signal_direction,
+                    "alert_type": alert_type,
+                    "cct": str(cct),
+                    "cst": str(cst_state),
+                    "strength_label": str(strength_for(signal_direction, cst_state)),  # type: ignore[arg-type]
+                    "note": smaller_body_note(previous, current) or "",
+                    "period": "SMOKE",
+                    "reward_score": "",
+                    "reward_status": "NOT_SCORED",
+                    "spec_version": str(spec["version"]),
+                    "spec_status": str(spec.get("status", "unspecified")),
+                    "settings_fingerprint": config_fingerprint,
+                    "cst_settings_json": canonical_json(cst_settings),
+                    "reward_settings_json": canonical_json(spec["reward"]),
+                    "input_source": source,
+                    "input_sha256": input_sha256,
+                    "run_id": run_id,
+                }
+            )
     return alerts
 
 
@@ -973,9 +997,9 @@ def run_smoke_window(
 ) -> dict[str, Any]:
     """Return an unscored review window in memory without writing sliced data."""
     if __package__:
-        from .replay import build_mtf_context
+        from .replay import StreamingWickPressure, build_mtf_context
     else:
-        from replay import build_mtf_context
+        from replay import StreamingWickPressure, build_mtf_context
 
     if not loaded:
         raise ValueError("No candle inputs were loaded.")
@@ -1002,6 +1026,11 @@ def run_smoke_window(
         )
         candle_objects_for_pair = candle_objects(selected_candles)
         shadow_states = compute_shadow_states(candle_objects_for_pair)
+        pressure_stream = StreamingWickPressure()
+        pressure_states = [
+            str(pressure_stream.update(candle))
+            for candle in candle_objects_for_pair
+        ]
         pair_alerts = run_pair_smoke(
             candle_objects_for_pair,
             symbol=symbol,
@@ -1016,8 +1045,18 @@ def run_smoke_window(
             str(candle["time"]): index
             for index, candle in enumerate(selected_candles)
         }
+        optimizer_settings = spec.get("optimizer_settings", {})
+        if not isinstance(optimizer_settings, dict):
+            optimizer_settings = {}
         for alert in pair_alerts:
             index = candle_index[alert["time"]]
+            direction = str(alert["direction"])
+            current_candle = candle_objects_for_pair[index]
+            previous_candle = candle_objects_for_pair[index - 1]
+            engulfing = body_engulfs_previous(
+                previous_candle, current_candle, direction  # type: ignore[arg-type]
+            )
+            pressure = pressure_states[index]
             alert["dc_state"] = shadow_states[index]["dc_state"]
             alert["hier_state"] = shadow_states[index]["hier_state"]
             alert["hier_promotions"] = shadow_states[index]["hier_promotions"]
@@ -1042,6 +1081,23 @@ def run_smoke_window(
             alert["dual_tf_alert"] = bool(
                 mtf.get("dual_tf_directions", {}).get(direction, False)
             )
+            strength_score, strength_label, strength_features = calculate_strength(
+                direction,  # type: ignore[arg-type]
+                cct=str(alert["cct"]),
+                cst=str(alert["cst"]),
+                wick_pressure=pressure,
+                engulfing=engulfing,
+                mtf_cst=mtf_cst,
+                mtf_wick_pressure=mtf_wp,
+                dual_tf_alert=alert["dual_tf_alert"],
+                weights=optimizer_settings.get("strength_weights"),
+                thresholds=optimizer_settings.get("strength_thresholds"),
+            )
+            alert["wick_pressure"] = pressure
+            alert["engulfing"] = engulfing
+            alert["strength_score"] = str(strength_score)
+            alert["strength_features"] = strength_features
+            alert["strength_label"] = strength_label
             identity = {
                 "input_sha256": file_data.sha256,
                 "symbol": symbol,

@@ -6,6 +6,22 @@ from lab.digest import build_digest
 
 
 class DigestRetentionTests(unittest.TestCase):
+    def test_strength_score_is_a_rounded_digest_axis(self) -> None:
+        digest = build_digest(
+            [
+                {"strength_score": "0.54321", "direction": "BUY"}
+                for _ in range(30)
+            ],
+            min_cell_size=30,
+        )
+        score_groups = [
+            group for group in digest["groups"] if group["axis"] == "strength_score"
+        ]
+
+        self.assertEqual(len(score_groups), 1)
+        self.assertEqual(score_groups[0]["value"], "0.5")
+        self.assertEqual(score_groups[0]["n"], 30)
+
     def test_true_mtf_agreement_cells_survive_token_truncation(self) -> None:
         snapshots = []
         for index in range(160):

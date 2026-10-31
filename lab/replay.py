@@ -860,6 +860,20 @@ class ReplaySession:
                         mtf_cst=mtf_cst,
                         mtf_wick_pressure=mtf_wp,
                         dual_tf_alert=dual_tf_alert,
+                        weights=(
+                            self.spec.get("optimizer_settings", {}).get(
+                                "strength_weights"
+                            )
+                            if isinstance(self.spec.get("optimizer_settings"), Mapping)
+                            else None
+                        ),
+                        thresholds=(
+                            self.spec.get("optimizer_settings", {}).get(
+                                "strength_thresholds"
+                            )
+                            if isinstance(self.spec.get("optimizer_settings"), Mapping)
+                            else None
+                        ),
                     )
                     identity = {
                         "input_sha256": self.source_sha256,

@@ -163,7 +163,7 @@ def detect_trigger(previous: Candle, current: Candle) -> Direction | None:
 def detect_trigger_b(
     previous: Candle, current: Candle
 ) -> VariantBAlertType | None:
-    """Evaluate the opt-in same-color sweep without changing the v1.5 trigger."""
+    """Evaluate the always-on same-color sweep without changing the v1.5 trigger."""
     previous_bullish = previous.close > previous.open
     previous_bearish = previous.close < previous.open
     current_bullish = current.close > current.open
@@ -384,6 +384,14 @@ def _pressure_alignment(direction: Direction, state: str | None) -> int:
         return 0
     expected = "up-pressure" if direction == "BUY" else "down-pressure"
     return 1 if state == expected else -1
+
+
+def strength_for(direction: Direction, cst_state: str | None) -> Strength:
+    """Return the frozen v1.5 strength label derived from CST only."""
+    if cst_state not in {"uptrend", "downtrend"}:
+        return "NEUTRAL"
+    aligned_trend = "uptrend" if direction == "BUY" else "downtrend"
+    return "STRONG" if cst_state == aligned_trend else "WEAK"
 
 
 def build_strength_features(
