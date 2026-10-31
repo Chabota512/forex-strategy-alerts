@@ -1,0 +1,173 @@
+{
+  "candidate_changes": [
+    {
+      "old_value": [
+        "M5",
+        "M15"
+      ],
+      "path": "timeframes",
+      "structural": true,
+      "value": [
+        "M15"
+      ]
+    }
+  ],
+  "candidate_summary": "The training digest indicates that trades executed exclusively on the M15 timeframe yield a significantly higher (less negative) 'expectancy_after_costs' of -0.1844, compared to the current strategy's overall performance (which includes M5 trades) at -0.2814. By restricting the strategy to only the M15 timeframe, we aim to leverage this observed improvement. Expected effect: Improved validation expectancy_after_costs by focusing on the timeframe that demonstrated superior performance in training, while also reducing the total number of trades.",
+  "cct": {
+    "closed_candles_only": true,
+    "downtrend": "last_two_swing_highs_and_lows_both_fall",
+    "minimum_swings_per_side": 2,
+    "otherwise": "ranging",
+    "role": "descriptive_only",
+    "strict_fractal_extremes": true,
+    "swing_neighbors": 2,
+    "uptrend": "last_two_swing_highs_and_lows_both_rise",
+    "window": 15
+  },
+  "cst": {
+    "break_basis": "close",
+    "break_basis_options": [
+      "close",
+      "wick"
+    ],
+    "closed_candles_only": true,
+    "initial_state": "undefined",
+    "initial_trend": "first_break_of_most_recent_confirmed_major_high_or_low",
+    "major_swing_neighbors": 5,
+    "states": [
+      "uptrend",
+      "downtrend",
+      "undefined",
+      "transition"
+    ],
+    "strength_labels": {
+      "aligned": "STRONG",
+      "opposed": "WEAK",
+      "undefined_or_transition": "NEUTRAL",
+      "weak_alerts_suppressed": false
+    },
+    "transition": {
+      "after_downtrend_choch": "wait_for_newly_confirmed_post_choch_swing_high",
+      "after_uptrend_choch": "wait_for_newly_confirmed_post_choch_swing_low",
+      "ambiguous_dual_wick_break": "remain_in_transition",
+      "confirm_downtrend": "break_below_new_post_choch_swing_low",
+      "confirm_uptrend": "break_above_new_post_choch_swing_high",
+      "resume_downtrend": "break_below_saved_pre_choch_swing_low",
+      "resume_uptrend": "break_above_saved_pre_choch_swing_high"
+    }
+  },
+  "frozen": false,
+  "instruments": [
+    "GBPUSD",
+    "USDJPY",
+    "XAUUSD"
+  ],
+  "name": "Candlestick Trigger",
+  "optimizer_settings": {
+    "cooldown_candles": 0,
+    "min_strength": "NONE",
+    "note_body_ratio": 0.5,
+    "r_multiple": 2.0,
+    "require_engulf": false,
+    "require_mtf_agree": false,
+    "require_wp_agree": false,
+    "risk_percent": 1.0,
+    "timeframes": [
+      "M15"
+    ],
+    "variant_b": false
+  },
+  "proposal": {
+    "expected_effect": "Improved validation expectancy_after_costs by focusing on the timeframe that demonstrated superior performance in training, while also reducing the total number of trades.",
+    "rationale": "The training digest indicates that trades executed exclusively on the M15 timeframe yield a significantly higher (less negative) 'expectancy_after_costs' of -0.1844, compared to the current strategy's overall performance (which includes M5 trades) at -0.2814. By restricting the strategy to only the M15 timeframe, we aim to leverage this observed improvement."
+  },
+  "review": {
+    "decision": "not_eligible",
+    "reason": "Candidate validation expectancy must be positive; it is \u22120.0768R.",
+    "reviewed_at_utc": "2026-10-29T01:34:01.850755Z"
+  },
+  "reward": {
+    "adverse_reach": "strictly_beyond",
+    "challenger": {
+      "minimum_validation_score_improvement": "0.10",
+      "promotion": "manual_owner_approval"
+    },
+    "entry_reference": "alert_candle_close",
+    "floors": {
+      "minimum_months_with_alerts": 8,
+      "minimum_validation_alerts_per_symbol_timeframe": 100,
+      "month_coverage_scope": "union_across_all_symbol_timeframe_pairs",
+      "months_in_coverage_period": 12
+    },
+    "follow_through_bonus": {
+      "applies_after_adverse_first": true,
+      "maximum_score": "0.5",
+      "measure_over_all_lookahead_candles": true,
+      "score_per_unit": "0.1",
+      "unit": "additional_full_D_min"
+    },
+    "lookahead_candles": 12,
+    "objective": "total_validation_period_reward",
+    "same_candle_tie": "adverse_first",
+    "score_mapping": {
+      "target_after_adverse_first": "0.5",
+      "target_before_adverse_first": "1",
+      "target_not_reached": "-1",
+      "target_within_speed_window": "1.5"
+    },
+    "speed_bonus": {
+      "additional_score": "0.5",
+      "applies_when": "target_first",
+      "within_candles": 6
+    },
+    "target_reach": "inclusive",
+    "thresholds": {
+      "GBPUSD": {
+        "a_max": "0.0008",
+        "d_min": "0.0010",
+        "unit": "price_units"
+      },
+      "USDJPY": {
+        "a_max": "0.10",
+        "d_min": "0.12",
+        "unit": "price_units"
+      },
+      "XAUUSD": {
+        "a_max": "0.25",
+        "d_min": "0.30",
+        "unit": "price_units"
+      }
+    },
+    "validation": {
+      "total_months": 12,
+      "training_months": 9,
+      "validation_months": 3,
+      "window": "last_12_consecutive_calendar_months_in_loaded_data"
+    }
+  },
+  "source": "Owner-provided candle trigger specification v1.5",
+  "status": "candidate_pending_review",
+  "timeframes": [
+    "M5",
+    "M15"
+  ],
+  "trigger": {
+    "both_extremes_broken": "current_close_direction_decides",
+    "buy": [
+      "current.low < previous.low",
+      "current.close > current.open",
+      "previous.close < previous.open"
+    ],
+    "current_perfect_doji": "no_alert",
+    "evaluate": "fully_closed_candles",
+    "previous_doji": "no_alert_by_confirmed_inequalities",
+    "sell": [
+      "current.high > previous.high",
+      "current.close < current.open",
+      "previous.close > previous.open"
+    ],
+    "smaller_body_note": "optional_observation_only_never_changes_alert",
+    "strict_wick_break": true
+  },
+  "version": "1.5.1"
+}

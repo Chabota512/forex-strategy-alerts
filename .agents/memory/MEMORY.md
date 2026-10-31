@@ -1,0 +1,3 @@
+- [Public GitHub archive downloads](github-archive-downloads.md) — codeload can work when shell Git is redirected to an unavailable Replit GitHub proxy.
+- [Repository refresh preference](repo-refresh-preference.md) — apply snapshots directly, preserve uploads, and regenerate API clients before typechecking.
+- [Strategy Lab guardrails](strategy-lab-guardrails.md) — protect frozen specs, keep validation offline, track verified gold monthly data, and never force-push.

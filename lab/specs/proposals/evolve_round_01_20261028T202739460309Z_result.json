@@ -1,0 +1,826 @@
+{
+  "baseline_version": "1.5.0",
+  "candidate_file": "/home/runner/workspace/lab/specs/proposals/candidate_v1_5_1_round_01_20261028T202739460309Z.json",
+  "candidate_month_coverage": {
+    "covered_count": 36,
+    "months": [
+      "2023-01",
+      "2023-02",
+      "2023-03",
+      "2023-04",
+      "2023-05",
+      "2023-06",
+      "2023-07",
+      "2023-08",
+      "2023-09",
+      "2023-10",
+      "2023-11",
+      "2023-12",
+      "2024-01",
+      "2024-02",
+      "2024-03",
+      "2024-04",
+      "2024-05",
+      "2024-06",
+      "2024-07",
+      "2024-08",
+      "2024-09",
+      "2024-10",
+      "2024-11",
+      "2024-12",
+      "2025-01",
+      "2025-02",
+      "2025-03",
+      "2025-04",
+      "2025-05",
+      "2025-06",
+      "2025-07",
+      "2025-08",
+      "2025-09",
+      "2025-10",
+      "2025-11",
+      "2025-12"
+    ],
+    "passed": true,
+    "required_count": 8
+  },
+  "candidate_training": {
+    "by_timeframe": {
+      "M15": {
+        "closed_trade_count": 2436,
+        "expectancy_after_costs": -0.1876770256366506,
+        "losses": 1643,
+        "net_pnl_after_costs": -9918.436703529327,
+        "total_net_r_after_costs": -457.1812344508808,
+        "wins": 793
+      },
+      "M5": {
+        "closed_trade_count": 7593,
+        "expectancy_after_costs": -0.29767939646955,
+        "losses": 5056,
+        "net_pnl_after_costs": -9999.99999933055,
+        "total_net_r_after_costs": -2260.279657393293,
+        "wins": 2537
+      }
+    },
+    "closed_trade_count": 10029,
+    "digest": {
+      "estimated_tokens": 1974,
+      "groups": [
+        {
+          "avg_r": -0.0036,
+          "axis": "engulf",
+          "expectancy_after_costs": -0.271,
+          "n": 10033,
+          "resolved": 10029,
+          "value": "True",
+          "win_rate_pct": 33.2,
+          "wins": 3330
+        },
+        {
+          "avg_r": -0.0036,
+          "axis": "variant",
+          "expectancy_after_costs": -0.271,
+          "n": 10033,
+          "resolved": 10029,
+          "value": "A",
+          "win_rate_pct": 33.2,
+          "wins": 3330
+        },
+        {
+          "avg_r": 0.0028,
+          "axis": "tf",
+          "expectancy_after_costs": -0.2977,
+          "n": 7596,
+          "resolved": 7593,
+          "value": "M5",
+          "win_rate_pct": 33.41,
+          "wins": 2537
+        },
+        {
+          "avg_r": 0.0345,
+          "axis": "direction",
+          "expectancy_after_costs": -0.2345,
+          "n": 5214,
+          "resolved": 5211,
+          "value": "BUY",
+          "win_rate_pct": 34.48,
+          "wins": 1797
+        },
+        {
+          "avg_r": -0.0448,
+          "axis": "direction",
+          "expectancy_after_costs": -0.3104,
+          "n": 4819,
+          "resolved": 4818,
+          "value": "SELL",
+          "win_rate_pct": 31.82,
+          "wins": 1533
+        },
+        {
+          "avg_r": 0.0108,
+          "axis": "wp_state",
+          "expectancy_after_costs": -0.2475,
+          "n": 4617,
+          "resolved": 4615,
+          "value": "balanced",
+          "win_rate_pct": 33.69,
+          "wins": 1555
+        },
+        {
+          "avg_r": 0.0193,
+          "axis": "strength",
+          "expectancy_after_costs": -0.262,
+          "n": 4035,
+          "resolved": 4035,
+          "value": "NEUTRAL",
+          "win_rate_pct": 33.95,
+          "wins": 1370
+        },
+        {
+          "avg_r": 0.0188,
+          "axis": "cst",
+          "expectancy_after_costs": -0.2625,
+          "n": 4034,
+          "resolved": 4034,
+          "value": "transition",
+          "win_rate_pct": 33.94,
+          "wins": 1369
+        },
+        {
+          "avg_r": 0.0188,
+          "axis": "cst_dc",
+          "expectancy_after_costs": -0.2625,
+          "n": 4034,
+          "resolved": 4034,
+          "value": "transition|undefined",
+          "win_rate_pct": 33.94,
+          "wins": 1369
+        },
+        {
+          "avg_r": 0.0109,
+          "axis": "cst",
+          "expectancy_after_costs": -0.2478,
+          "n": 3290,
+          "resolved": 3288,
+          "value": "uptrend",
+          "win_rate_pct": 33.7,
+          "wins": 1108
+        },
+        {
+          "avg_r": 0.0109,
+          "axis": "cst_dc",
+          "expectancy_after_costs": -0.2478,
+          "n": 3290,
+          "resolved": 3288,
+          "value": "uptrend|undefined",
+          "win_rate_pct": 33.7,
+          "wins": 1108
+        },
+        {
+          "avg_r": -0.0409,
+          "axis": "strength",
+          "expectancy_after_costs": -0.3028,
+          "n": 3032,
+          "resolved": 3031,
+          "value": "WEAK",
+          "win_rate_pct": 31.97,
+          "wins": 969
+        },
+        {
+          "avg_r": 0.0034,
+          "axis": "strength",
+          "expectancy_after_costs": -0.2506,
+          "n": 2966,
+          "resolved": 2963,
+          "value": "STRONG",
+          "win_rate_pct": 33.45,
+          "wins": 991
+        },
+        {
+          "avg_r": -0.0493,
+          "axis": "wp_state",
+          "expectancy_after_costs": -0.3115,
+          "n": 2802,
+          "resolved": 2802,
+          "value": "up-pressure",
+          "win_rate_pct": 31.69,
+          "wins": 888
+        },
+        {
+          "avg_r": -0.0554,
+          "axis": "cst",
+          "expectancy_after_costs": -0.3125,
+          "n": 2708,
+          "resolved": 2706,
+          "value": "downtrend",
+          "win_rate_pct": 31.49,
+          "wins": 852
+        },
+        {
+          "avg_r": -0.0554,
+          "axis": "cst_dc",
+          "expectancy_after_costs": -0.3125,
+          "n": 2708,
+          "resolved": 2706,
+          "value": "downtrend|undefined",
+          "win_rate_pct": 31.49,
+          "wins": 852
+        },
+        {
+          "avg_r": 0.0199,
+          "axis": "wp_state",
+          "expectancy_after_costs": -0.2688,
+          "n": 2614,
+          "resolved": 2612,
+          "value": "down-pressure",
+          "win_rate_pct": 33.96,
+          "wins": 887
+        },
+        {
+          "avg_r": -0.0234,
+          "axis": "tf",
+          "expectancy_after_costs": -0.1877,
+          "n": 2437,
+          "resolved": 2436,
+          "value": "M15",
+          "win_rate_pct": 32.55,
+          "wins": 793
+        },
+        {
+          "avg_r": 0.0316,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.2516,
+          "n": 1486,
+          "resolved": 1486,
+          "value": "transition|transition",
+          "win_rate_pct": 34.39,
+          "wins": 511
+        },
+        {
+          "avg_r": 0.031,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.2472,
+          "n": 1385,
+          "resolved": 1385,
+          "value": "transition|uptrend",
+          "win_rate_pct": 34.3,
+          "wins": 475
+        },
+        {
+          "avg_r": -0.0268,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.2821,
+          "n": 1233,
+          "resolved": 1233,
+          "value": "uptrend|uptrend",
+          "win_rate_pct": 32.44,
+          "wins": 400
+        },
+        {
+          "avg_r": 0.0768,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.1783,
+          "n": 1198,
+          "resolved": 1198,
+          "value": "uptrend|transition",
+          "win_rate_pct": 35.89,
+          "wins": 430
+        },
+        {
+          "avg_r": -0.012,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.2947,
+          "n": 1163,
+          "resolved": 1163,
+          "value": "transition|downtrend",
+          "win_rate_pct": 32.93,
+          "wins": 383
+        },
+        {
+          "avg_r": -0.0716,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.3217,
+          "n": 992,
+          "resolved": 992,
+          "value": "downtrend|uptrend",
+          "win_rate_pct": 30.95,
+          "wins": 307
+        },
+        {
+          "avg_r": -0.0644,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.3217,
+          "n": 962,
+          "resolved": 962,
+          "value": "downtrend|transition",
+          "win_rate_pct": 31.19,
+          "wins": 300
+        },
+        {
+          "avg_r": -0.0246,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.2934,
+          "n": 857,
+          "resolved": 855,
+          "value": "uptrend|downtrend",
+          "win_rate_pct": 32.51,
+          "wins": 278
+        }
+      ],
+      "period": "2023-01 through 2024-12",
+      "sample_floor": 30,
+      "schema_version": 1,
+      "snapshot_count": 10033,
+      "truncated_cells": 25
+    },
+    "expectancy_after_costs": -0.27096030430194173,
+    "net_pnl_after_costs": -19918.43670285988,
+    "period": "2023-01 through 2024-12",
+    "signals_by_month": {
+      "2023-01": 418,
+      "2023-02": 391,
+      "2023-03": 430,
+      "2023-04": 371,
+      "2023-05": 436,
+      "2023-06": 468,
+      "2023-07": 425,
+      "2023-08": 501,
+      "2023-09": 393,
+      "2023-10": 398,
+      "2023-11": 348,
+      "2023-12": 313,
+      "2024-01": 366,
+      "2024-02": 411,
+      "2024-03": 357,
+      "2024-04": 394,
+      "2024-05": 501,
+      "2024-06": 361,
+      "2024-07": 456,
+      "2024-08": 455,
+      "2024-09": 436,
+      "2024-10": 513,
+      "2024-11": 444,
+      "2024-12": 447
+    }
+  },
+  "candidate_validation": {
+    "by_timeframe": {
+      "M15": {
+        "closed_trade_count": 1277,
+        "expectancy_after_costs": -0.1703608825661938,
+        "losses": 892,
+        "net_pnl_after_costs": -8995.948181629987,
+        "total_net_r_after_costs": -217.55084703702948,
+        "wins": 385
+      },
+      "M5": {
+        "closed_trade_count": 3649,
+        "expectancy_after_costs": -0.13329625569978293,
+        "losses": 2431,
+        "net_pnl_after_costs": -9947.485493806334,
+        "total_net_r_after_costs": -486.3980370485079,
+        "wins": 1218
+      }
+    },
+    "closed_trade_count": 4926,
+    "expectancy_after_costs": -0.14290476737424634,
+    "net_pnl_after_costs": -18943.43367543632,
+    "period": "2025-01 through 2025-12"
+  },
+  "champion_training": {
+    "by_timeframe": {
+      "M15": {
+        "closed_trade_count": 10547,
+        "expectancy_after_costs": -0.18444509936030162,
+        "losses": 7065,
+        "net_pnl_after_costs": -9999.99998610796,
+        "total_net_r_after_costs": -1945.3424629531012,
+        "wins": 3482
+      },
+      "M5": {
+        "closed_trade_count": 31740,
+        "expectancy_after_costs": -0.31360167891153723,
+        "losses": 21122,
+        "net_pnl_after_costs": -10000.0,
+        "total_net_r_after_costs": -9953.717288652191,
+        "wins": 10618
+      }
+    },
+    "closed_trade_count": 42287,
+    "digest": {
+      "estimated_tokens": 1970,
+      "groups": [
+        {
+          "avg_r": 0.0007,
+          "axis": "variant",
+          "expectancy_after_costs": -0.2814,
+          "n": 42301,
+          "resolved": 42287,
+          "value": "A",
+          "win_rate_pct": 33.34,
+          "wins": 14100
+        },
+        {
+          "avg_r": 0.002,
+          "axis": "engulf",
+          "expectancy_after_costs": -0.2846,
+          "n": 32268,
+          "resolved": 32258,
+          "value": "False",
+          "win_rate_pct": 33.39,
+          "wins": 10770
+        },
+        {
+          "avg_r": 0.0041,
+          "axis": "tf",
+          "expectancy_after_costs": -0.3136,
+          "n": 31746,
+          "resolved": 31740,
+          "value": "M5",
+          "win_rate_pct": 33.45,
+          "wins": 10618
+        },
+        {
+          "avg_r": 0.0374,
+          "axis": "direction",
+          "expectancy_after_costs": -0.2443,
+          "n": 21250,
+          "resolved": 21244,
+          "value": "BUY",
+          "win_rate_pct": 34.57,
+          "wins": 7344
+        },
+        {
+          "avg_r": -0.0364,
+          "axis": "direction",
+          "expectancy_after_costs": -0.3188,
+          "n": 21051,
+          "resolved": 21043,
+          "value": "SELL",
+          "win_rate_pct": 32.11,
+          "wins": 6756
+        },
+        {
+          "avg_r": 0.0103,
+          "axis": "wp_state",
+          "expectancy_after_costs": -0.2611,
+          "n": 19896,
+          "resolved": 19886,
+          "value": "balanced",
+          "win_rate_pct": 33.68,
+          "wins": 6697
+        },
+        {
+          "avg_r": 0.0045,
+          "axis": "strength",
+          "expectancy_after_costs": -0.2906,
+          "n": 16799,
+          "resolved": 16799,
+          "value": "NEUTRAL",
+          "win_rate_pct": 33.47,
+          "wins": 5622
+        },
+        {
+          "avg_r": 0.0042,
+          "axis": "cst",
+          "expectancy_after_costs": -0.291,
+          "n": 16796,
+          "resolved": 16796,
+          "value": "transition",
+          "win_rate_pct": 33.45,
+          "wins": 5619
+        },
+        {
+          "avg_r": 0.0042,
+          "axis": "cst_dc",
+          "expectancy_after_costs": -0.291,
+          "n": 16796,
+          "resolved": 16796,
+          "value": "transition|undefined",
+          "win_rate_pct": 33.45,
+          "wins": 5619
+        },
+        {
+          "avg_r": -0.0014,
+          "axis": "cst",
+          "expectancy_after_costs": -0.2752,
+          "n": 13908,
+          "resolved": 13897,
+          "value": "uptrend",
+          "win_rate_pct": 33.27,
+          "wins": 4624
+        },
+        {
+          "avg_r": -0.0014,
+          "axis": "cst_dc",
+          "expectancy_after_costs": -0.2752,
+          "n": 13908,
+          "resolved": 13897,
+          "value": "uptrend|undefined",
+          "win_rate_pct": 33.27,
+          "wins": 4624
+        },
+        {
+          "avg_r": 0.0016,
+          "axis": "strength",
+          "expectancy_after_costs": -0.2707,
+          "n": 13379,
+          "resolved": 13370,
+          "value": "WEAK",
+          "win_rate_pct": 33.37,
+          "wins": 4462
+        },
+        {
+          "avg_r": -0.0058,
+          "axis": "strength",
+          "expectancy_after_costs": -0.2803,
+          "n": 12123,
+          "resolved": 12118,
+          "value": "STRONG",
+          "win_rate_pct": 33.14,
+          "wins": 4016
+        },
+        {
+          "avg_r": -0.0025,
+          "axis": "cst",
+          "expectancy_after_costs": -0.2754,
+          "n": 11594,
+          "resolved": 11591,
+          "value": "downtrend",
+          "win_rate_pct": 33.25,
+          "wins": 3854
+        },
+        {
+          "avg_r": -0.0025,
+          "axis": "cst_dc",
+          "expectancy_after_costs": -0.2754,
+          "n": 11594,
+          "resolved": 11591,
+          "value": "downtrend|undefined",
+          "win_rate_pct": 33.25,
+          "wins": 3854
+        },
+        {
+          "avg_r": -0.0063,
+          "axis": "wp_state",
+          "expectancy_after_costs": -0.2831,
+          "n": 11475,
+          "resolved": 11475,
+          "value": "up-pressure",
+          "win_rate_pct": 33.12,
+          "wins": 3800
+        },
+        {
+          "avg_r": -0.0096,
+          "axis": "wp_state",
+          "expectancy_after_costs": -0.3164,
+          "n": 10930,
+          "resolved": 10926,
+          "value": "down-pressure",
+          "win_rate_pct": 32.98,
+          "wins": 3603
+        },
+        {
+          "avg_r": -0.0096,
+          "axis": "tf",
+          "expectancy_after_costs": -0.1844,
+          "n": 10555,
+          "resolved": 10547,
+          "value": "M15",
+          "win_rate_pct": 33.01,
+          "wins": 3482
+        },
+        {
+          "avg_r": -0.0036,
+          "axis": "engulf",
+          "expectancy_after_costs": -0.271,
+          "n": 10033,
+          "resolved": 10029,
+          "value": "True",
+          "win_rate_pct": 33.2,
+          "wins": 3330
+        },
+        {
+          "avg_r": 0.0202,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.2682,
+          "n": 6034,
+          "resolved": 6034,
+          "value": "transition|uptrend",
+          "win_rate_pct": 33.96,
+          "wins": 2049
+        },
+        {
+          "avg_r": 0.01,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.287,
+          "n": 6000,
+          "resolved": 6000,
+          "value": "transition|transition",
+          "win_rate_pct": 33.67,
+          "wins": 2020
+        },
+        {
+          "avg_r": -0.0291,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.3029,
+          "n": 5250,
+          "resolved": 5250,
+          "value": "uptrend|uptrend",
+          "win_rate_pct": 32.36,
+          "wins": 1699
+        },
+        {
+          "avg_r": 0.0097,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.2609,
+          "n": 5070,
+          "resolved": 5063,
+          "value": "uptrend|transition",
+          "win_rate_pct": 33.62,
+          "wins": 1702
+        },
+        {
+          "avg_r": -0.0239,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.3254,
+          "n": 4761,
+          "resolved": 4761,
+          "value": "transition|downtrend",
+          "win_rate_pct": 32.54,
+          "wins": 1549
+        },
+        {
+          "avg_r": 0.0191,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.2488,
+          "n": 4242,
+          "resolved": 4242,
+          "value": "downtrend|uptrend",
+          "win_rate_pct": 33.97,
+          "wins": 1441
+        },
+        {
+          "avg_r": -0.001,
+          "axis": "cst_hier",
+          "expectancy_after_costs": -0.2738,
+          "n": 4192,
+          "resolved": 4192,
+          "value": "downtrend|transition",
+          "win_rate_pct": 33.3,
+          "wins": 1396
+        }
+      ],
+      "period": "2023-01 through 2024-12",
+      "sample_floor": 30,
+      "schema_version": 1,
+      "snapshot_count": 42301,
+      "truncated_cells": 26
+    },
+    "expectancy_after_costs": -0.28138812759489423,
+    "net_pnl_after_costs": -19999.99998610796,
+    "period": "2023-01 through 2024-12",
+    "signals_by_month": {
+      "2023-01": 1726,
+      "2023-02": 1703,
+      "2023-03": 1882,
+      "2023-04": 1586,
+      "2023-05": 1819,
+      "2023-06": 1829,
+      "2023-07": 1775,
+      "2023-08": 1963,
+      "2023-09": 1681,
+      "2023-10": 1698,
+      "2023-11": 1736,
+      "2023-12": 1583,
+      "2024-01": 1686,
+      "2024-02": 1743,
+      "2024-03": 1579,
+      "2024-04": 1770,
+      "2024-05": 2006,
+      "2024-06": 1600,
+      "2024-07": 1877,
+      "2024-08": 1779,
+      "2024-09": 1730,
+      "2024-10": 1977,
+      "2024-11": 1821,
+      "2024-12": 1752
+    }
+  },
+  "champion_validation": {
+    "by_timeframe": {
+      "M15": {
+        "closed_trade_count": 5315,
+        "expectancy_after_costs": -0.07676673828971665,
+        "losses": 3540,
+        "net_pnl_after_costs": -9890.989514837604,
+        "total_net_r_after_costs": -408.01521400984404,
+        "wins": 1775
+      },
+      "M5": {
+        "closed_trade_count": 16355,
+        "expectancy_after_costs": -0.1338658535701425,
+        "losses": 10870,
+        "net_pnl_after_costs": -9999.999999164582,
+        "total_net_r_after_costs": -2189.3760351396804,
+        "wins": 5485
+      }
+    },
+    "closed_trade_count": 21670,
+    "expectancy_after_costs": -0.119861155936757,
+    "net_pnl_after_costs": -19890.989514002184,
+    "period": "2025-01 through 2025-12"
+  },
+  "comparison": {
+    "absolute_uplift": 947.555838565864,
+    "annual_signal_month_coverage": {
+      "covered_count": 36,
+      "months": [
+        "2023-01",
+        "2023-02",
+        "2023-03",
+        "2023-04",
+        "2023-05",
+        "2023-06",
+        "2023-07",
+        "2023-08",
+        "2023-09",
+        "2023-10",
+        "2023-11",
+        "2023-12",
+        "2024-01",
+        "2024-02",
+        "2024-03",
+        "2024-04",
+        "2024-05",
+        "2024-06",
+        "2024-07",
+        "2024-08",
+        "2024-09",
+        "2024-10",
+        "2024-11",
+        "2024-12",
+        "2025-01",
+        "2025-02",
+        "2025-03",
+        "2025-04",
+        "2025-05",
+        "2025-06",
+        "2025-07",
+        "2025-08",
+        "2025-09",
+        "2025-10",
+        "2025-11",
+        "2025-12"
+      ],
+      "passed": true,
+      "required_count": 8
+    },
+    "candidate_expectancy_after_costs": -0.14290476737424634,
+    "candidate_validation_net_pnl_after_costs": -18943.43367543632,
+    "champion_validation_net_pnl_after_costs": -19890.989514002184,
+    "improvement_percent": 4.76374409578184,
+    "required_uplift": 1989.0989514002183,
+    "validation_trade_floors": {
+      "M15": {
+        "closed_trade_count": 1277,
+        "passed": true,
+        "required": 100
+      },
+      "M5": {
+        "closed_trade_count": 3649,
+        "passed": true,
+        "required": 100
+      }
+    }
+  },
+  "decision": "not_eligible",
+  "eligible": false,
+  "market_source": "dukascopy",
+  "market_source_sha256": "bf6b9ab77db1a6f103b8fc2a7236a0bcb01fef35a628271903e3b2df4b35ddd0",
+  "proposal": {
+    "diff": [
+      {
+        "old_value": false,
+        "path": "require_engulf",
+        "structural": true,
+        "value": true
+      }
+    ],
+    "expected_effect": "Improved net P&L by filtering for trades that meet the engulfing candle condition, which historically show a better expectancy after costs.",
+    "no_change": false,
+    "rationale": "The training digest indicates that when 'require_engulf' is set to 'True', the strategy's 'expectancy_after_costs' is -0.271. This is an improvement compared to the current setting of 'False', which yields an 'expectancy_after_costs' of -0.2846. Enabling this filter is expected to improve the overall net P&L."
+  },
+  "proposal_file": "/home/runner/workspace/lab/specs/proposals/evolve_round_01_20261028T202739460309Z_proposal.json",
+  "reason": "Promotion criteria were not met.",
+  "result_file": "/home/runner/workspace/lab/specs/proposals/evolve_round_01_20261028T202739460309Z_result.json",
+  "round": 1,
+  "seed_sha256": "dc4b73c09cc16eceae907263d84f8543991b364c2817ff66189f845183425fd4",
+  "timestamp_utc": "2026-10-28T20:30:05.389032Z",
+  "token_usage": {
+    "input": 4150,
+    "output": 168,
+    "total": 9806
+  }
+}

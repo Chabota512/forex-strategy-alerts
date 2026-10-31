@@ -1,0 +1,209 @@
+{
+ "_README": {
+  "what": "Owner-labeled example fixtures for the v1.5 trigger acceptance test.",
+  "origin": "Each fixture reproduces the essential OHLC geometry of a labeled chart image from the strategy conversation (owner-confirmed labels). Values are synthetic but geometrically faithful: break distances, body sizes, wick relationships match what the owner confirmed.",
+  "usage": "Run the trigger on the LAST two candles (prev,new); the context candle exists only where noted. Assert expected_alert and expected_note. ex06 is deliberately 1-pip marginal to lock the exact-OHLC lesson.",
+  "labels_authority": "owner corrections override: ex03 = NO ALERT per owner correction (original pixel misread)."
+ },
+ "fixtures": [
+  {
+   "id": "ex01_image_png",
+   "source": "image.png",
+   "owner_label": "SELL",
+   "reason": "new red wick strictly breaks prev green's high; closes below own open; prev bullish",
+   "candles": [
+    {
+     "name": "prev",
+     "open": 1.25,
+     "high": 1.251,
+     "low": 1.2495,
+     "close": 1.2508
+    },
+    {
+     "name": "new",
+     "open": 1.2506,
+     "high": 1.2515,
+     "low": 1.25,
+     "close": 1.2502
+    }
+   ],
+   "expected_alert": "SELL",
+   "expected_note": null
+  },
+  {
+   "id": "ex02_image1_png",
+   "source": "image(1).png",
+   "owner_label": "BUY",
+   "reason": "new green wick strictly breaks prev red's low; closes above own open; prev bearish",
+   "candles": [
+    {
+     "name": "prev",
+     "open": 1.252,
+     "high": 1.2522,
+     "low": 1.2508,
+     "close": 1.251
+    },
+    {
+     "name": "new",
+     "open": 1.2511,
+     "high": 1.2521,
+     "low": 1.2505,
+     "close": 1.2518
+    }
+   ],
+   "expected_alert": "BUY",
+   "expected_note": null
+  },
+  {
+   "id": "ex03_image2_png",
+   "source": "image(2).png",
+   "owner_label": "NO_ALERT",
+   "reason": "OWNER CORRECTION: new green's low did NOT break prev red's low -> no alert regardless of green close; smaller body note applies",
+   "candles": [
+    {
+     "name": "prev",
+     "open": 1.253,
+     "high": 1.2531,
+     "low": 1.25,
+     "close": 1.2505
+    },
+    {
+     "name": "new",
+     "open": 1.2506,
+     "high": 1.2514,
+     "low": 1.2503,
+     "close": 1.2512
+    }
+   ],
+   "expected_alert": null,
+   "expected_note": "smaller body / weaker follow-through"
+  },
+  {
+   "id": "ex04_image3_png",
+   "source": "image(3).png",
+   "owner_label": "NO_ALERT",
+   "reason": "new red's high stays at/below prev green's high -> no strict break, despite red close",
+   "candles": [
+    {
+     "name": "prev",
+     "open": 1.248,
+     "high": 1.249,
+     "low": 1.247,
+     "close": 1.2488
+    },
+    {
+     "name": "new",
+     "open": 1.2487,
+     "high": 1.2489,
+     "low": 1.2472,
+     "close": 1.2474
+    }
+   ],
+   "expected_alert": null,
+   "expected_note": null
+  },
+  {
+   "id": "ex05_image4_png",
+   "source": "image(4).png",
+   "owner_label": "SELL",
+   "reason": "doji with close<open counts: high strictly breaks prev green's high; tiny red body; prev bullish. CONFIRMED BY OWNER (doji naming)",
+   "candles": [
+    {
+     "name": "prev",
+     "open": 1.25,
+     "high": 1.2502,
+     "low": 1.2485,
+     "close": 1.2501
+    },
+    {
+     "name": "new",
+     "open": 1.2501,
+     "high": 1.2512,
+     "low": 1.249,
+     "close": 1.25
+    }
+   ],
+   "expected_alert": "SELL",
+   "expected_note": null
+  },
+  {
+   "id": "ex06_image5_png",
+   "source": "image(5).png",
+   "owner_label": "BUY",
+   "reason": "MARGINAL: new green's low only 1 pip below prev red's low. CONFIRMS: strict inequality must be judged on exact OHLC, never pixels",
+   "candles": [
+    {
+     "name": "prev",
+     "open": 1.254,
+     "high": 1.2541,
+     "low": 1.252,
+     "close": 1.2522
+    },
+    {
+     "name": "new",
+     "open": 1.2523,
+     "high": 1.2535,
+     "low": 1.2519,
+     "close": 1.2533
+    }
+   ],
+   "expected_alert": "BUY",
+   "expected_note": null
+  },
+  {
+   "id": "ex07_image6_png",
+   "source": "image(6).png",
+   "owner_label": "SELL",
+   "reason": "new red's upper wick far above prev green's high; closes below own open; prev bullish",
+   "candles": [
+    {
+     "name": "prev",
+     "open": 1.246,
+     "high": 1.2465,
+     "low": 1.243,
+     "close": 1.2462
+    },
+    {
+     "name": "new",
+     "open": 1.2461,
+     "high": 1.248,
+     "low": 1.2455,
+     "close": 1.2458
+    }
+   ],
+   "expected_alert": "SELL",
+   "expected_note": null
+  },
+  {
+   "id": "ex08_image7_png",
+   "source": "image(7).png",
+   "owner_label": "SELL",
+   "reason": "3-candle sequence: only the LAST pair matters (middle green = prev, right red = new). Red breaks middle green's high; leftmost red is context only",
+   "candles": [
+    {
+     "name": "context",
+     "open": 1.251,
+     "high": 1.2512,
+     "low": 1.2465,
+     "close": 1.247
+    },
+    {
+     "name": "prev",
+     "open": 1.2472,
+     "high": 1.2476,
+     "low": 1.246,
+     "close": 1.2474
+    },
+    {
+     "name": "new",
+     "open": 1.2473,
+     "high": 1.2485,
+     "low": 1.2468,
+     "close": 1.247
+    }
+   ],
+   "expected_alert": "SELL",
+   "expected_note": null
+  }
+ ]
+}

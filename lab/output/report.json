@@ -1,0 +1,870 @@
+{
+  "alert_log": {
+    "file": "/home/runner/workspace/lab/output/alerts.csv.gz",
+    "rows": 70676,
+    "settings_columns": [
+      "spec_version",
+      "spec_status",
+      "settings_fingerprint",
+      "cst_settings_json",
+      "reward_settings_json"
+    ],
+    "written": true
+  },
+  "data_provenance": [
+    {
+      "candles": 24960,
+      "file": "/home/runner/workspace/lab/data/GBPUSD_M15.csv",
+      "first_time_utc": "2025-11-03T00:00:00Z",
+      "last_time_utc": "2026-10-30T23:45:00Z",
+      "provenance": "synthetic",
+      "sanity_report": null,
+      "sha256": "3aa3d9672097a455ada6a8700183589875a490e8687a480f09d9374cb8787d3a",
+      "source": "synthetic",
+      "symbol": "GBPUSD",
+      "timeframe": "M15"
+    },
+    {
+      "candles": 74880,
+      "file": "/home/runner/workspace/lab/data/GBPUSD_M5.csv",
+      "first_time_utc": "2025-11-03T00:00:00Z",
+      "last_time_utc": "2026-10-30T23:55:00Z",
+      "provenance": "synthetic",
+      "sanity_report": null,
+      "sha256": "b35964d7124cee3345cba7a1cb501576aacbd722c0327c414bbbcc5930d94eed",
+      "source": "synthetic",
+      "symbol": "GBPUSD",
+      "timeframe": "M5"
+    },
+    {
+      "candles": 24960,
+      "file": "/home/runner/workspace/lab/data/USDJPY_M15.csv",
+      "first_time_utc": "2025-11-03T00:00:00Z",
+      "last_time_utc": "2026-10-30T23:45:00Z",
+      "provenance": "synthetic",
+      "sanity_report": null,
+      "sha256": "5a4e79b56ee83ab4330189790bb2d5642a2361bb02882a513035f660071e1802",
+      "source": "synthetic",
+      "symbol": "USDJPY",
+      "timeframe": "M15"
+    },
+    {
+      "candles": 74880,
+      "file": "/home/runner/workspace/lab/data/USDJPY_M5.csv",
+      "first_time_utc": "2025-11-03T00:00:00Z",
+      "last_time_utc": "2026-10-30T23:55:00Z",
+      "provenance": "synthetic",
+      "sanity_report": null,
+      "sha256": "316efe3de09dcd571788062ac95174d4d6d0b6eeff239ba7191584f42f06de80",
+      "source": "synthetic",
+      "symbol": "USDJPY",
+      "timeframe": "M5"
+    },
+    {
+      "candles": 24960,
+      "file": "/home/runner/workspace/lab/data/XAUUSD_M15.csv",
+      "first_time_utc": "2025-11-03T00:00:00Z",
+      "last_time_utc": "2026-10-30T23:45:00Z",
+      "provenance": "synthetic",
+      "sanity_report": null,
+      "sha256": "95b824063671bf9e46e30c917480637e8f0d31944f83209ac51608852cb7219b",
+      "source": "synthetic",
+      "symbol": "XAUUSD",
+      "timeframe": "M15"
+    },
+    {
+      "candles": 74880,
+      "file": "/home/runner/workspace/lab/data/XAUUSD_M5.csv",
+      "first_time_utc": "2025-11-03T00:00:00Z",
+      "last_time_utc": "2026-10-30T23:55:00Z",
+      "provenance": "synthetic",
+      "sanity_report": null,
+      "sha256": "fc3549202338835be4be29cb4708ab31ad6188fdb030754d4a6c642b8c62e83d",
+      "source": "synthetic",
+      "symbol": "XAUUSD",
+      "timeframe": "M5"
+    }
+  ],
+  "excluded_synthetic_files": [],
+  "generated_at_utc": "2026-10-30T17:00:34.242818Z",
+  "provisional_seed_note": null,
+  "report_file": "/home/runner/workspace/lab/output/report.json",
+  "report_schema_version": 3,
+  "run_id": "ed56550e3e16f69d2d6c78945461375a6ffa98b3fd4d78b43e5956f9d6f85610",
+  "run_overrides": {
+    "timeframes": {
+      "effective": [
+        "M5",
+        "M15"
+      ],
+      "frozen_spec": [
+        "M5",
+        "M15"
+      ],
+      "source": "frozen_spec"
+    }
+  },
+  "skipped_pairs": [],
+  "spec": {
+    "effective_settings": {
+      "cct": {
+        "closed_candles_only": true,
+        "downtrend": "last_two_swing_highs_and_lows_both_fall",
+        "minimum_swings_per_side": 2,
+        "otherwise": "ranging",
+        "role": "descriptive_only",
+        "strict_fractal_extremes": true,
+        "swing_neighbors": 2,
+        "uptrend": "last_two_swing_highs_and_lows_both_rise",
+        "window": 15
+      },
+      "cst": {
+        "break_basis": "close",
+        "break_basis_options": [
+          "close",
+          "wick"
+        ],
+        "closed_candles_only": true,
+        "initial_state": "undefined",
+        "initial_trend": "first_break_of_most_recent_confirmed_major_high_or_low",
+        "major_swing_neighbors": 5,
+        "states": [
+          "uptrend",
+          "downtrend",
+          "undefined",
+          "transition"
+        ],
+        "strength_labels": {
+          "aligned": "STRONG",
+          "opposed": "WEAK",
+          "undefined_or_transition": "NEUTRAL",
+          "weak_alerts_suppressed": false
+        },
+        "transition": {
+          "after_downtrend_choch": "wait_for_newly_confirmed_post_choch_swing_high",
+          "after_uptrend_choch": "wait_for_newly_confirmed_post_choch_swing_low",
+          "ambiguous_dual_wick_break": "remain_in_transition",
+          "confirm_downtrend": "break_below_new_post_choch_swing_low",
+          "confirm_uptrend": "break_above_new_post_choch_swing_high",
+          "resume_downtrend": "break_below_saved_pre_choch_swing_low",
+          "resume_uptrend": "break_above_saved_pre_choch_swing_high"
+        }
+      },
+      "reward": {
+        "adverse_reach": "strictly_beyond",
+        "challenger": {
+          "minimum_validation_score_improvement": "0.10",
+          "promotion": "manual_owner_approval"
+        },
+        "entry_reference": "alert_candle_close",
+        "floors": {
+          "minimum_months_with_alerts": 8,
+          "minimum_validation_alerts_per_symbol_timeframe": 100,
+          "month_coverage_scope": "union_across_all_symbol_timeframe_pairs",
+          "months_in_coverage_period": 12
+        },
+        "follow_through_bonus": {
+          "applies_after_adverse_first": true,
+          "maximum_score": "0.5",
+          "measure_over_all_lookahead_candles": true,
+          "score_per_unit": "0.1",
+          "unit": "additional_full_D_min"
+        },
+        "lookahead_candles": 12,
+        "objective": "total_validation_period_reward",
+        "same_candle_tie": "adverse_first",
+        "score_mapping": {
+          "target_after_adverse_first": "0.5",
+          "target_before_adverse_first": "1",
+          "target_not_reached": "-1",
+          "target_within_speed_window": "1.5"
+        },
+        "speed_bonus": {
+          "additional_score": "0.5",
+          "applies_when": "target_first",
+          "within_candles": 6
+        },
+        "target_reach": "inclusive",
+        "thresholds": {
+          "GBPUSD": {
+            "a_max": "0.0008",
+            "d_min": "0.0010",
+            "unit": "price_units"
+          },
+          "USDJPY": {
+            "a_max": "0.10",
+            "d_min": "0.12",
+            "unit": "price_units"
+          },
+          "XAUUSD": {
+            "a_max": "0.25",
+            "d_min": "0.30",
+            "unit": "price_units"
+          }
+        },
+        "validation": {
+          "total_months": 12,
+          "training_months": 9,
+          "validation_months": 3,
+          "window": "last_12_consecutive_calendar_months_in_loaded_data"
+        }
+      },
+      "trigger": {
+        "both_extremes_broken": "current_close_direction_decides",
+        "buy": [
+          "current.low < previous.low",
+          "current.close > current.open",
+          "previous.close < previous.open"
+        ],
+        "current_perfect_doji": "no_alert",
+        "evaluate": "fully_closed_candles",
+        "previous_doji": "no_alert_by_confirmed_inequalities",
+        "sell": [
+          "current.high > previous.high",
+          "current.close < current.open",
+          "previous.close > previous.open"
+        ],
+        "smaller_body_note": "optional_observation_only_never_changes_alert",
+        "strict_wick_break": true
+      }
+    },
+    "file": "/home/runner/workspace/lab/specs/seed_v1.5.0.json",
+    "frozen": true,
+    "name": "Candlestick Trigger",
+    "settings_fingerprint": "f680b016a55bb9a6998da088302870a1c5c53c43cf584ed11227aef34e078cbc",
+    "status": "owner_approved_frozen",
+    "version": "1.5.0"
+  },
+  "unapproved_real_inputs": [],
+  "validation": {
+    "alerts_by_timeframe": {
+      "M15": {
+        "alerts": 17826,
+        "validation_alerts": 4457,
+        "validation_alerts_insufficient_lookahead": 7,
+        "validation_alerts_scored": 4450
+      },
+      "M5": {
+        "alerts": 52850,
+        "validation_alerts": 13149,
+        "validation_alerts_insufficient_lookahead": 9,
+        "validation_alerts_scored": 13140
+      }
+    },
+    "all_floors_status": "PASS",
+    "coverage_window_months": [
+      "2025-11",
+      "2025-12",
+      "2026-01",
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+      "2026-09",
+      "2026-10"
+    ],
+    "evaluated_pairs": [
+      {
+        "symbol": "GBPUSD",
+        "timeframe": "M15"
+      },
+      {
+        "symbol": "GBPUSD",
+        "timeframe": "M5"
+      },
+      {
+        "symbol": "USDJPY",
+        "timeframe": "M15"
+      },
+      {
+        "symbol": "USDJPY",
+        "timeframe": "M5"
+      },
+      {
+        "symbol": "XAUUSD",
+        "timeframe": "M15"
+      },
+      {
+        "symbol": "XAUUSD",
+        "timeframe": "M5"
+      }
+    ],
+    "input_month_coverage_by_pair": {
+      "GBPUSD_M15": {
+        "available_months": [
+          "2025-11",
+          "2025-12",
+          "2026-01",
+          "2026-02",
+          "2026-03",
+          "2026-04",
+          "2026-05",
+          "2026-06",
+          "2026-07",
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "missing_window_months": []
+      },
+      "GBPUSD_M5": {
+        "available_months": [
+          "2025-11",
+          "2025-12",
+          "2026-01",
+          "2026-02",
+          "2026-03",
+          "2026-04",
+          "2026-05",
+          "2026-06",
+          "2026-07",
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "missing_window_months": []
+      },
+      "USDJPY_M15": {
+        "available_months": [
+          "2025-11",
+          "2025-12",
+          "2026-01",
+          "2026-02",
+          "2026-03",
+          "2026-04",
+          "2026-05",
+          "2026-06",
+          "2026-07",
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "missing_window_months": []
+      },
+      "USDJPY_M5": {
+        "available_months": [
+          "2025-11",
+          "2025-12",
+          "2026-01",
+          "2026-02",
+          "2026-03",
+          "2026-04",
+          "2026-05",
+          "2026-06",
+          "2026-07",
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "missing_window_months": []
+      },
+      "XAUUSD_M15": {
+        "available_months": [
+          "2025-11",
+          "2025-12",
+          "2026-01",
+          "2026-02",
+          "2026-03",
+          "2026-04",
+          "2026-05",
+          "2026-06",
+          "2026-07",
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "missing_window_months": []
+      },
+      "XAUUSD_M5": {
+        "available_months": [
+          "2025-11",
+          "2025-12",
+          "2026-01",
+          "2026-02",
+          "2026-03",
+          "2026-04",
+          "2026-05",
+          "2026-06",
+          "2026-07",
+          "2026-08",
+          "2026-09",
+          "2026-10"
+        ],
+        "missing_window_months": []
+      }
+    },
+    "missing_months": [],
+    "month_coverage": {
+      "covered_count": 12,
+      "covered_months": [
+        "2025-11",
+        "2025-12",
+        "2026-01",
+        "2026-02",
+        "2026-03",
+        "2026-04",
+        "2026-05",
+        "2026-06",
+        "2026-07",
+        "2026-08",
+        "2026-09",
+        "2026-10"
+      ],
+      "floor_status": "PASS",
+      "required_count": 8,
+      "scope": "union_across_all_symbol_timeframe_pairs"
+    },
+    "note": "Synthetic-data scores are software checks only, not market evaluation or evidence of profitability.",
+    "pair_floors": {
+      "GBPUSD_M15": {
+        "floor_status": "PASS",
+        "insufficient_lookahead_alerts": 1,
+        "minimum_alerts": 100,
+        "scored_alerts": 1506,
+        "validation_alerts": 1507
+      },
+      "GBPUSD_M5": {
+        "floor_status": "PASS",
+        "insufficient_lookahead_alerts": 2,
+        "minimum_alerts": 100,
+        "scored_alerts": 4336,
+        "validation_alerts": 4338
+      },
+      "USDJPY_M15": {
+        "floor_status": "PASS",
+        "insufficient_lookahead_alerts": 2,
+        "minimum_alerts": 100,
+        "scored_alerts": 1451,
+        "validation_alerts": 1453
+      },
+      "USDJPY_M5": {
+        "floor_status": "PASS",
+        "insufficient_lookahead_alerts": 4,
+        "minimum_alerts": 100,
+        "scored_alerts": 4353,
+        "validation_alerts": 4357
+      },
+      "XAUUSD_M15": {
+        "floor_status": "PASS",
+        "insufficient_lookahead_alerts": 4,
+        "minimum_alerts": 100,
+        "scored_alerts": 1493,
+        "validation_alerts": 1497
+      },
+      "XAUUSD_M5": {
+        "floor_status": "PASS",
+        "insufficient_lookahead_alerts": 3,
+        "minimum_alerts": 100,
+        "scored_alerts": 4451,
+        "validation_alerts": 4454
+      }
+    },
+    "real_data_review_override": {
+      "unapproved_inputs": [],
+      "used": false
+    },
+    "score_context": "SYNTHETIC_SOFTWARE_CHECK_ONLY",
+    "status": "READY",
+    "strength_label_stratified": {
+      "by_symbol_timeframe": {
+        "GBPUSD_M15": {
+          "NEUTRAL": {
+            "total_validation_reward": "186.2",
+            "validation_alerts": 635,
+            "validation_alerts_insufficient_lookahead": 1,
+            "validation_alerts_scored": 634
+          },
+          "STRONG": {
+            "total_validation_reward": "183.5",
+            "validation_alerts": 421,
+            "validation_alerts_insufficient_lookahead": 0,
+            "validation_alerts_scored": 421
+          },
+          "WEAK": {
+            "total_validation_reward": "186.5",
+            "validation_alerts": 451,
+            "validation_alerts_insufficient_lookahead": 0,
+            "validation_alerts_scored": 451
+          }
+        },
+        "GBPUSD_M5": {
+          "NEUTRAL": {
+            "total_validation_reward": "-295.2",
+            "validation_alerts": 1608,
+            "validation_alerts_insufficient_lookahead": 0,
+            "validation_alerts_scored": 1608
+          },
+          "STRONG": {
+            "total_validation_reward": "-240.6",
+            "validation_alerts": 1359,
+            "validation_alerts_insufficient_lookahead": 1,
+            "validation_alerts_scored": 1358
+          },
+          "WEAK": {
+            "total_validation_reward": "-238.9",
+            "validation_alerts": 1371,
+            "validation_alerts_insufficient_lookahead": 1,
+            "validation_alerts_scored": 1370
+          }
+        },
+        "USDJPY_M15": {
+          "NEUTRAL": {
+            "total_validation_reward": "110.8",
+            "validation_alerts": 594,
+            "validation_alerts_insufficient_lookahead": 2,
+            "validation_alerts_scored": 592
+          },
+          "STRONG": {
+            "total_validation_reward": "80",
+            "validation_alerts": 408,
+            "validation_alerts_insufficient_lookahead": 0,
+            "validation_alerts_scored": 408
+          },
+          "WEAK": {
+            "total_validation_reward": "134.4",
+            "validation_alerts": 451,
+            "validation_alerts_insufficient_lookahead": 0,
+            "validation_alerts_scored": 451
+          }
+        },
+        "USDJPY_M5": {
+          "NEUTRAL": {
+            "total_validation_reward": "-702.3",
+            "validation_alerts": 1683,
+            "validation_alerts_insufficient_lookahead": 0,
+            "validation_alerts_scored": 1683
+          },
+          "STRONG": {
+            "total_validation_reward": "-476.3",
+            "validation_alerts": 1294,
+            "validation_alerts_insufficient_lookahead": 2,
+            "validation_alerts_scored": 1292
+          },
+          "WEAK": {
+            "total_validation_reward": "-462.9",
+            "validation_alerts": 1380,
+            "validation_alerts_insufficient_lookahead": 2,
+            "validation_alerts_scored": 1378
+          }
+        },
+        "XAUUSD_M15": {
+          "NEUTRAL": {
+            "total_validation_reward": "559.7",
+            "validation_alerts": 635,
+            "validation_alerts_insufficient_lookahead": 4,
+            "validation_alerts_scored": 631
+          },
+          "STRONG": {
+            "total_validation_reward": "373.4",
+            "validation_alerts": 417,
+            "validation_alerts_insufficient_lookahead": 0,
+            "validation_alerts_scored": 417
+          },
+          "WEAK": {
+            "total_validation_reward": "405",
+            "validation_alerts": 445,
+            "validation_alerts_insufficient_lookahead": 0,
+            "validation_alerts_scored": 445
+          }
+        },
+        "XAUUSD_M5": {
+          "NEUTRAL": {
+            "total_validation_reward": "1426.7",
+            "validation_alerts": 1771,
+            "validation_alerts_insufficient_lookahead": 3,
+            "validation_alerts_scored": 1768
+          },
+          "STRONG": {
+            "total_validation_reward": "1061.6",
+            "validation_alerts": 1285,
+            "validation_alerts_insufficient_lookahead": 0,
+            "validation_alerts_scored": 1285
+          },
+          "WEAK": {
+            "total_validation_reward": "1167.7",
+            "validation_alerts": 1398,
+            "validation_alerts_insufficient_lookahead": 0,
+            "validation_alerts_scored": 1398
+          }
+        }
+      },
+      "note": "The total validation reward objective is blind to CST strength. Strength labels do not change which alerts fire, so this split is descriptive only. Alert counts include INSUFFICIENT_LOOKAHEAD rows; reward sums include only scored rows.",
+      "overall": {
+        "NEUTRAL": {
+          "total_validation_reward": "1285.9",
+          "validation_alerts": 6926,
+          "validation_alerts_insufficient_lookahead": 10,
+          "validation_alerts_scored": 6916
+        },
+        "STRONG": {
+          "total_validation_reward": "981.6",
+          "validation_alerts": 5184,
+          "validation_alerts_insufficient_lookahead": 3,
+          "validation_alerts_scored": 5181
+        },
+        "WEAK": {
+          "total_validation_reward": "1191.8",
+          "validation_alerts": 5496,
+          "validation_alerts_insufficient_lookahead": 3,
+          "validation_alerts_scored": 5493
+        }
+      }
+    },
+    "total_validation_reward": "3459.3",
+    "training": {
+      "alerts": 53070,
+      "insufficient_lookahead_alerts": 0,
+      "scored_alerts": 53070,
+      "total_reward": "10562.8"
+    },
+    "training_failure_examples": [
+      {
+        "cct": "ranging",
+        "cst": "uptrend",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "STRONG",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T18:55:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "downtrend",
+        "cst": "transition",
+        "direction": "SELL",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "NEUTRAL",
+        "symbol": "GBPUSD",
+        "time": "2026-07-31T19:00:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "uptrend",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "STRONG",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T19:15:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "uptrend",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "STRONG",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T19:35:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "uptrend",
+        "direction": "SELL",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "WEAK",
+        "symbol": "GBPUSD",
+        "time": "2026-07-31T19:40:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "uptrend",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "STRONG",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T20:00:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "transition",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "NEUTRAL",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T20:15:00Z",
+        "timeframe": "M15"
+      },
+      {
+        "cct": "ranging",
+        "cst": "downtrend",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "WEAK",
+        "symbol": "GBPUSD",
+        "time": "2026-07-31T20:45:00Z",
+        "timeframe": "M15"
+      },
+      {
+        "cct": "ranging",
+        "cst": "transition",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "NEUTRAL",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T21:05:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "uptrend",
+        "direction": "SELL",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "WEAK",
+        "symbol": "GBPUSD",
+        "time": "2026-07-31T21:25:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "transition",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "NEUTRAL",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T21:45:00Z",
+        "timeframe": "M15"
+      },
+      {
+        "cct": "uptrend",
+        "cst": "transition",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "NEUTRAL",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T21:45:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "uptrend",
+        "cst": "transition",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "NEUTRAL",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T21:55:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "transition",
+        "direction": "SELL",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "NEUTRAL",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T22:20:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "uptrend",
+        "direction": "SELL",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "WEAK",
+        "symbol": "GBPUSD",
+        "time": "2026-07-31T22:30:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "downtrend",
+        "cst": "transition",
+        "direction": "SELL",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "NEUTRAL",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T22:40:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "downtrend",
+        "cst": "transition",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "NEUTRAL",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T23:05:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "transition",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "NEUTRAL",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T23:25:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "uptrend",
+        "cst": "uptrend",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "STRONG",
+        "symbol": "GBPUSD",
+        "time": "2026-07-31T23:30:00Z",
+        "timeframe": "M5"
+      },
+      {
+        "cct": "ranging",
+        "cst": "downtrend",
+        "direction": "BUY",
+        "reward_score": "-1",
+        "reward_status": "SCORED",
+        "strength_label": "WEAK",
+        "symbol": "USDJPY",
+        "time": "2026-07-31T23:55:00Z",
+        "timeframe": "M5"
+      }
+    ],
+    "training_months": [
+      "2025-11",
+      "2025-12",
+      "2026-01",
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07"
+    ],
+    "validation_alerts": 17606,
+    "validation_alerts_insufficient_lookahead": 16,
+    "validation_alerts_scored": 17590,
+    "validation_months": [
+      "2026-08",
+      "2026-09",
+      "2026-10"
+    ]
+  },
+  "warnings": [
+    "Alerts are informational only and are not trading recommendations.",
+    "No profitability or probability-of-success claim is made.",
+    "Synthetic candles are software fixtures, not market history."
+  ]
+}

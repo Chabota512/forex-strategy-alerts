@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Forex Strategy Alerts"
+description = "A local-file forex strategy analysis dashboard for reviewing generated informational alerts and strategy results."
+version = "1.0.0"
+id = "artifacts/forex-control-room"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23466
+
+[services.development]
+run = "pnpm --filter @workspace/forex-control-room run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/forex-control-room", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/forex-control-room/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23466"
+BASE_PATH = "/"

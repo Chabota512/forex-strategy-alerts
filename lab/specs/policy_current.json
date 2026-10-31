@@ -1,0 +1,19 @@
+{
+  "mode": "passthrough",
+  "promoted_at_utc": null,
+  "schema_version": 1,
+  "settings": {
+    "cooldown_candles": 0,
+    "exit_model": "swept_level_atr",
+    "min_strength": "NONE",
+    "require_engulf": false,
+    "require_wp_agree": false,
+    "timeframes": [
+      "M5",
+      "M15"
+    ],
+    "variant_b": false
+  },
+  "source_champion_version": null,
+  "version": 1
+}

@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "python-base-3.13"]
 
 [deployment]
 router = "application"
@@ -8,9 +8,6 @@ deploymentTarget = "autoscale"
 args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
-[workflows]
-runButton = "Project"
-
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
@@ -18,3 +15,30 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Forex Strategy Alerts"
+
+[[workflows.workflow]]
+name = "Forex Strategy Alerts"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "env -u SESSION_SECRET PORT=23466 BASE_PATH=/ pnpm --filter @workspace/forex-control-room run dev"
+waitForPort = 23466
+
+[workflows.workflow.metadata]
+outputType = "webview"

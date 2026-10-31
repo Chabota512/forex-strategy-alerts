@@ -10,7 +10,7 @@ name = "API Server"
 paths = ["/api"]
 
 [services.development]
-run = "pnpm --filter @workspace/api-server run dev"
+run = "cd /home/runner/workspace && env -u SESSION_SECRET -u GEMINI_API_KEY -u GEMINI_API_KEY_2 -u GROQ_API_KEY python3 -m lab.server"
 
 [services.production]
 

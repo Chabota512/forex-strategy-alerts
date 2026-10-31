@@ -1,0 +1,109 @@
+{
+  "name": "Candlestick Trigger",
+  "version": "1.5.0",
+  "status": "owner_approved_frozen",
+  "frozen": true,
+  "source": "Owner-provided candle trigger specification v1.5",
+  "instruments": ["GBPUSD", "USDJPY", "XAUUSD"],
+  "timeframes": ["M5", "M15"],
+  "trigger": {
+    "evaluate": "fully_closed_candles",
+    "sell": [
+      "current.high > previous.high",
+      "current.close < current.open",
+      "previous.close > previous.open"
+    ],
+    "buy": [
+      "current.low < previous.low",
+      "current.close > current.open",
+      "previous.close < previous.open"
+    ],
+    "strict_wick_break": true,
+    "both_extremes_broken": "current_close_direction_decides",
+    "previous_doji": "no_alert_by_confirmed_inequalities",
+    "current_perfect_doji": "no_alert",
+    "smaller_body_note": "optional_observation_only_never_changes_alert"
+  },
+  "cct": {
+    "window": 15,
+    "swing_neighbors": 2,
+    "strict_fractal_extremes": true,
+    "minimum_swings_per_side": 2,
+    "uptrend": "last_two_swing_highs_and_lows_both_rise",
+    "downtrend": "last_two_swing_highs_and_lows_both_fall",
+    "otherwise": "ranging",
+    "role": "descriptive_only",
+    "closed_candles_only": true
+  },
+  "cst": {
+    "major_swing_neighbors": 5,
+    "break_basis": "close",
+    "break_basis_options": ["close", "wick"],
+    "closed_candles_only": true,
+    "states": ["uptrend", "downtrend", "undefined", "transition"],
+    "initial_state": "undefined",
+    "initial_trend": "first_break_of_most_recent_confirmed_major_high_or_low",
+    "transition": {
+      "after_uptrend_choch": "wait_for_newly_confirmed_post_choch_swing_low",
+      "confirm_downtrend": "break_below_new_post_choch_swing_low",
+      "resume_uptrend": "break_above_saved_pre_choch_swing_high",
+      "after_downtrend_choch": "wait_for_newly_confirmed_post_choch_swing_high",
+      "confirm_uptrend": "break_above_new_post_choch_swing_high",
+      "resume_downtrend": "break_below_saved_pre_choch_swing_low",
+      "ambiguous_dual_wick_break": "remain_in_transition"
+    },
+    "strength_labels": {
+      "aligned": "STRONG",
+      "opposed": "WEAK",
+      "undefined_or_transition": "NEUTRAL",
+      "weak_alerts_suppressed": false
+    }
+  },
+  "reward": {
+    "objective": "total_validation_period_reward",
+    "lookahead_candles": 12,
+    "entry_reference": "alert_candle_close",
+    "target_reach": "inclusive",
+    "adverse_reach": "strictly_beyond",
+    "same_candle_tie": "adverse_first",
+    "score_mapping": {
+      "target_not_reached": "-1",
+      "target_after_adverse_first": "0.5",
+      "target_before_adverse_first": "1",
+      "target_within_speed_window": "1.5"
+    },
+    "speed_bonus": {
+      "within_candles": 6,
+      "additional_score": "0.5",
+      "applies_when": "target_first"
+    },
+    "follow_through_bonus": {
+      "unit": "additional_full_D_min",
+      "score_per_unit": "0.1",
+      "maximum_score": "0.5",
+      "measure_over_all_lookahead_candles": true,
+      "applies_after_adverse_first": true
+    },
+    "thresholds": {
+      "GBPUSD": {"d_min": "0.0010", "a_max": "0.0008", "unit": "price_units"},
+      "USDJPY": {"d_min": "0.12", "a_max": "0.10", "unit": "price_units"},
+      "XAUUSD": {"d_min": "0.30", "a_max": "0.25", "unit": "price_units"}
+    },
+    "validation": {
+      "total_months": 12,
+      "training_months": 9,
+      "validation_months": 3,
+      "window": "last_12_consecutive_calendar_months_in_loaded_data"
+    },
+    "floors": {
+      "minimum_validation_alerts_per_symbol_timeframe": 100,
+      "minimum_months_with_alerts": 8,
+      "months_in_coverage_period": 12,
+      "month_coverage_scope": "union_across_all_symbol_timeframe_pairs"
+    },
+    "challenger": {
+      "minimum_validation_score_improvement": "0.10",
+      "promotion": "manual_owner_approval"
+    }
+  }
+}

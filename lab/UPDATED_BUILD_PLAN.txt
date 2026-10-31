@@ -1,0 +1,357 @@
+FOREX STRATEGY LAB
+UPDATED PHASE 1 BUILD PLAN v0.3.2
+
+Status: Approved for implementation. Owner decisions in v0.3.2 supersede earlier
+status notes. Seed v1.5.0 is explicitly owner-approved and frozen.
+
+Date: 2026-10-27
+Scope: Phase 0 CSV-only loader and synthetic data foundation, plus Phase 1
+       candle-trigger backtest foundation only.
+
+
+1. PURPOSE
+
+Build a small, local, file-based analysis tool that reads OHLC candle CSVs,
+applies the owner-provided candle-trigger specification, writes an informational
+alert log, and reports reward scores and validation floors. It is a research and
+analysis tool, not a trading system.
+
+The build will use Python's standard library, CSV, and JSON files. It will not
+add a web service, database, authentication, or background process.
+
+
+2. HARD CONSTRAINTS
+
+- Alerts are informational. The owner decides whether to trade.
+- No order placement, automatic trading, take-profit, or stop-loss behavior.
+- No claims about profitability or probability of success.
+- No MT5 dependency.
+- Synthetic prices must be clearly labeled and must never be presented as
+  historical or live market data.
+- The original seed specification must remain preserved and unedited after it
+  is established.
+- Do not promote a candidate automatically. Any later promotion requires the
+  owner's explicit approval.
+- Do not silently change strategy rules, score floors, or thresholds to make a
+  result pass.
+- Every alert log and report must record the spec version and effective settings,
+  including CST and reward settings. Include a stable settings fingerprint and
+  input-file hashes so setting or data drift is visible between runs.
+- When real Dukascopy data is supplied, compare a sample against a second free
+  source and report discrepancies before trusting scores. No real-data scoring
+  proceeds until the owner reviews and approves a comparison tied to the exact
+  input-file hash.
+
+
+3. SOURCE MATERIAL AND DECISIONS
+
+Use the owner-provided files as the source of truth:
+
+- candle_trigger_spec_v1.5: trigger, CCT, CST, and qualitative strength behavior.
+- strategy_package_for_build: total-validation-reward objective, thresholds,
+  floors, and the Phase 0/1 implementation scope.
+- the owner's latest reply: complete reward outcome rules, 12-candle lookahead,
+  train/validation split, and CST settings.
+
+Confirmed trigger:
+
+- Evaluate closed candles only, comparing each current candle to its immediate
+  predecessor.
+- SELL requires current.high > previous.high, current.close < current.open, and
+  previous.close > previous.open.
+- BUY requires current.low < previous.low, current.close > current.open, and
+  previous.close < previous.open.
+- Wick comparisons are strict. A touch is not a break.
+- A perfect current-candle doji does not alert. A previous doji does not satisfy
+  either strict color condition.
+- The close direction determines the alert when the candle breaks both
+  predecessor extremes.
+- CCT is descriptive only and may not create, suppress, or alter an alert.
+- CST determines only the strength label. WEAK alerts still fire.
+
+Confirmed reward settings:
+
+- D_min/A_max are price-unit distances:
+    GBPUSD: 0.0010 / 0.0008
+    USDJPY: 0.12 / 0.10
+    XAUUSD: 0.30 / 0.25
+- Score each alert using exactly the next 12 closed candles in its own
+  timeframe. Do not use the alert candle's range or candles beyond that window.
+- If no +D_min target is reached in the window, score -1.
+- If +D_min is reached but the adverse threshold was reached first, score +0.5.
+- If +D_min is reached before the adverse threshold, score +1, or +1.5 when the
+  target is reached within the first 6 candles.
+- Add +0.1 for each additional full D_min of favorable follow-through, capped
+  at +0.5.
+- The optimization objective is total validation-period reward, not average
+  reward per alert.
+- Use the last 12 consecutive calendar months in the data: months 1-9 are
+  training, months 10-12 are validation.
+- Validation floors: at least 100 validation alerts per symbol/timeframe pair;
+  alerts in at least 8 of the 12 months overall.
+- Do not relax a floor if it fails. Report the failure to the owner.
+- Any future challenger must beat the champion's validation score by at least
+  10%, and promotion remains manual.
+
+Confirmed CST settings:
+
+- Major swings use a strict fractal extreme with 5 candles on each side.
+- CCT minor swings use 2 candles on each side, in the last 15 closed candles.
+- CST uses uptrend, downtrend, undefined, and transition states.
+- The owner-locked structure-break basis is candle close; this is a decision, not
+  an open assumption. Do not change it during the current implementation.
+- Strength is STRONG when alert direction aligns with CST, WEAK when it opposes
+  CST, and NEUTRAL for undefined or transition CST.
+- Strength labels do not suppress alerts.
+
+Confirmed data-source change:
+
+- OANDA is dropped because it is region-blocked.
+- Phase 0 reads local CSV files only. It must not call or depend on any API.
+- Keep the candle loader source-agnostic. Its public contract is
+  load_candles(symbol, timeframe) -> list of {time, open, high, low, close}.
+- Use canonical symbols without slashes and a consistent local filename pattern,
+  such as lab/data/GBPUSD_M1.csv. The loader maps its symbol/timeframe inputs to
+  local CSV paths, not to a vendor or network service.
+- Return time as an ISO-8601 UTC string and OHLC values as validated decimals.
+  The input CSV contract is time,open,high,low,close; vendor-specific parsing is
+  not part of the loader.
+- The owner expects to provide Dukascopy historical CSV exports for GBP/USD,
+  USD/JPY, and XAU/USD, with M1 UTC bid candles. The loader must not require
+  Dukascopy-specific network access or credentials.
+- Continue using generated synthetic M5/M15 samples for the current backtest.
+  After Phase 1 acceptance, add a standalone UTC M1-to-M5/M15 resampler for
+  GBPUSD_M1.csv-style input.
+- The future source sanity check is a separate local-file comparison. It does not
+  add network calls to the loader or resample M1 data; comparison requires
+  timestamp-aligned CSVs and reports differences without inventing a tolerance.
+
+
+4. IMPLEMENTATION SEQUENCE
+
+Step 1 — Freeze the owner-approved machine-readable seed
+
+- Keep the original owner-provided Markdown specification intact.
+- Preserve the approved trigger, CCT/CST settings, reward rules, thresholds,
+  validation split, and floors as seed version 1.5.0.
+- The owner has approved freezing 1.5.0; keep champion.json as its frozen copy.
+- Do not add the Gemini proposal loop or promotion workflow in this phase.
+
+Step 2 — Add a provider-neutral CSV candle loader
+
+- Implement the requested public function:
+  load_candles(symbol, timeframe) -> list of {time, open, high, low, close}.
+- Read local CSV files only; do not make HTTP requests, use provider
+  credentials, or branch on a data-vendor name.
+- Normalize timestamps to UTC and OHLC values to validated decimal prices.
+- Reject invalid OHLC ranges, duplicate or out-of-order timestamps, missing
+  columns, and empty files with a clear error.
+- Accept the owner's future M1 UTC bid CSVs using the standard OHLC column
+  contract. Keep M1 as M1; do not silently resample it into another timeframe.
+
+Step 3 — Generate repeatable synthetic OHLC data
+
+- Generate separate CSV files for GBPUSD, USDJPY, and XAUUSD on M5 and M15.
+- Generate 12 consecutive calendar-month buckets, ending on a supplied UTC
+  end-date (defaulting to the current UTC date).
+- Generate weekday candles only and use a fixed default seed so repeated runs
+  are reproducible.
+- Include the source label "synthetic" and print a prominent synthetic-data
+  warning.
+- Use synthetic M5/M15 files for the current Phase 1 backtest. Do not connect
+  to OANDA or any other API.
+
+Step 4 — Implement the core trigger
+
+- Apply the strict v1.5 trigger once per closed candle.
+- Preserve the optional smaller-body observation as a note only; it cannot
+  create or block an alert. The owner-labeled fixtures lock the note to current
+  candle bodies strictly less than half the prior body.
+
+Step 5 — Implement CCT and CST context
+
+- CCT: last 15 closed candles; strict local extremes with 2 candles on each
+  side; classify uptrend only when the last two highs and lows both rise,
+  downtrend only when both fall, otherwise ranging.
+- Do not treat a swing as confirmed until its required candles on the right
+  have closed. Do not use future candles to label an earlier alert.
+- CST: strict local extremes with 5 candles on each side, confirmed only after
+  those right-side candles close.
+- Implement the uptrend/downtrend/undefined/transition state machine. A CHoCH
+  moves the prior state into transition; a later structure break confirms the
+  new direction, while a break beyond the saved prior-trend level resumes the
+  old direction.
+- Keep the close-versus-wick basis in one configuration setting, defaulting to
+  close.
+- Derive STRONG/NEUTRAL/WEAK from the alert direction and CST state only.
+- CST must not change whether the base trigger emits an alert.
+
+Step 6 — Implement per-alert reward scoring
+
+- Use the alert candle's close as the alert reference price.
+- Examine only the next 12 candles, starting with the candle immediately after
+  the alert candle.
+- For BUY, favorable movement is future high minus entry and adverse movement
+  is entry minus future low. Mirror these calculations for SELL.
+- Treat reaching D_min as inclusive; "beyond" A_max is strict.
+- Apply the base score from the first target/adverse event, then the speed bonus
+  and follow-through bonus specified above.
+- If fewer than 12 future candles exist, mark the alert
+  INSUFFICIENT_LOOKAHEAD. Do not invent a score for it.
+- Preserve the score, score status, and evaluation period for every alert in the
+  CSV log.
+
+Step 7 — Implement chronological split, report, and CSV output
+
+- Select the last 12 consecutive calendar months represented by the loaded data.
+- Label the first 9 months training and the final 3 months validation.
+- Report total validation reward only as the objective score.
+- Also report validation alert counts and summed reward split by STRONG, NEUTRAL,
+  and WEAK, for each symbol/timeframe and overall. Counts include
+  INSUFFICIENT_LOOKAHEAD alerts; reward sums include only scored alerts.
+- Explain in the report that reward is blind to CST strength labels, so the
+  stratified statistics are descriptive evidence and do not alter eligibility.
+- Report validation alert counts for each symbol/timeframe pair and whether
+  each count floor passes.
+- Report the union of months containing alerts across all pairs and whether the
+  8-of-12 coverage floor passes.
+- Count alerts toward alert floors even if the final 12-candle reward window is
+  incomplete; separately report how many alerts could not be scored.
+- If the data does not contain 12 consecutive months, do not claim a validation
+  pass or score. Explain what data is missing.
+- Write a gzipped CSV (.csv.gz) with time, symbol, timeframe, direction, CCT, CST, strength label,
+  optional note, period, reward score, and reward status. Each alert row also
+  records spec version/status, CST and reward settings, settings fingerprint,
+  input source/hash, and a reproducible run ID.
+- Write a JSON report with the full effective settings, spec version/status,
+  configuration fingerprint, data file hashes, source provenance, and validation
+  results. Print the same settings/provenance in the terminal report.
+- Keep all generated and user-supplied market CSVs and outputs out of Git.
+
+Step 8 — Verify acceptance criteria
+
+- Verify the eight labels listed in the strategy specification with
+  representative synthetic OHLC pairs: four SELL, two BUY, and two NO ALERT.
+  The original chart images and exact chart OHLC values were not supplied, so
+  these tests confirm the written labels and rule behavior, not pixel-level
+  reproduction of the source charts.
+- Test strict equal-high/equal-low behavior, dojis, both-extremes-broken
+  candles, and invalid OHLC input.
+- Test score boundaries: no target, target before adverse, adverse before
+  target, speed bonus boundary, follow-through cap, same-candle tie behavior,
+  SELL symmetry, and insufficient lookahead.
+- Test the source-agnostic CSV loader with generated files and a representative
+  M1 UTC bid CSV. Confirm it uses local files only and does not attempt network
+  access.
+- Test CST initialization, CHoCH, transition confirmation, old-trend resumption,
+  strength labels, close-versus-wick configuration, and no future leakage.
+- Test that local source comparisons report timestamp/close discrepancies,
+  require explicit owner review, and block real-data scoring until the report is
+  approved and its input hash still matches.
+- Run the complete backtest over generated data and verify all six files load,
+  alert CSV columns are correct, the validation split is chronological, and
+  failed floors are reported without changing the rules.
+- Add the eight owner-labeled fixtures from owner_labeled_fixtures.json to
+  acceptance tests; expected_alert and expected_note must match exactly.
+- Verify the M1 resampler emits only complete UTC M5/M15 bars and correctly
+  aggregates OHLC.
+
+
+5. ASSUMPTIONS TO REVIEW BEFORE IMPLEMENTATION CONTINUES
+
+These details are not completely determined by OHLC candles or by the written
+state-machine wording. The proposed defaults are explicit and should be
+approved or corrected before they are finalized:
+
+A. Same-candle target/adverse tie
+
+OHLC bars do not reveal whether target or adverse price was reached first when
+both occur in one candle. Proposed default: configurable same_candle_tie with
+adverse_first as the conservative default. An optional target_first setting
+allows an explicit alternative. The report and alert log should identify the
+setting used.
+
+B. Follow-through bonus after an adverse-first target
+
+Proposed interpretation: once D_min is eventually reached, calculate additional
+full D_min units from the maximum favorable excursion over all 12 future candles
+and apply the capped follow-through bonus, even when the adverse level was
+reached first. If that was not intended, adjust the rule before implementation.
+
+C. CST transition confirmation
+
+Proposed interpretation: after an uptrend CHoCH, wait for a newly confirmed
+post-CHoCH swing low, then confirm downtrend on a break of that level; resume the
+old uptrend if the saved pre-CHoCH swing-high level breaks first. Mirror this
+logic for a downtrend CHoCH. If both wick-based break levels are crossed in the
+same candle, keep CST in transition rather than choosing an order that OHLC
+cannot prove.
+
+D. Incomplete 12-candle windows
+
+Proposed handling: leave the reward blank and mark INSUFFICIENT_LOOKAHEAD for an
+alert without 12 subsequent candles. Such an alert still counts toward the
+validation alert-count floor, but not toward the summed reward. It is reported
+separately.
+
+E. Calendar months
+
+Proposed interpretation: align the 12-month synthetic sample to 12 consecutive
+YYYY-MM calendar buckets, rather than exactly 365 elapsed days, so the 9/3 split
+and 8-of-12 coverage check are unambiguous.
+
+
+6. CURRENT PROJECT STATUS
+
+Some work began before the approval-first instruction. Current implementation:
+
+- The local loader is source-agnostic and CSV-only; it returns UTC timestamp
+  strings and validated Decimal OHLC records.
+- The synthetic generator uses weekday-only candles over 12 calendar months with
+  a fixed default seed.
+- Seed and champion are frozen copies of the owner-approved v1.5.0 settings.
+- The backtest emits CST/strength, fixed-window reward scores, chronological
+  train/validation labels, floors, a reproducible CSV alert log, and a JSON run
+  report with full settings and input hashes.
+- Local cross-source comparison is implemented. It does not fetch or resample;
+  real-data scoring is gated on owner approval of a matching-hash report.
+- Synthetic sample data and generated reports remain local/ignored. The
+  real-data comparison cannot be run until the owner supplies CSV files.
+
+
+7. EXPLICITLY OUT OF SCOPE
+
+- Gemini strategy-evolution loop (later Phase 2).
+- Candidate-versus-champion comparison and manual promotion workflow (later
+  phases).
+- Version archive, changelog, and human-readable export (later Phase 3).
+- Static chart/replay page (later Phase 4).
+- OANDA or any other API-based data ingestion; API keys, polling, or streaming.
+- Live polling until separately approved.
+- Start or run Phase 2.
+- Opposite-alert cooldown. It remains unimplemented; Phase 3 must log opposite-
+  alert clusters for later analysis.
+- Database, web app, authentication, dashboard, mobile view, or styling.
+- Balance simulation, trade execution, take-profit, stop-loss, and auto-trading.
+
+
+8. APPROVAL STATUS
+
+The owner approved plan v0.3.2 and seed version 1.5.0 for freezing. The owner
+also requires run-level reproducibility metadata and a reviewed second-source
+sanity check before real-data scoring. Complete the queued Phase 1 additions,
+then stop; do not start Phase 2.
+
+
+§27. OWNER-ACCEPTED TRAINING DATA WITHOUT EXTERNAL CHECK
+
+- For the supplied historical training-data manifests, the owner waives external
+  spot-checks and second-source comparisons. No external check is implied by this
+  acceptance. Each approved manifest records the exact approval_basis:
+  "owner-accepted without external check (§27)".
+- Training-data approval does not waive matching the manifest to the exact input
+  file hash, symbol, and timeframe; complete-data checks; or refusal while status
+  is pending.
+- This amendment supersedes the earlier second-source comparison requirement for
+  training-data manifests only. Future live-data feeds require their own
+  verification before they are enabled.

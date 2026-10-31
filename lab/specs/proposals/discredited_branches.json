@@ -1,0 +1,174 @@
+{
+  "items": [
+    {
+      "diff": [
+        {
+          "old_value": false,
+          "path": "require_engulf",
+          "structural": true,
+          "value": true
+        }
+      ],
+      "expected_effect": "Improved net P&L by filtering for trades that meet the engulfing candle condition, which historically show a better expectancy after costs.",
+      "rationale": "The training digest indicates that when 'require_engulf' is set to 'True', the strategy's 'expectancy_after_costs' is -0.271. This is an improvement compared to the current setting of 'False', which yields an 'expectancy_after_costs' of -0.2846. Enabling this filter is expected to improve the overall net P&L.",
+      "reason": "Proposal did not meet the promotion criteria.",
+      "reason_code": "promotion_criteria_not_met",
+      "round": 1,
+      "timestamp_utc": "2026-10-28T20:30:40.140449Z"
+    },
+    {
+      "raw_response": "{\n  \"diff\": [\n    {\n      \"path\": \"min_strength\",\n      \"value\": \"STRONG\"\n    }\n  ],\n  \"rationale\": \"The current strategy includes trades of all strengths, indicated by 'min_strength': 'NONE'. The training digest shows that 'STRONG' strength trades have an 'expectancy_after_costs' of -0.2803. This is a marginal improvement compared to the overall strategy's current 'expectancy_after_costs' of -0.2814. By setting 'min_strength' to 'STRONG', the strategy will filter out 'NEUTRAL' strength trades (expectancy -0.2906) and 'WEAK' strength trades (expectancy -0.2707), retaining only the 'STRONG' trades. This change is expected to slightly improve the net P&L.\",\n  \"expected_effect\": \"A slight improvement in the overall 'expectancy_after_costs' from approximately -0.2814 to -0.2803, by focusing solely on trades identified as 'STRONG' by the Candlestick Trigger (CST). This will also result in a reduction of the total number of trades, but with a marginally higher average quality per trade.\"\n}",
+      "reason": "Malformed JSON diff; proposal discarded.",
+      "reason_code": "malformed_json_diff",
+      "round": 1,
+      "timestamp_utc": "2026-10-28T20:34:01.527962Z"
+    },
+    {
+      "diff": [
+        {
+          "old_value": [
+            "M5",
+            "M15"
+          ],
+          "path": "timeframes",
+          "structural": true,
+          "value": [
+            "M15"
+          ]
+        }
+      ],
+      "expected_effect": "Improved validation expectancy_after_costs by focusing on the timeframe that demonstrated superior performance in training, while also reducing the total number of trades.",
+      "rationale": "The training digest indicates that trades executed exclusively on the M15 timeframe yield a significantly higher (less negative) 'expectancy_after_costs' of -0.1844, compared to the current strategy's overall performance (which includes M5 trades) at -0.2814. By restricting the strategy to only the M15 timeframe, we aim to leverage this observed improvement.",
+      "reason": "Proposal did not meet the promotion criteria.",
+      "reason_code": "promotion_criteria_not_met",
+      "round": 1,
+      "timestamp_utc": "2026-10-29T01:34:01.851641Z"
+    },
+    {
+      "diff": [
+        {
+          "old_value": [
+            "M5",
+            "M15"
+          ],
+          "path": "timeframes",
+          "structural": true,
+          "value": [
+            "M15"
+          ]
+        }
+      ],
+      "expected_effect": "Improved validation expectancy_after_costs by focusing on the timeframe that demonstrated superior performance in training, while also reducing the total number of trades.",
+      "rationale": "The training digest indicates that trades executed on the M5 timeframe have an 'expectancy_after_costs' of -0.3136. By inferring the performance of trades exclusively on the M15 timeframe from the overall strategy performance and M5 performance, we calculate an 'expectancy_after_costs' of approximately -0.1841 for M15 trades. This represents a substantial improvement compared to the current strategy's overall 'expectancy_after_costs' of -0.2814. Restricting the strategy to only the M15 timeframe is expected to significantly improve the validation expectancy_after_costs.",
+      "reason": "Proposal did not meet the promotion criteria.",
+      "reason_code": "promotion_criteria_not_met",
+      "round": 1,
+      "timestamp_utc": "2026-10-29T02:06:48.021103Z"
+    },
+    {
+      "raw_response": "{\n  \"diff\": [\n    {\n      \"path\": \"min_strength\",\n      \"value\": \"STRONG\"\n    }\n  ],\n  \"rationale\": \"The training digest indicates that trades categorized with 'STRONG' strength have an 'expectancy_after_costs' of -0.2803. This is a marginal improvement compared to the current overall strategy's 'expectancy_after_costs' of -0.2814 (which includes trades of all strengths). By setting 'min_strength' to 'STRONG', the strategy will filter for only these higher-expectancy trades.\",\n  \"expected_effect\": \"A slight improvement in validation expectancy_after_costs by focusing on trades with 'STRONG' strength, while also reducing the total number of trades.\"\n}",
+      "reason": "Malformed JSON diff; proposal discarded.",
+      "reason_code": "malformed_json_diff",
+      "round": 1,
+      "timestamp_utc": "2026-10-29T06:46:50.278018Z"
+    },
+    {
+      "diff": [
+        {
+          "old_value": [
+            "M5",
+            "M15"
+          ],
+          "path": "timeframes",
+          "structural": true,
+          "value": [
+            "M15"
+          ]
+        }
+      ],
+      "expected_effect": "Improved validation expectancy_after_costs by focusing on the timeframe that demonstrated superior performance in training, while also reducing the total number of trades.",
+      "rationale": "The training digest indicates that trades executed on the M5 timeframe have an 'expectancy_after_costs' of -0.3136. By calculating the implied 'expectancy_after_costs' for trades executed exclusively on the M15 timeframe, we find it to be approximately -0.1843. This represents a substantial improvement compared to the current strategy's overall 'expectancy_after_costs' of -0.2814. Restricting the strategy to only the M15 timeframe is expected to significantly improve the validation expectancy_after_costs.",
+      "reason": "Proposal did not meet the promotion criteria.",
+      "reason_code": "promotion_criteria_not_met",
+      "round": 1,
+      "timestamp_utc": "2026-10-29T06:50:16.942212Z"
+    },
+    {
+      "raw_response": "{\n  \"diff\": [\n    {\n      \"path\": \"min_strength\",\n      \"value\": \"STRONG\"\n    }\n  ],\n  \"rationale\": \"The current strategy's overall `expectancy_after_costs` is -0.2814 when `min_strength` is set to 'NONE'. The training digest indicates that trades identified with 'STRONG' strength have an `expectancy_after_costs` of -0.2803. By changing `min_strength` to 'STRONG', we aim to filter out trades with 'NEUTRAL' and 'WEAK' strength, thereby focusing on the subset of trades that, based on training data, exhibit a slightly better expectancy.\",\n  \"expected_effect\": \"A marginal improvement in `expectancy_after_costs` from -0.2814 to -0.2803 by exclusively taking trades with 'STRONG' strength. This is expected to lead to a slightly higher mean R per closed trade after costs and a reduction in total trade volume.\"\n}",
+      "reason": "Malformed JSON diff; proposal discarded.",
+      "reason_code": "malformed_json_diff",
+      "round": 1,
+      "timestamp_utc": "2026-10-29T06:53:28.870069Z"
+    },
+    {
+      "raw_response": "{\n  \"diff\": [\n    {\n      \"path\": \"min_strength\",\n      \"value\": \"STRONG\"\n    }\n  ],\n  \"rationale\": \"The current strategy allows all strength levels (`min_strength: NONE`), resulting in an overall 'expectancy_after_costs' of -0.2814. By analyzing the training digest, we observe the 'expectancy_after_costs' for different strength categories:\\n- 'strength: NEUTRAL': -0.2906 (N=16799)\\n- 'strength: WEAK': -0.2707 (N=13379)\\n- 'strength: STRONG': -0.2803 (N=12123)\\n\\nSetting 'min_strength' to 'STRONG' would filter trades to only include those with 'STRONG' strength. The 'expectancy_after_costs' for 'STRONG' trades is -0.2803. This value is better (less negative) than the current overall 'expectancy_after_costs' of -0.2814. This suggests that focusing on 'STRONG' trades could lead to an improvement in the strategy's performance.\",\n  \"expected_effect\": \"Improved validation 'expectancy_after_costs' by filtering out trades with 'NEUTRAL' and 'WEAK' strength, which demonstrated a worse or comparable 'expectancy_after_costs' in training compared to 'STRONG' strength trades. This change is expected to result in a slightly less negative mean R per closed trade after costs, while reducing the total number of trades.\"\n}",
+      "reason": "Malformed JSON diff; proposal discarded.",
+      "reason_code": "malformed_json_diff",
+      "round": 1,
+      "timestamp_utc": "2026-10-29T06:58:23.395372Z"
+    },
+    {
+      "diff": [
+        {
+          "old_value": [
+            "M5",
+            "M15"
+          ],
+          "path": "timeframes",
+          "structural": true,
+          "value": [
+            "M15"
+          ]
+        }
+      ],
+      "expected_effect": "Improved validation expectancy_after_costs by focusing on the timeframe that demonstrated superior performance in training, while also reducing the total number of trades.",
+      "rationale": "The training digest shows that trades on the M5 timeframe have an 'expectancy_after_costs' of -0.3136. By calculating the implied 'expectancy_after_costs' for trades executed exclusively on the M15 timeframe, we find it to be approximately -0.1852. This represents a substantial improvement compared to the current strategy's overall 'expectancy_after_costs' of -0.2814. Restricting the strategy to only the M15 timeframe is expected to significantly improve the validation expectancy_after_costs.",
+      "reason": "Proposal did not meet the promotion criteria.",
+      "reason_code": "promotion_criteria_not_met",
+      "round": 1,
+      "timestamp_utc": "2026-10-30T15:40:44.116075Z"
+    },
+    {
+      "diff": [
+        {
+          "old_value": [
+            "M5",
+            "M15"
+          ],
+          "path": "timeframes",
+          "structural": true,
+          "value": [
+            "M15"
+          ]
+        }
+      ],
+      "expected_effect": "Improved validation expectancy_after_costs by focusing on the timeframe that demonstrated superior performance in training, while also reducing the total number of trades.",
+      "rationale": "The current strategy's overall 'expectancy_after_costs' is -0.2814. The training digest shows that trades on the M5 timeframe have an 'expectancy_after_costs' of -0.3136 (N=31746). By calculating the implied 'expectancy_after_costs' for trades executed exclusively on the M15 timeframe (N=10555), we find it to be approximately -0.1839. This represents a substantial improvement compared to the current strategy's overall performance. Restricting the strategy to only the M15 timeframe is expected to significantly improve the 'expectancy_after_costs' based on training data.",
+      "reason": "Proposal did not meet the promotion criteria.",
+      "reason_code": "promotion_criteria_not_met",
+      "round": 1,
+      "timestamp_utc": "2026-10-30T17:31:15.662975Z"
+    },
+    {
+      "diff": [
+        {
+          "old_value": [
+            "M5",
+            "M15"
+          ],
+          "path": "timeframes",
+          "structural": true,
+          "value": [
+            "M15"
+          ]
+        }
+      ],
+      "expected_effect": "Improved validation expectancy_after_costs by focusing on the timeframe that demonstrated superior performance in training, while also reducing the total number of trades.",
+      "rationale": "The current strategy's overall 'expectancy_after_costs' is -0.2814. The training digest shows that trades on the M5 timeframe have an 'expectancy_after_costs' of -0.3136 (N=31746). By calculating the implied 'expectancy_after_costs' for trades executed exclusively on the M15 timeframe (N=10555), we find it to be approximately -0.1848. This represents a substantial improvement compared to the current strategy's overall performance. Restricting the strategy to only the M15 timeframe is expected to significantly improve the 'expectancy_after_costs' based on training data.",
+      "reason": "Proposal did not meet the promotion criteria.",
+      "reason_code": "promotion_criteria_not_met",
+      "round": 1,
+      "timestamp_utc": "2026-10-30T17:34:58.674920Z"
+    }
+  ]
+}
