@@ -27,6 +27,9 @@ import type {
 import type {
   AICommentResult,
   AlertCommentInput,
+  AutoevolveStartInput,
+  AutoevolveStatus,
+  AutoevolveStopInput,
   BacktestInput,
   BacktestResult,
   CandleWindow,
@@ -36,6 +39,8 @@ import type {
   EvolveDecisionInput,
   EvolveJobStatus,
   EvolvePolicy,
+  EvolvePolicyHistory,
+  EvolvePolicyRestoreInput,
   EvolveRoundHistory,
   EvolveRunInput,
   GetLabCandlesParams,
@@ -1212,6 +1217,472 @@ export function useGetEvolvePolicy<TData = Awaited<ReturnType<typeof getEvolvePo
 
 
 
+
+export const getGetEvolvePolicyHistoryUrl = () => {
+
+
+
+
+  return `/api/evolve/policy/history`
+}
+
+/**
+ * @summary List immutable SYSTEM INTELLIGENCE policy versions
+ */
+export const getEvolvePolicyHistory = async ( options?: Parameters<typeof customFetch>[1]): Promise<EvolvePolicyHistory> => {
+
+  return customFetch<EvolvePolicyHistory>(getGetEvolvePolicyHistoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEvolvePolicyHistoryQueryKey = () => {
+    return [
+    `/api/evolve/policy/history`
+    ] as const;
+    }
+
+
+export const getGetEvolvePolicyHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEvolvePolicyHistoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEvolvePolicyHistory>>> = ({ signal }) => getEvolvePolicyHistory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetEvolvePolicyHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getEvolvePolicyHistory>>>
+export type GetEvolvePolicyHistoryQueryError = ErrorType<unknown>
+
+
+export function useGetEvolvePolicyHistory<TData = Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getEvolvePolicyHistory>>,
+          TError,
+          Awaited<ReturnType<typeof getEvolvePolicyHistory>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetEvolvePolicyHistory<TData = Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getEvolvePolicyHistory>>,
+          TError,
+          Awaited<ReturnType<typeof getEvolvePolicyHistory>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetEvolvePolicyHistory<TData = Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List immutable SYSTEM INTELLIGENCE policy versions
+ */
+
+export function useGetEvolvePolicyHistory<TData = Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEvolvePolicyHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetEvolvePolicyHistoryQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRestoreEvolvePolicyUrl = () => {
+
+
+
+
+  return `/api/evolve/policy/restore`
+}
+
+/**
+ * @summary Restore a past policy as a new current version
+ */
+export const restoreEvolvePolicy = async (evolvePolicyRestoreInput: EvolvePolicyRestoreInput, options?: Parameters<typeof customFetch>[1]): Promise<EvolvePolicy> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<EvolvePolicy>(getRestoreEvolvePolicyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(evolvePolicyRestoreInput)
+  }
+);}
+
+
+
+
+
+export const getRestoreEvolvePolicyMutationKey = () => ['restoreEvolvePolicy'] as const;
+
+export const getRestoreEvolvePolicyMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreEvolvePolicy>>, TError,RestoreEvolvePolicyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof restoreEvolvePolicy>>, TError,RestoreEvolvePolicyMutationVariables, TContext> => {
+
+const mutationKey = getRestoreEvolvePolicyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof restoreEvolvePolicy>>, RestoreEvolvePolicyMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  restoreEvolvePolicy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RestoreEvolvePolicyMutationResult = NonNullable<Awaited<ReturnType<typeof restoreEvolvePolicy>>>
+    export type RestoreEvolvePolicyMutationBody = BodyType<EvolvePolicyRestoreInput>
+    export type RestoreEvolvePolicyMutationError = ErrorType<ErrorResponse>
+    export type RestoreEvolvePolicyMutationVariables = {data: BodyType<EvolvePolicyRestoreInput>}
+
+    /**
+ * @summary Restore a past policy as a new current version
+ */
+export const useRestoreEvolvePolicy = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreEvolvePolicy>>, TError,RestoreEvolvePolicyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof restoreEvolvePolicy>>,
+        TError,
+        RestoreEvolvePolicyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRestoreEvolvePolicyMutationOptions(options), queryClient);
+    }
+
+export const getGetAutoevolveStatusUrl = () => {
+
+
+
+
+  return `/api/evolve/autoevolve/status`
+}
+
+/**
+ * @summary Read AUTOEVOLVE daemon status and persistent alerts
+ */
+export const getAutoevolveStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<AutoevolveStatus> => {
+
+  return customFetch<AutoevolveStatus>(getGetAutoevolveStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAutoevolveStatusQueryKey = () => {
+    return [
+    `/api/evolve/autoevolve/status`
+    ] as const;
+    }
+
+
+export const getGetAutoevolveStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAutoevolveStatus>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAutoevolveStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAutoevolveStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAutoevolveStatus>>> = ({ signal }) => getAutoevolveStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAutoevolveStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAutoevolveStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAutoevolveStatus>>>
+export type GetAutoevolveStatusQueryError = ErrorType<unknown>
+
+
+export function useGetAutoevolveStatus<TData = Awaited<ReturnType<typeof getAutoevolveStatus>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAutoevolveStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAutoevolveStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getAutoevolveStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAutoevolveStatus<TData = Awaited<ReturnType<typeof getAutoevolveStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAutoevolveStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAutoevolveStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getAutoevolveStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAutoevolveStatus<TData = Awaited<ReturnType<typeof getAutoevolveStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAutoevolveStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read AUTOEVOLVE daemon status and persistent alerts
+ */
+
+export function useGetAutoevolveStatus<TData = Awaited<ReturnType<typeof getAutoevolveStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAutoevolveStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAutoevolveStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartAutoevolveUrl = () => {
+
+
+
+
+  return `/api/evolve/autoevolve/start`
+}
+
+/**
+ * @summary Start the Groq-only XAUUSD daemon
+ */
+export const startAutoevolve = async (autoevolveStartInput: AutoevolveStartInput, options?: Parameters<typeof customFetch>[1]): Promise<AutoevolveStatus> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AutoevolveStatus>(getStartAutoevolveUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(autoevolveStartInput)
+  }
+);}
+
+
+
+
+
+export const getStartAutoevolveMutationKey = () => ['startAutoevolve'] as const;
+
+export const getStartAutoevolveMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startAutoevolve>>, TError,StartAutoevolveMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startAutoevolve>>, TError,StartAutoevolveMutationVariables, TContext> => {
+
+const mutationKey = getStartAutoevolveMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startAutoevolve>>, StartAutoevolveMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  startAutoevolve(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartAutoevolveMutationResult = NonNullable<Awaited<ReturnType<typeof startAutoevolve>>>
+    export type StartAutoevolveMutationBody = BodyType<AutoevolveStartInput>
+    export type StartAutoevolveMutationError = ErrorType<ErrorResponse>
+    export type StartAutoevolveMutationVariables = {data: BodyType<AutoevolveStartInput>}
+
+    /**
+ * @summary Start the Groq-only XAUUSD daemon
+ */
+export const useStartAutoevolve = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startAutoevolve>>, TError,StartAutoevolveMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof startAutoevolve>>,
+        TError,
+        StartAutoevolveMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStartAutoevolveMutationOptions(options), queryClient);
+    }
+
+export const getStopAutoevolveUrl = () => {
+
+
+
+
+  return `/api/evolve/autoevolve/stop`
+}
+
+/**
+ * @summary Stop AUTOEVOLVE after the current safe checkpoint
+ */
+export const stopAutoevolve = async (autoevolveStopInput: AutoevolveStopInput, options?: Parameters<typeof customFetch>[1]): Promise<AutoevolveStatus> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AutoevolveStatus>(getStopAutoevolveUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(autoevolveStopInput)
+  }
+);}
+
+
+
+
+
+export const getStopAutoevolveMutationKey = () => ['stopAutoevolve'] as const;
+
+export const getStopAutoevolveMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopAutoevolve>>, TError,StopAutoevolveMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof stopAutoevolve>>, TError,StopAutoevolveMutationVariables, TContext> => {
+
+const mutationKey = getStopAutoevolveMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof stopAutoevolve>>, StopAutoevolveMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  stopAutoevolve(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StopAutoevolveMutationResult = NonNullable<Awaited<ReturnType<typeof stopAutoevolve>>>
+    export type StopAutoevolveMutationBody = BodyType<AutoevolveStopInput>
+    export type StopAutoevolveMutationError = ErrorType<unknown>
+    export type StopAutoevolveMutationVariables = {data: BodyType<AutoevolveStopInput>}
+
+    /**
+ * @summary Stop AUTOEVOLVE after the current safe checkpoint
+ */
+export const useStopAutoevolve = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopAutoevolve>>, TError,StopAutoevolveMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof stopAutoevolve>>,
+        TError,
+        StopAutoevolveMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStopAutoevolveMutationOptions(options), queryClient);
+    }
 
 export const getGetEvolveStatusUrl = (jobId: string,) => {
 

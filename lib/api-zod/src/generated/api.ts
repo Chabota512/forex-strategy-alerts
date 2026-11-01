@@ -2375,6 +2375,196 @@ export const GetEvolvePolicyResponse = zod.object({
 
 
 /**
+ * @summary List immutable SYSTEM INTELLIGENCE policy versions
+ */
+
+
+export const getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMin = 0;
+export const getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMax = 48;
+
+
+
+export const GetEvolvePolicyHistoryResponse = zod.object({
+  "versions": zod.array(zod.object({
+  "schema_version": zod.literal(1),
+  "version": zod.number().int().min(1),
+  "mode": zod.enum(['passthrough', 'active']),
+  "settings": zod.object({
+  "min_strength": zod.enum(['NONE', 'NEUTRAL', 'STRONG']),
+  "require_wp_agree": zod.boolean(),
+  "require_engulf": zod.boolean(),
+  "timeframes": zod.array(zod.enum(['M5', 'M15'])).min(1),
+  "exit_model": zod.enum(['swept_level_atr', 'candle_geometry']),
+  "cooldown_candles": zod.number().int().min(getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMin).max(getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMax)
+}),
+  "promoted_at_utc": zod.string().nullable(),
+  "source_champion_version": zod.string().nullable(),
+  "created_at_utc": zod.coerce.date().nullable(),
+  "restored_from_version": zod.number().int().nullable(),
+  "is_current": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Restore a past policy as a new current version
+ */
+
+
+
+export const RestoreEvolvePolicyBody = zod.object({
+  "version": zod.number().int().min(1)
+})
+
+
+
+export const restoreEvolvePolicyResponseSettingsCooldownCandlesMin = 0;
+export const restoreEvolvePolicyResponseSettingsCooldownCandlesMax = 48;
+
+
+
+export const RestoreEvolvePolicyResponse = zod.object({
+  "schema_version": zod.literal(1),
+  "version": zod.number().int().min(1),
+  "mode": zod.enum(['passthrough', 'active']),
+  "settings": zod.object({
+  "min_strength": zod.enum(['NONE', 'NEUTRAL', 'STRONG']),
+  "require_wp_agree": zod.boolean(),
+  "require_engulf": zod.boolean(),
+  "timeframes": zod.array(zod.enum(['M5', 'M15'])).min(1),
+  "exit_model": zod.enum(['swept_level_atr', 'candle_geometry']),
+  "cooldown_candles": zod.number().int().min(restoreEvolvePolicyResponseSettingsCooldownCandlesMin).max(restoreEvolvePolicyResponseSettingsCooldownCandlesMax)
+}),
+  "promoted_at_utc": zod.string().nullable(),
+  "source_champion_version": zod.string().nullable()
+})
+
+
+/**
+ * @summary Read AUTOEVOLVE daemon status and persistent alerts
+ */
+export const getAutoevolveStatusResponseRoundMin = 0;
+
+export const getAutoevolveStatusResponseCooldownSecondsMin = 0;
+
+
+
+export const GetAutoevolveStatusResponse = zod.object({
+  "state": zod.enum(['stopped', 'running', 'awaiting-owner-approval', 'cooldown', 'paused-keys-depleted', 'stopping', 'failed']),
+  "running": zod.boolean(),
+  "phase": zod.string().nullable(),
+  "round": zod.number().int().min(getAutoevolveStatusResponseRoundMin),
+  "last_verdict": zod.string().nullable(),
+  "last_result_file": zod.string().nullable(),
+  "active_job_id": zod.string().uuid().nullable(),
+  "swing_version": zod.enum(['V1', 'V2']),
+  "cooldown_seconds": zod.number().int().min(getAutoevolveStatusResponseCooldownSecondsMin),
+  "cooldown_until_utc": zod.coerce.date().nullable(),
+  "stop_requested": zod.boolean(),
+  "keys": zod.object({
+  "key1": zod.enum(['unknown', 'available', 'depleted', 'rate-limited', 'unavailable']),
+  "key2": zod.enum(['unknown', 'available', 'depleted', 'rate-limited', 'unavailable'])
+}),
+  "alerts": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.string(),
+  "message": zod.string(),
+  "persistent": zod.boolean(),
+  "created_at_utc": zod.coerce.date(),
+  "job_id": zod.string().nullable()
+})),
+  "error": zod.string().nullable(),
+  "updated_at_utc": zod.coerce.date()
+})
+
+
+/**
+ * @summary Start the Groq-only XAUUSD daemon
+ */
+export const startAutoevolveBodySwingVersionDefault = `V2`;
+
+export const StartAutoevolveBody = zod.object({
+  "swingVersion": zod.enum(['V1', 'V2']).default(startAutoevolveBodySwingVersionDefault)
+})
+
+export const startAutoevolveResponseRoundMin = 0;
+
+export const startAutoevolveResponseCooldownSecondsMin = 0;
+
+
+
+export const StartAutoevolveResponse = zod.object({
+  "state": zod.enum(['stopped', 'running', 'awaiting-owner-approval', 'cooldown', 'paused-keys-depleted', 'stopping', 'failed']),
+  "running": zod.boolean(),
+  "phase": zod.string().nullable(),
+  "round": zod.number().int().min(startAutoevolveResponseRoundMin),
+  "last_verdict": zod.string().nullable(),
+  "last_result_file": zod.string().nullable(),
+  "active_job_id": zod.string().uuid().nullable(),
+  "swing_version": zod.enum(['V1', 'V2']),
+  "cooldown_seconds": zod.number().int().min(startAutoevolveResponseCooldownSecondsMin),
+  "cooldown_until_utc": zod.coerce.date().nullable(),
+  "stop_requested": zod.boolean(),
+  "keys": zod.object({
+  "key1": zod.enum(['unknown', 'available', 'depleted', 'rate-limited', 'unavailable']),
+  "key2": zod.enum(['unknown', 'available', 'depleted', 'rate-limited', 'unavailable'])
+}),
+  "alerts": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.string(),
+  "message": zod.string(),
+  "persistent": zod.boolean(),
+  "created_at_utc": zod.coerce.date(),
+  "job_id": zod.string().nullable()
+})),
+  "error": zod.string().nullable(),
+  "updated_at_utc": zod.coerce.date()
+})
+
+
+/**
+ * @summary Stop AUTOEVOLVE after the current safe checkpoint
+ */
+export const StopAutoevolveBody = zod.object({
+
+})
+
+export const stopAutoevolveResponseRoundMin = 0;
+
+export const stopAutoevolveResponseCooldownSecondsMin = 0;
+
+
+
+export const StopAutoevolveResponse = zod.object({
+  "state": zod.enum(['stopped', 'running', 'awaiting-owner-approval', 'cooldown', 'paused-keys-depleted', 'stopping', 'failed']),
+  "running": zod.boolean(),
+  "phase": zod.string().nullable(),
+  "round": zod.number().int().min(stopAutoevolveResponseRoundMin),
+  "last_verdict": zod.string().nullable(),
+  "last_result_file": zod.string().nullable(),
+  "active_job_id": zod.string().uuid().nullable(),
+  "swing_version": zod.enum(['V1', 'V2']),
+  "cooldown_seconds": zod.number().int().min(stopAutoevolveResponseCooldownSecondsMin),
+  "cooldown_until_utc": zod.coerce.date().nullable(),
+  "stop_requested": zod.boolean(),
+  "keys": zod.object({
+  "key1": zod.enum(['unknown', 'available', 'depleted', 'rate-limited', 'unavailable']),
+  "key2": zod.enum(['unknown', 'available', 'depleted', 'rate-limited', 'unavailable'])
+}),
+  "alerts": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.string(),
+  "message": zod.string(),
+  "persistent": zod.boolean(),
+  "created_at_utc": zod.coerce.date(),
+  "job_id": zod.string().nullable()
+})),
+  "error": zod.string().nullable(),
+  "updated_at_utc": zod.coerce.date()
+})
+
+
+/**
  * @summary Poll an evolution job and its live log
  */
 export const GetEvolveStatusParams = zod.object({

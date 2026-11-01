@@ -80,6 +80,127 @@ export interface EvolvePolicy {
   source_champion_version: string | null;
 }
 
+export interface EvolvePolicyRestoreInput {
+  /** @minimum 1 */
+  version: number;
+}
+
+export type EvolvePolicyVersionMode = typeof EvolvePolicyVersionMode[keyof typeof EvolvePolicyVersionMode];
+
+
+export const EvolvePolicyVersionMode = {
+  passthrough: 'passthrough',
+  active: 'active',
+} as const;
+
+export interface EvolvePolicyVersion {
+  schema_version: 1;
+  /** @minimum 1 */
+  version: number;
+  mode: EvolvePolicyVersionMode;
+  settings: EvolvePolicySettings;
+  /** @nullable */
+  promoted_at_utc: string | null;
+  /** @nullable */
+  source_champion_version: string | null;
+  /** @nullable */
+  created_at_utc: string | null;
+  /** @nullable */
+  restored_from_version: number | null;
+  is_current: boolean;
+}
+
+export interface EvolvePolicyHistory {
+  versions: EvolvePolicyVersion[];
+}
+
+export type AutoevolveKeyState = typeof AutoevolveKeyState[keyof typeof AutoevolveKeyState];
+
+
+export const AutoevolveKeyState = {
+  unknown: 'unknown',
+  available: 'available',
+  depleted: 'depleted',
+  'rate-limited': 'rate-limited',
+  unavailable: 'unavailable',
+} as const;
+
+export interface AutoevolveAlert {
+  id: string;
+  kind: string;
+  message: string;
+  persistent: boolean;
+  created_at_utc: string;
+  /** @nullable */
+  job_id: string | null;
+}
+
+export type AutoevolveStatusState = typeof AutoevolveStatusState[keyof typeof AutoevolveStatusState];
+
+
+export const AutoevolveStatusState = {
+  stopped: 'stopped',
+  running: 'running',
+  'awaiting-owner-approval': 'awaiting-owner-approval',
+  cooldown: 'cooldown',
+  'paused-keys-depleted': 'paused-keys-depleted',
+  stopping: 'stopping',
+  failed: 'failed',
+} as const;
+
+export type AutoevolveStatusSwingVersion = typeof AutoevolveStatusSwingVersion[keyof typeof AutoevolveStatusSwingVersion];
+
+
+export const AutoevolveStatusSwingVersion = {
+  V1: 'V1',
+  V2: 'V2',
+} as const;
+
+export type AutoevolveStatusKeys = {
+  key1: AutoevolveKeyState;
+  key2: AutoevolveKeyState;
+};
+
+export interface AutoevolveStatus {
+  state: AutoevolveStatusState;
+  running: boolean;
+  /** @nullable */
+  phase: string | null;
+  /** @minimum 0 */
+  round: number;
+  /** @nullable */
+  last_verdict: string | null;
+  /** @nullable */
+  last_result_file: string | null;
+  /** @nullable */
+  active_job_id: string | null;
+  swing_version: AutoevolveStatusSwingVersion;
+  /** @minimum 0 */
+  cooldown_seconds: number;
+  /** @nullable */
+  cooldown_until_utc: string | null;
+  stop_requested: boolean;
+  keys: AutoevolveStatusKeys;
+  alerts: AutoevolveAlert[];
+  /** @nullable */
+  error: string | null;
+  updated_at_utc: string;
+}
+
+export type AutoevolveStartInputSwingVersion = typeof AutoevolveStartInputSwingVersion[keyof typeof AutoevolveStartInputSwingVersion];
+
+
+export const AutoevolveStartInputSwingVersion = {
+  V1: 'V1',
+  V2: 'V2',
+} as const;
+
+export interface AutoevolveStartInput {
+  swingVersion?: AutoevolveStartInputSwingVersion;
+}
+
+export interface AutoevolveStopInput { [key: string]: unknown }
+
 export type CandleDcState = typeof CandleDcState[keyof typeof CandleDcState];
 
 
