@@ -1,0 +1,3 @@
+- [Artifact imports](artifact-imports.md) — preserve registered artifact folders during repo sync; deleting them unregisters services and workflows.
+- [Public repository downloads](github-imports.md) — direct GitHub clones may hit the Replit connection proxy; public codeload archives worked without GitHub MCP.
+- [Replay settings parity](replay-settings-parity.md) — batch and session snapshots must share normalized simulation settings.
