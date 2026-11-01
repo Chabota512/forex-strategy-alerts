@@ -16,6 +16,7 @@ const settings: SimulationSettings = {
   exitModel: 'candle_geometry',
   geometryWeights: { bodyWeight: 1, wickMultiplier: 2, rangeMultiplier: 3 },
   directionMode: 'normal',
+  tradeDirection: 'both',
   invertWeights: {
     direction: 1 / 12,
     variant: 1 / 12,

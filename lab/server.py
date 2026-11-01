@@ -37,6 +37,8 @@ from .candle_data import (
     sha256_file,
 )
 from .monthly_data import (
+    CANDLE_STREAM_CHUNK_SIZE,
+    CANDLE_STREAM_SOFT_CAP,
     MONTHS as MONTHLY_MONTHS,
     MonthlyDataError,
     load_month,
@@ -44,6 +46,7 @@ from .monthly_data import (
     load_monthly_timeframe,
     monthly_file_path,
     month_sequence,
+    slice_month_records,
     verify_monthly_gate,
 )
 from .data_sanity import (
@@ -70,6 +73,7 @@ from .replay import (
 )
 from .si_cases import SICaseStore
 from .si_cases import build_formation_fingerprint, cases_from_snapshot
+from .si_rule_proposals import build_proposal_prompt, parse_candidate
 from .shadow_detectors import compute_shadow_states
 from .resample import INTERVALS, _read_m1_file
 from .simulation import SimulationFilters, SimulationSettings, simulate_batch
@@ -83,9 +87,9 @@ EVOLVE_PROPOSALS_DIR = LAB_DIR / "specs" / "proposals"
 EVOLVE_RESULT_FILENAME = re.compile(
     r"^evolve_round_(\d+)_(\d{8}T\d{12}Z)_result\.json$"
 )
-DEFAULT_LIMIT = 100_000
-MAX_LIMIT = 100_000
-MAX_REPLAY_CANDLES = 500_000
+DEFAULT_LIMIT = CANDLE_STREAM_CHUNK_SIZE
+MAX_LIMIT = CANDLE_STREAM_CHUNK_SIZE
+MAX_REPLAY_CANDLES = CANDLE_STREAM_SOFT_CAP
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_REPLAY_SESSIONS = 8
 TIMEFRAMES = ("M1", "M5", "M15", "H1", "H4", "D1")
@@ -943,6 +947,70 @@ class LabService:
             versions_dir=self.policy_versions_dir,
         )
 
+    def propose_system_intelligence_rule(self) -> dict[str, Any]:
+        try:
+            attempt_context = self.si_case_store.begin_proposal_attempt()
+        except ValueError as exc:
+            raise RequestError(409, str(exc)) from exc
+        attempt_id = str(attempt_context["attempt_id"])
+        try:
+            response = llm_client.propose(
+                build_proposal_prompt(attempt_context["aggregates"]),
+                provider="gemini",
+            )
+        except llm_client.LLMRequestError as exc:
+            return self.si_case_store.complete_proposal_attempt(
+                attempt_id,
+                candidate=None,
+                usage=None,
+                provider=exc.provider,
+                key_index=exc.key_index,
+                attempts=exc.attempts,
+                error=exc.safe_message,
+            )
+        except Exception as exc:
+            safe_message = llm_client.sanitize_error_message(str(exc))
+            logger.exception("System Intelligence rule proposal request failed.")
+            return self.si_case_store.complete_proposal_attempt(
+                attempt_id,
+                candidate=None,
+                usage=None,
+                provider="gemini",
+                key_index=None,
+                attempts=[],
+                error=safe_message,
+            )
+
+        try:
+            candidate = parse_candidate(response.diff_json)
+        except ValueError as exc:
+            reason = f"Malformed proposal discarded: {exc}"
+            logger.warning("System Intelligence %s", reason)
+            return self.si_case_store.complete_proposal_attempt(
+                attempt_id,
+                candidate=None,
+                usage=response.usage,
+                provider=response.provider,
+                key_index=response.key_index,
+                attempts=response.attempts,
+                discard_reason=reason,
+            )
+        result = self.si_case_store.complete_proposal_attempt(
+            attempt_id,
+            candidate=candidate,
+            usage=response.usage,
+            provider=response.provider,
+            key_index=response.key_index,
+            attempts=response.attempts,
+        )
+        latest = result.get("latestAttempt")
+        if isinstance(latest, dict) and latest.get("status") == "discarded":
+            logger.warning(
+                "System Intelligence proposal discarded reason=%s",
+                latest.get("reason", "unknown"),
+            )
+        return result
+
     def _instrument_review_info(self) -> list[dict[str, Any]]:
         data_dir = self.data_dir
         reviews: list[dict[str, Any]] = []
@@ -1385,6 +1453,7 @@ class LabService:
         to_value: str,
         limit: int = DEFAULT_LIMIT,
         chunk_month: str | None = None,
+        chunk_offset: int = 0,
         symbol: str = "XAUUSD",
     ) -> dict[str, Any]:
         symbol = _registered_symbol(symbol)
@@ -1393,6 +1462,12 @@ class LabService:
             raise RequestError(400, "Timeframe must be M1, M5, or M15.")
         if limit < 1 or limit > MAX_LIMIT:
             raise RequestError(400, f"Limit must be between 1 and {MAX_LIMIT}.")
+        if (
+            isinstance(chunk_offset, bool)
+            or not isinstance(chunk_offset, int)
+            or chunk_offset < 0
+        ):
+            raise RequestError(400, "Chunk offset must be a non-negative whole number.")
         from_date = _parse_date(from_value)
         to_date = _parse_date(to_value)
         if from_date > to_date:
@@ -1453,10 +1528,21 @@ class LabService:
             if selected_chunk is None:
                 raise RequestError(400, "Chunk month is outside the selected date window.")
             data = self._load_monthly_month(symbol, timeframe, response_month)
-            selected_records = month_records.get(response_month)
-            if selected_records is None:
-                selected_records = data.candles
-            selected_records = selected_records[:limit]
+            available_records = month_records.get(response_month)
+            if available_records is None:
+                available_records = data.candles
+                source_local_start = 0
+            else:
+                month_times = [str(candle["time"]) for candle in data.candles]
+                source_local_start = bisect_left(
+                    month_times, str(available_records[0]["time"])
+                )
+            selected_count = int(selected_chunk["count"])
+            if chunk_offset >= selected_count:
+                raise RequestError(400, "Chunk offset is outside the selected month.")
+            selected_records = slice_month_records(
+                available_records, offset=chunk_offset, limit=limit
+            )
             if not selected_records:
                 raise RequestError(400, "No candles found in the selected month.")
             trend_states = (
@@ -1474,14 +1560,23 @@ class LabService:
                 source_sha256=data.sha256,
                 records=data.candles,
             )
-            offset = int(selected_chunk["startIndex"])
+            offset = int(selected_chunk["startIndex"]) + chunk_offset
+            source_segment_start = source_local_start + chunk_offset
+            source_segment_end = source_segment_start + len(selected_records)
             shifted_swing_events = [
                 {
                     **event,
-                    "pivot_index": int(event["pivot_index"]) + offset,
-                    "confirmed_index": int(event["confirmed_index"]) + offset,
+                    "pivot_index": int(event["pivot_index"])
+                    + offset
+                    - source_local_start,
+                    "confirmed_index": int(event["confirmed_index"])
+                    + offset
+                    - source_local_start,
                 }
                 for event in swing_events
+                if source_segment_start
+                <= int(event["confirmed_index"])
+                < source_segment_end
             ]
             return {
                 "symbol": symbol,
@@ -1498,17 +1593,21 @@ class LabService:
                 "swingEvents": shifted_swing_events,
                 "totalCandles": start_index,
                 "limit": limit,
-                "truncated": int(selected_chunk["count"]) > limit,
+                "truncated": chunk_offset + len(selected_records) < selected_count,
                 "chunks": chunks,
                 "chunkMonth": response_month,
                 "chunkOffset": offset,
+                "chunkLocalOffset": chunk_offset,
+                "chunkCount": selected_count,
                 "source": self.source,
                 "sourceSha256": self.source_sha256,
             }
         source_data = self._data_for(symbol, timeframe)
         chunks: list[dict[str, Any]] = []
         response_chunk_month: str | None = None
-        chunk_offset = 0
+        requested_chunk_offset = chunk_offset
+        response_chunk_offset = 0
+        response_chunk_count = 0
         if timeframe == "M1":
             times, month_ranges = self._m1_month_indexes(source_data.candles)
             window_start = bisect_left(times, from_date.isoformat())
@@ -1547,29 +1646,44 @@ class LabService:
                 raise RequestError(
                     400, "Chunk month is outside the selected date window."
                 )
-            chunk_offset = int(chunk["startIndex"])
-            chunk_start = window_start + chunk_offset
+            month_start_offset = int(chunk["startIndex"])
+            month_local_offset = requested_chunk_offset
             chunk_count = int(chunk["count"])
-            chunk_end = chunk_start + min(chunk_count, limit)
-            context_start = max(window_start, chunk_start - 99)
+            if month_local_offset >= chunk_count:
+                raise RequestError(400, "Chunk offset is outside the selected month.")
+            chunk_start = window_start + month_start_offset
+            chunk_end = chunk_start + min(chunk_count, month_local_offset + limit)
+            context_start = max(window_start, chunk_start + month_local_offset - 99)
             selected = source_data.candles[context_start:chunk_end]
-            chunk_offset = context_start - window_start
+            response_chunk_offset = context_start - window_start
+            response_chunk_count = chunk_count
             total_candles = window_end - window_start
-            truncated = chunk_count > limit
+            truncated = month_local_offset + len(
+                source_data.candles[
+                    chunk_start + month_local_offset : chunk_end
+                ]
+            ) < chunk_count
         else:
             if chunk_month is not None:
                 raise RequestError(400, "Month chunks are only supported for M1.")
             try:
-                selected = backtest.filter_candles_by_date_window(
+                all_selected = backtest.filter_candles_by_date_window(
                     source_data.candles, from_date, to_date
                 )
             except ValueError as exc:
                 raise RequestError(400, str(exc)) from exc
-            swing_window_records = selected
-            total_candles = len(selected)
-            truncated = total_candles > limit
+            if requested_chunk_offset >= len(all_selected):
+                raise RequestError(400, "Chunk offset is outside the selected date window.")
+            selected = all_selected[
+                requested_chunk_offset : requested_chunk_offset + limit
+            ]
+            swing_window_records = all_selected
+            total_candles = len(all_selected)
+            response_chunk_offset = requested_chunk_offset
+            response_chunk_count = total_candles
+            truncated = requested_chunk_offset + len(selected) < total_candles
 
-        visible_records = selected if timeframe == "M1" else selected[:limit]
+        visible_records = selected
         # M1 windows are served month-by-month; defer its full-year trend pass
         # until an incremental replay actually requests engine states.
         trend_states = {} if timeframe == "M1" else self._trend_states_for_timeframe(
@@ -1598,7 +1712,9 @@ class LabService:
             "truncated": truncated,
             "chunks": chunks,
             "chunkMonth": response_chunk_month,
-            "chunkOffset": chunk_offset,
+            "chunkOffset": response_chunk_offset,
+            "chunkLocalOffset": requested_chunk_offset,
+            "chunkCount": response_chunk_count or total_candles,
             "source": source_data.source,
             "sourceSha256": source_data.sha256,
         }
@@ -2290,6 +2406,15 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
                     chunk_month = (
                         chunk_month_values[0] if chunk_month_values else None
                     )
+                    chunk_offset_values = params.get("chunkOffset", ["0"])
+                    if len(chunk_offset_values) != 1:
+                        raise RequestError(400, "Chunk offset must be specified once.")
+                    try:
+                        chunk_offset = int(chunk_offset_values[0])
+                    except ValueError as exc:
+                        raise RequestError(
+                            400, "Chunk offset must be a whole number."
+                        ) from exc
                     self._send_json(
                         200,
                         service.candle_window(
@@ -2298,6 +2423,7 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
                             to_value,
                             limit=limit,
                             chunk_month=chunk_month,
+                            chunk_offset=chunk_offset,
                             symbol=symbol,
                         ),
                     )
@@ -2323,6 +2449,46 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
             parsed = urllib.parse.urlsplit(self.path)
             try:
                 payload = self._read_json()
+                if parsed.path == "/api/evolve/system-intelligence/propose":
+                    if payload:
+                        raise RequestError(
+                            400, "System Intelligence proposal generation accepts no fields."
+                        )
+                    self._send_json(
+                        200, service.propose_system_intelligence_rule()
+                    )
+                    return
+                proposal_path = parsed.path.strip("/").split("/")
+                if (
+                    len(proposal_path) == 6
+                    and proposal_path[:4]
+                    == ["api", "evolve", "system-intelligence", "proposals"]
+                    and proposal_path[5] in {"accept", "reject"}
+                ):
+                    proposal_id = proposal_path[4]
+                    if proposal_path[5] == "accept":
+                        if payload:
+                            raise RequestError(
+                                400, "Accepting a proposal accepts no fields."
+                            )
+                        self._send_json(
+                            200,
+                            service.si_case_store.accept_rule_proposal(proposal_id),
+                        )
+                        return
+                    if set(payload) != {"reason"} or not isinstance(
+                        payload.get("reason"), str
+                    ):
+                        raise RequestError(
+                            400, "A rejection reason is required."
+                        )
+                    self._send_json(
+                        200,
+                        service.si_case_store.reject_rule_proposal(
+                            proposal_id, payload["reason"]
+                        ),
+                    )
+                    return
                 if parsed.path == "/api/evolve/autoevolve/start":
                     if set(payload) - {"swingVersion"}:
                         raise RequestError(

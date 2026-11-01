@@ -39,6 +39,8 @@ MONTHS = tuple(
     for year in range(2023, 2026)
     for month in range(1, 13)
 )
+CANDLE_STREAM_CHUNK_SIZE = 25_000
+CANDLE_STREAM_SOFT_CAP = 500_000
 MANIFEST_FILENAME = "monthly-manifest.json"
 RAW_ARCHIVES = tuple(
     Path("historicalMarketData")
@@ -211,6 +213,17 @@ def load_month(
     if normalized_symbol == SYMBOL and data.source.lower() != SOURCE:
         raise MonthlyDataError(f"{path}: expected the {SOURCE} source label.")
     return data
+
+
+def slice_month_records(
+    candles: list[dict[str, Any]], *, offset: int, limit: int
+) -> list[dict[str, Any]]:
+    """Select one bounded, zero-based slice from a verified calendar month."""
+    if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+        raise MonthlyDataError("Month slice offset must be a non-negative integer.")
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+        raise MonthlyDataError("Month slice limit must be a positive integer.")
+    return candles[offset : offset + min(limit, CANDLE_STREAM_CHUNK_SIZE)]
 
 
 def _canonical_hash(candles: Iterable[dict[str, Any]]) -> str:

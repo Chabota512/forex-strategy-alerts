@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster as SonnerToaster } from 'sonner';
 import NotFound from '@/pages/not-found';
 import {
+  getLabCandles,
   getGetLabCandlesQueryKey,
   useAdvanceLabReplaySession,
   useGetAlertComment,
@@ -18,6 +19,7 @@ import {
 import type { AICommentResult, Alert, Candle, CandleMonthChunk, ConfirmedSwingEvent, EvolvePolicy, InstrumentReviewInfo, InstrumentSymbol, ReplayAlert, ReplayCandleState, ReplayPolicyDecision, ReplaySessionStartResult, SimulatedTrade, SimulationSettings, SimulationSnapshot, Timeframe, WickPressure, WickPressurePoint } from '@workspace/api-client-react';
 import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Moon, Pause, Play, RotateCcw, SkipBack, Square, Sun } from 'lucide-react';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
+import { streamCandleWindow as runCandleWindowStream } from './lib/candle-stream';
 import { SimulationPanel } from '@/components/simulation-panel';
 import { DrawingLayer, DrawingToolbar, requestClearSelectedDrawings } from '@/components/drawing-tools';
 import { TradeJournal } from '@/components/trade-journal';
@@ -59,6 +61,60 @@ import {
 
 const queryClient = new QueryClient();
 const DISCLAIMER = 'SIMULATION — not a profitability claim.';
+const CANDLE_STREAM_CHUNK_SIZE = 25_000;
+const CANDLE_CACHE_SOFT_CAP = 500_000;
+type CachedCandleSegment = { offset: number; candles: Candle[] };
+
+function loadedCandleCount(
+  cache: Map<string, CachedCandleSegment>,
+  windowKey: string,
+): number {
+  const ranges = Array.from(cache.entries())
+    .filter(([key, segment]) => key.startsWith(`${windowKey}:`) && segment.candles.length)
+    .map(([, segment]) => [segment.offset, segment.offset + segment.candles.length] as [number, number])
+    .sort((left, right) => left[0] - right[0]);
+  let count = 0;
+  let rangeStart: number | null = null;
+  let rangeEnd = 0;
+  for (const [start, end] of ranges) {
+    if (rangeStart === null) {
+      rangeStart = start;
+      rangeEnd = end;
+    } else if (start <= rangeEnd) {
+      rangeEnd = Math.max(rangeEnd, end);
+    } else {
+      count += rangeEnd - rangeStart;
+      rangeStart = start;
+      rangeEnd = end;
+    }
+  }
+  return Math.min(
+    CANDLE_CACHE_SOFT_CAP,
+    count + (rangeStart === null ? 0 : rangeEnd - rangeStart),
+  );
+}
+
+function cacheCandleSegment(
+  cache: Map<string, CachedCandleSegment>,
+  key: string,
+  segment: CachedCandleSegment,
+): Map<string, CachedCandleSegment> {
+  const next = new Map(cache);
+  next.delete(key);
+  next.set(key, segment);
+  let total = Array.from(next.values()).reduce(
+    (count, item) => count + item.candles.length,
+    0,
+  );
+  while (total > CANDLE_CACHE_SOFT_CAP && next.size) {
+    const oldestKey = next.keys().next().value;
+    if (oldestKey === undefined) break;
+    const oldest = next.get(oldestKey);
+    if (oldest) total -= oldest.candles.length;
+    next.delete(oldestKey);
+  }
+  return next;
+}
 const XAU_MONTHS = Array.from({ length: 36 }, (_, index) => {
   const year = 2023 + Math.floor(index / 12);
   const month = String(index % 12 + 1).padStart(2, '0');
@@ -974,6 +1030,7 @@ export function Home() {
     targetRangeMultiplier: 3,
     geometryWeights: { bodyWeight: 1, wickMultiplier: 2, rangeMultiplier: 3 },
     directionMode: 'normal',
+    tradeDirection: 'both',
     invertWeights: {
       direction: 1 / 12, variant: 1 / 12,
       cctState: 1 / 12, cctAlignment: 1 / 12,
@@ -1053,6 +1110,14 @@ export function Home() {
   const [loadedMonthChunks, setLoadedMonthChunks] = useState(
     () => new Map<string, { offset: number; candles: Candle[] }>(),
   );
+  const [windowStream, setWindowStream] = useState<{
+    active: boolean;
+    loaded: number;
+    total: number;
+    capped: boolean;
+    error?: string;
+  }>({ active: false, loaded: 0, total: 0, capped: false });
+  const windowStreamAbort = useRef<AbortController | null>(null);
   const initializedMonthWindow = useRef('');
   const resumeAfterScrub = useRef(false);
   const scrubPositionRef = useRef(0);
@@ -1076,6 +1141,13 @@ export function Home() {
   const chunkForCursor = storedMonthChunks.find(chunk =>
     cursor >= chunk.startIndex && cursor < chunk.startIndex + chunk.count,
   );
+  const monthSegmentOffset = (chunk: CandleMonthChunk, index: number) =>
+    Math.floor(Math.max(0, index - chunk.startIndex) / CANDLE_STREAM_CHUNK_SIZE)
+      * CANDLE_STREAM_CHUNK_SIZE;
+  const hasCachedMonthSegment = (chunk: CandleMonthChunk, index: number) =>
+    loadedMonthChunks.has(
+      `${monthWindowKey}:${chunk.month}:${monthSegmentOffset(chunk, index)}`,
+    );
   const cachedMonthCandle = (index: number) => Array.from(loadedMonthChunks.entries())
     .some(([key, cached]) => key.startsWith(`${monthWindowKey}:`)
       && index >= cached.offset && index < cached.offset + cached.candles.length);
@@ -1095,15 +1167,33 @@ export function Home() {
   const missingChartChunk = storedMonthChunks.find(chunk =>
     chunk.startIndex <= anticipatedChartEnd
     && chunk.startIndex + chunk.count - 1 >= anticipatedChartStart
-    && !loadedMonthChunks.has(`${monthWindowKey}:${chunk.month}`),
+    && !hasCachedMonthSegment(
+      chunk,
+      Math.max(anticipatedChartStart, chunk.startIndex),
+    ),
   );
   const cursorCandleCached = cachedMonthCandle(cursor);
   const requestedChunkMonth = missingChartChunk?.month
     ?? (!cursorCandleCached ? chunkForCursor?.month : undefined)
     ?? viewMonth;
+  const requestedChunk = missingChartChunk
+    ?? (!cursorCandleCached ? chunkForCursor : undefined)
+    ?? storedMonthChunks.find(chunk => chunk.month === requestedChunkMonth);
+  const requestedIndex = missingChartChunk
+    ? Math.max(anticipatedChartStart, missingChartChunk.startIndex)
+    : !cursorCandleCached && chunkForCursor
+      ? cursor
+      : requestedChunk
+        ? Math.max(anticipatedChartStart, requestedChunk.startIndex)
+        : 0;
+  const requestedChunkOffset = requestedChunk
+    ? monthSegmentOffset(requestedChunk, requestedIndex)
+    : 0;
   const params = {
-    symbol: selectedSymbol, timeframe, from, to: displayTo, limit: 100000,
+    symbol: selectedSymbol, timeframe, from, to: displayTo,
+    limit: CANDLE_STREAM_CHUNK_SIZE,
     chunkMonth: requestedChunkMonth,
+    chunkOffset: requestedChunkOffset,
   };
   const candlesQuery = useGetLabCandles(params, {
     query: { enabled: Boolean(activeDataset), queryKey: getGetLabCandlesQueryKey(params) },
@@ -1113,8 +1203,9 @@ export function Home() {
     timeframe,
     from,
     to,
-    limit: 100000,
+    limit: CANDLE_STREAM_CHUNK_SIZE,
     chunkMonth: to.slice(0, 7),
+    chunkOffset: 0,
   };
   const simulationCandlesQuery = useGetLabCandles(simulationParams, {
     query: {
@@ -1126,6 +1217,7 @@ export function Home() {
     && candlesQuery.data.symbol === selectedSymbol
     && candlesQuery.data.from === from && candlesQuery.data.to === displayTo
     && candlesQuery.data.chunkMonth === requestedChunkMonth
+    && (candlesQuery.data.chunkLocalOffset ?? requestedChunkOffset) === requestedChunkOffset
     ? candlesQuery.data : undefined;
   const simulationWindowData = simulationCandlesQuery.data?.timeframe === timeframe
     && simulationCandlesQuery.data.symbol === selectedSymbol
@@ -1154,8 +1246,12 @@ export function Home() {
       index >= item.startIndex && index < item.startIndex + item.count,
     );
     if (!chunk) return undefined;
-    const cached = loadedMonthChunks.get(`${monthWindowKey}:${chunk.month}`);
-    if (cached && index >= cached.offset && index < cached.offset + cached.candles.length) {
+    const cached = Array.from(loadedMonthChunks.entries()).find(([key, segment]) =>
+      key.startsWith(`${monthWindowKey}:${chunk.month}:`)
+      && index >= segment.offset
+      && index < segment.offset + segment.candles.length,
+    )?.[1];
+    if (cached) {
       return cached.candles[index - cached.offset];
     }
     if (
@@ -1222,6 +1318,10 @@ export function Home() {
     ? currentReplayCandle
     : getCandleAt(m1DataReplay || replayReady ? cursor : browseIndex) ?? null;
   const monthProgress = `Month ${monthOrdinal(viewMonth)}/36`;
+  const cachedWindowCandleCount = loadedCandleCount(
+    loadedMonthChunks,
+    monthWindowKey,
+  );
   const symbolDataLoading = !activeDataset && (dataset.isLoading || dataset.isFetching);
   const candleWindowLoading = Boolean(activeDataset)
     && candlesQuery.isFetching && !candleData && !chartCandles.some(Boolean);
@@ -1230,14 +1330,94 @@ export function Home() {
     : candleWindowLoading
       ? `Loading ${selectedSymbol} ${timeframe} candles…`
       : null;
-  const loadStatus = symbolDataLoading
-    ? `Loading ${selectedSymbol} market data…`
+  const loadStatus = windowStream.active
+    ? `Streaming candle window · ${windowStream.loaded.toLocaleString()} / ${windowStream.total.toLocaleString()} candles · ${monthProgress}`
+    : symbolDataLoading
+      ? `Loading ${selectedSymbol} market data…`
     : candlesQuery.isFetching
       ? `Loading ${monthProgress} · ${requestedChunkMonth}…`
       : candleWindowLoading
         ? `Loading ${selectedSymbol} ${timeframe} candles…`
       : null;
+  const streamCandleWindow = async () => {
+    if (windowStream.active) {
+      windowStreamAbort.current?.abort();
+      windowStreamAbort.current = null;
+      setWindowStream(current => ({ ...current, active: false }));
+      return;
+    }
+    if (!currentMonthChunks.length || !activeDataset) return;
+    const controller = new AbortController();
+    windowStreamAbort.current = controller;
+    const streamTotal = Math.min(dataTotalCandles, CANDLE_CACHE_SOFT_CAP);
+    let loaded = cachedWindowCandleCount;
+    setWindowStream({
+      active: true,
+      loaded,
+      total: streamTotal,
+      capped: dataTotalCandles > CANDLE_CACHE_SOFT_CAP,
+    });
+    try {
+      const result = await runCandleWindowStream({
+        chunks: currentMonthChunks,
+        totalCandles: dataTotalCandles,
+        initialLoaded: loaded,
+        chunkSize: CANDLE_STREAM_CHUNK_SIZE,
+        softCap: CANDLE_CACHE_SOFT_CAP,
+        signal: controller.signal,
+        isCached: (month, localOffset) => loadedMonthChunks.has(
+          `${monthWindowKey}:${month}:${localOffset}`,
+        ),
+        fetchChunk: (month, localOffset, limit, signal) => getLabCandles(
+          {
+            symbol: selectedSymbol,
+            timeframe,
+            from,
+            to: displayTo,
+            limit,
+            chunkMonth: month,
+            chunkOffset: localOffset,
+          },
+          { signal },
+        ),
+        onChunk: (month, localOffset, response) => {
+          const key = `${monthWindowKey}:${month}:${localOffset}`;
+          setLoadedMonthChunks(previous => cacheCandleSegment(
+            previous,
+            key,
+            { offset: response.chunkOffset, candles: response.candles },
+          ));
+        },
+        onProgress: loadedProgress => setWindowStream(current => ({
+          ...current,
+          loaded: loadedProgress,
+        })),
+      });
+      if (controller.signal.aborted) return;
+      setWindowStream(current => ({
+        ...current,
+        active: false,
+        loaded: result.loaded,
+        capped: result.capped,
+      }));
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setWindowStream(current => ({
+          ...current,
+          active: false,
+          error: error instanceof Error ? error.message : 'Candle streaming failed.',
+        }));
+      }
+    } finally {
+      if (windowStreamAbort.current === controller) {
+        windowStreamAbort.current = null;
+      }
+    }
+  };
   const resetMonthChunks = () => {
+    windowStreamAbort.current?.abort();
+    windowStreamAbort.current = null;
+    setWindowStream({ active: false, loaded: 0, total: 0, capped: false });
     initializedMonthWindow.current = '';
     setMonthChunkState(null);
     setLoadedMonthChunks(new Map());
@@ -1375,14 +1555,12 @@ export function Home() {
       || data.to !== displayTo
       || !data.chunkMonth
     ) return;
-    const key = `${monthWindowKey}:${data.chunkMonth}`;
-    setLoadedMonthChunks(previous => {
-      if (previous.has(key)) return previous;
-      return new Map(previous).set(key, {
-        offset: data.chunkOffset,
-        candles: data.candles,
-      });
-    });
+    const localOffset = data.chunkLocalOffset ?? requestedChunkOffset;
+    const key = `${monthWindowKey}:${data.chunkMonth}:${localOffset}`;
+    setLoadedMonthChunks(previous => cacheCandleSegment(previous, key, {
+      offset: data.chunkOffset,
+      candles: data.candles,
+    }));
     setMonthChunkState(previous => {
       if (previous?.windowKey === monthWindowKey) return previous;
       return {
@@ -1402,7 +1580,15 @@ export function Home() {
       }
       setPlaying(false);
     }
-  }, [timeframe, from, displayTo, monthWindowKey, candleData, viewMonth]);
+  }, [
+    timeframe,
+    from,
+    displayTo,
+    monthWindowKey,
+    candleData,
+    viewMonth,
+    requestedChunkOffset,
+  ]);
   useEffect(() => {
     if (!focusedTrade || !candleData) return;
     const entryMonth = focusedTrade.entryTime.slice(0, 7);
@@ -1990,7 +2176,7 @@ export function Home() {
     }
     setPlaying(value => !value);
   };
-  const maxReplayCandles = 100000;
+  const maxReplayCandles = 500000;
   const replayLimitExceeded = totalCandles > maxReplayCandles;
   const replayFailed = startReplayMutation.isError || advanceReplayMutation.isError;
   const retryReplay = () => {
@@ -2100,7 +2286,20 @@ export function Home() {
         <label className="compact-field month-field"><span>MONTH</span><select value={viewMonth} onChange={e => selectMonth(e.target.value)} data-testid="select-month">
           {XAU_MONTHS.map(month => <option key={month} value={month} disabled={month < from.slice(0, 7) || month > displayTo.slice(0, 7)}>{month}</option>)}
         </select></label>
-        <span className="month-status" role="status" data-testid="status-month-progress">{monthProgress} · {viewMonth}</span>
+        <span className="month-status" role="status" data-testid="status-month-progress">
+          {monthProgress} · {viewMonth} · {cachedWindowCandleCount.toLocaleString()} cached
+        </span>
+        <button
+          type="button"
+          className="tf"
+          onClick={() => void streamCandleWindow()}
+          disabled={!currentMonthChunks.length || (
+            !windowStream.active
+            && cachedWindowCandleCount >= Math.min(dataTotalCandles, CANDLE_CACHE_SOFT_CAP)
+          )}
+          aria-label={windowStream.active ? 'Cancel candle window loading' : 'Load candle window'}
+          data-testid="button-stream-candle-window"
+        >{windowStream.active ? 'CANCEL LOAD' : 'LOAD WINDOW'}</button>
       </>}
       <div className="timeframes" role="group" aria-label="Timeframe">
         {(['M5', 'M15', 'H1', 'H4', 'D1'] as Timeframe[]).map(tf => <button key={tf} className={timeframe === tf ? 'tf active' : 'tf'} onClick={() => {
@@ -2114,8 +2313,10 @@ export function Home() {
       <span className="loaded-state" data-testid="status-dataset"><b data-testid="status-selected-symbol">{selectedSymbol}</b> · {dataset.isError ? 'SOURCE ERROR' : dataset.isLoading ? 'SOURCE…' : `${totalCandles.toLocaleString()} CANDLES ${timeframe === 'M1' ? 'AVAILABLE' : 'LOADED'}`}</span>
       {activeDataset && !activeDataset.ownerApproved && <div className="m1-notice" role="status" data-testid="notice-pending-owner-review">{selectedSymbol} is pending owner approval. Replay and scoring remain disabled until the manifest is approved.</div>}
       {timeframe === 'M1' && <div className="m1-notice" data-testid="notice-m1-review">M1 fires on ~1 in 4 candles — for engine checks only, not human review.</div>}
-      {replayLimitExceeded && <div className="m1-notice" data-testid="notice-m1-engine-limit">Replay windows are capped at 100,000 candles. Choose a shorter date range.</div>}
+      {replayLimitExceeded && <div className="m1-notice" data-testid="notice-m1-engine-limit">Replay windows are capped at 500,000 candles. Choose a shorter date range.</div>}
       {loadStatus && <div className="load-status" role="status" aria-live="polite" data-testid="status-loading">{loadStatus}</div>}
+      {windowStream.capped && !windowStream.active && <div className="m1-notice" role="status" data-testid="notice-candle-cache-cap">The candle cache reached its 500,000-candle soft ceiling. Seeking can load another region.</div>}
+      {windowStream.error && <div className="inline-error" role="alert" data-testid="error-candle-stream">{windowStream.error}</div>}
       {!validDates && <div className="inline-error" role="alert">Choose a date window within the available source bounds.</div>}
       {dataset.isError && <button className="inline-error retry" onClick={() => dataset.refetch()} data-testid="button-retry-dataset">Dataset unavailable · Retry</button>}
       {candlesQuery.isError && <button className="inline-error retry" onClick={() => candlesQuery.refetch()} data-testid="button-retry-candles">Candle window unavailable · Retry</button>}

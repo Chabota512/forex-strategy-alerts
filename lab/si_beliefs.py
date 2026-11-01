@@ -20,6 +20,7 @@ if __package__:
         inversion_feature_values,
         normalize_invert_weights,
     )
+    from .si_rule_proposals import condition_matches
 else:
     from engine import (
         DEFAULT_STRENGTH_THRESHOLDS,
@@ -34,6 +35,7 @@ else:
         inversion_feature_values,
         normalize_invert_weights,
     )
+    from si_rule_proposals import condition_matches
 
 MIN_RULE_CASES = 5
 MIN_TUNING_CASES = 20
@@ -112,31 +114,30 @@ def score_belief_rules(
     weighted_score = 0.0
     total_confidence = 0.0
 
-    for definition in RULE_DEFINITIONS:
-        rule_id = definition["id"]
-        if not matches_rule(rule_id, case):
-            continue
+    def add_rule_score(rule_id: str, matched: bool) -> None:
+        nonlocal weighted_score, total_confidence
+        if not matched:
+            return
         metric = rule_metrics.get(rule_id)
         if metric is None:
-            continue
-
+            return
         try:
             samples = int(metric.get("samples", 0))
             raw_hit_rate = float(metric.get("hit_rate"))
             raw_expectancy = float(metric.get("expectancy"))
             rule_weight = float(metric.get("weight", 1.0))
         except (TypeError, ValueError):
-            continue
+            return
         if samples <= 0 or not all(
             math.isfinite(value)
             for value in (raw_hit_rate, raw_expectancy, rule_weight)
         ):
-            continue
+            return
 
         rule_weight = min(1.0, max(0.0, rule_weight))
         confidence = rule_weight * samples / (samples + MIN_RULE_CASES)
         if confidence <= 0:
-            continue
+            return
 
         adjusted_hit_rate = (
             samples * min(1.0, max(0.0, raw_hit_rate))
@@ -149,6 +150,19 @@ def score_belief_rules(
         rule_score = 0.5 * adjusted_hit_rate + 0.5 * expectancy_score
         weighted_score += confidence * rule_score
         total_confidence += confidence
+
+    for definition in RULE_DEFINITIONS:
+        add_rule_score(
+            definition["id"],
+            matches_rule(definition["id"], case),
+        )
+
+    seeded_ids = {definition["id"] for definition in RULE_DEFINITIONS}
+    for rule_id, metric in rule_metrics.items():
+        condition = metric.get("condition")
+        if rule_id in seeded_ids or not isinstance(condition, Mapping):
+            continue
+        add_rule_score(rule_id, condition_matches(condition, case))
 
     if total_confidence == 0:
         return 0.5

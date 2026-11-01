@@ -1,6 +1,6 @@
 import { getGetSystemIntelligenceQueryKey, useGetSystemIntelligence } from '@workspace/api-client-react';
 import type { SystemIntelligence } from '@workspace/api-client-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   CartesianGrid,
@@ -48,6 +48,57 @@ const evidenceValue = (value: unknown): string => {
 };
 const label = (value: string) => value.replace(/[_-]/g, ' ').toUpperCase();
 
+type ProposedRule = {
+  id: string;
+  name: string;
+  description: string;
+  rationale: string;
+  condition: Record<string, unknown>;
+};
+
+type ProposalAttempt = {
+  status: string;
+  reason?: string;
+  provider?: string | null;
+  key_index?: number | null;
+  token_usage?: { input?: number | null; output?: number | null; total?: number | null } | null;
+};
+
+type ProposalSummary = {
+  threshold: number;
+  newResolvedCases: number;
+  eligible: boolean;
+  generating: boolean;
+  pending: {
+    proposal_id: string;
+    candidate: ProposedRule;
+    status: string;
+  } | null;
+  latestAttempt: ProposalAttempt | null;
+  attemptCount: number;
+  tokenUsage: { input: number | null; output: number | null; total: number | null };
+};
+
+type IntelligenceWithProposal = SystemIntelligence & { proposal?: ProposalSummary };
+
+async function postIntelligenceAction(path: string, payload: Record<string, string> = {}) {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  let result: { error?: string } = {};
+  try {
+    result = await response.json() as { error?: string };
+  } catch {
+    // Keep the HTTP status as the useful failure detail for an empty response.
+  }
+  if (!response.ok) {
+    throw new Error(result.error ?? `Request failed (${response.status}).`);
+  }
+  return result;
+}
+
 function Evidence({ evidence }: { evidence: SystemIntelligence['lessons'][number]['evidence'] }) {
   const entries = Object.entries(evidence);
   if (!entries.length) return <div className="intel-evidence"><span>No evidence fields supplied</span></div>;
@@ -90,8 +141,29 @@ function IntelligenceChart({ data }: { data: SystemIntelligence['hitRateOverTime
   </div>;
 }
 
-function LoadedIntelligence({ data }: { data: SystemIntelligence }) {
+function LoadedIntelligence({ data, refresh }: {
+  data: IntelligenceWithProposal;
+  refresh: () => Promise<unknown>;
+}) {
   const expectancyClass = data.overall.expectancy == null ? '' : data.overall.expectancy >= 0 ? 'is-positive' : 'is-negative';
+  const [rejectReason, setRejectReason] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [actionPending, setActionPending] = useState(false);
+  const proposal = data.proposal;
+  const pending = proposal?.pending ?? null;
+  const performAction = async (path: string, payload: Record<string, string> = {}) => {
+    setActionPending(true);
+    setActionError('');
+    try {
+      await postIntelligenceAction(path, payload);
+      setRejectReason('');
+      await refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'The proposal action failed.');
+    } finally {
+      setActionPending(false);
+    }
+  };
   return <>
     <div className="intel-overview" data-testid="intel-overview">
       <div className="intel-overall">
@@ -113,10 +185,10 @@ function LoadedIntelligence({ data }: { data: SystemIntelligence }) {
         <div className="intel-message" data-testid="intel-chart-empty"><div><strong>NO HISTORY TO PLOT</strong><p>No hit-rate observations are available yet.</p></div></div>}
     </section>
     <section className="intel-section" aria-labelledby="intel-rules-title">
-      <div className="intel-section-head"><h3 id="intel-rules-title">SEEDED RULES</h3><span>Observed evidence · not a live decision system</span></div>
+        <div className="intel-section-head"><h3 id="intel-rules-title">ACTIVE BELIEF RULES</h3><span>Observed evidence · not a live decision system</span></div>
       {data.rules.length ? <div className="intel-rule-list" data-testid="intel-rules">
         {data.rules.map(rule => <article className="intel-rule" key={rule.id} data-testid={`intel-rule-${rule.id}`}>
-          <div className="intel-rule-top"><h4>{rule.name}</h4>{rule.flagged && <span className="intel-rule-flag">FLAGGED</span>}</div>
+          <div className="intel-rule-top"><h4>{rule.name}</h4>{rule.custom && <span className="intel-rule-flag">OWNER APPROVED</span>}{rule.flagged && <span className="intel-rule-flag">FLAGGED</span>}</div>
           <p>{rule.description}</p>
           <div className="intel-rule-metrics">
             <div><span>SAMPLES</span><strong>{rule.samples.toLocaleString()}</strong></div>
@@ -147,15 +219,77 @@ function LoadedIntelligence({ data }: { data: SystemIntelligence }) {
       <p className="intel-bounded-note">These values are displayed for research context only. Their bounds and any changes are governed by the server; this panel cannot edit or apply them.</p>
     </section>
     <section className="intel-section" aria-labelledby="intel-suggestion-title">
-      <div className="intel-section-head"><h3 id="intel-suggestion-title">ACCEPT SUGGESTION</h3><span>INERT SLOT · DISABLED</span></div>
+      <div className="intel-section-head"><h3 id="intel-suggestion-title">OWNER REVIEW QUEUE</h3><span>NEVER AUTO-ACCEPTED</span></div>
       <div className="intel-message" data-testid="intel-accept-suggestion-slot">
-        <div><strong>NO SUGGESTION CAN BE APPLIED</strong><p>Reserved for future owner review; this control cannot change the system.</p></div>
-        <button
-          type="button"
-          disabled
-          aria-label="Accept suggestion (inactive)"
-          data-testid="button-accept-intel-suggestion"
-        >ACCEPT SUGGESTION</button>
+        {pending ? <>
+          <div className="intel-proposal-copy">
+            <strong>{pending.candidate.name}</strong>
+            <p>{pending.candidate.rationale}</p>
+            <code>{JSON.stringify(pending.candidate.condition)}</code>
+            <p>Based on aggregate-only evidence. Approval starts this rule at low confidence and collects new cases only.</p>
+          </div>
+          <div className="intel-proposal-actions">
+            <button
+              type="button"
+              disabled={actionPending}
+              onClick={() => void performAction(
+                `/api/evolve/system-intelligence/proposals/${encodeURIComponent(pending.proposal_id)}/accept`,
+              )}
+              aria-label="Accept suggestion"
+              data-testid="button-accept-intel-suggestion"
+            >{actionPending ? 'SAVING…' : 'ACCEPT SUGGESTION'}</button>
+            <label className="intel-reject-reason">
+              <span>REJECTION REASON</span>
+              <input
+                value={rejectReason}
+                maxLength={300}
+                onChange={event => setRejectReason(event.target.value)}
+                placeholder="Why should this rule be archived?"
+                aria-label="Rejection reason"
+                data-testid="input-intel-rejection-reason"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={actionPending || !rejectReason.trim()}
+              onClick={() => void performAction(
+                `/api/evolve/system-intelligence/proposals/${encodeURIComponent(pending.proposal_id)}/reject`,
+                { reason: rejectReason },
+              )}
+              data-testid="button-reject-intel-suggestion"
+            >REJECT &amp; ARCHIVE</button>
+          </div>
+        </> : <>
+          <div>
+            <strong>{proposal?.generating ? 'PROPOSAL IN PROGRESS' : 'NO PENDING RULE'}</strong>
+            <p>{proposal?.eligible
+              ? 'Enough new resolved cases are available for an aggregate-only Gemini proposal.'
+              : `${proposal?.newResolvedCases ?? 0} / ${proposal?.threshold ?? 50} new resolved cases since the last proposal attempt.`}
+            </p>
+            {proposal?.latestAttempt && <p data-testid="intel-proposal-last-attempt">
+              LAST ATTEMPT · {proposal.latestAttempt.status.toUpperCase()}
+              {proposal.latestAttempt.reason ? ` · ${proposal.latestAttempt.reason}` : ''}
+            </p>}
+          </div>
+          <button
+            type="button"
+            disabled={!proposal?.eligible || actionPending || proposal.generating}
+            onClick={() => void performAction('/api/evolve/system-intelligence/propose')}
+            aria-label="Generate rule proposal"
+            data-testid="button-generate-intel-suggestion"
+          >{actionPending || proposal?.generating ? 'PROPOSING…' : 'PROPOSE RULE'}</button>
+          <button
+            type="button"
+            disabled
+            aria-label="Accept suggestion (no pending rule)"
+            data-testid="button-accept-intel-suggestion"
+          >ACCEPT SUGGESTION</button>
+        </>}
+        <span className="intel-proposal-usage" data-testid="intel-proposal-usage">
+          ATTEMPTS · {proposal?.attemptCount ?? 0}
+          {' · '}TOKENS · {proposal?.tokenUsage?.total ?? '—'}
+        </span>
+        {actionError && <p role="alert" className="intel-proposal-error" data-testid="intel-proposal-error">{actionError}</p>}
       </div>
     </section>
   </>;
@@ -165,7 +299,7 @@ export function SystemIntelligencePanel({ enabled = false }: { enabled?: boolean
   const query = useGetSystemIntelligence({
     query: { queryKey: getGetSystemIntelligenceQueryKey(), refetchInterval: 30000 },
   });
-  const data = query.data;
+  const data = query.data as IntelligenceWithProposal | undefined;
   useEffect(() => {
     if (query.isError) {
       notifySiFailure(getSiFailureCategory(query.error), enabled);
@@ -190,7 +324,7 @@ export function SystemIntelligencePanel({ enabled = false }: { enabled?: boolean
         {data.caseCount === 0 && <div className="intel-message" data-testid="intel-empty">
           <div><strong>NO XAUUSD CASES YET</strong><p>There is no historical sample to summarize. Seeded rules and bounded values remain visible below.</p></div>
         </div>}
-        <LoadedIntelligence data={data}/>
+        <LoadedIntelligence data={data} refresh={() => query.refetch()}/>
       </> : null}
   </section>;
 }

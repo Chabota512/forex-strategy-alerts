@@ -393,6 +393,10 @@ export interface CandleWindow {
   chunkMonth: string | null;
   /** @minimum 0 */
   chunkOffset: number;
+  /** Offset within the calendar-month chunk requested by the client. */
+  chunkLocalOffset?: number;
+  /** Candle count for the month or window chunk. */
+  chunkCount?: number;
   source: string;
   sourceSha256: string;
 }
@@ -447,6 +451,14 @@ export const SimulationSettingsDirectionMode = {
   normal: 'normal',
   inverted: 'inverted',
   adaptive: 'adaptive',
+} as const;
+
+export type SimulationSettingsTradeDirection = typeof SimulationSettingsTradeDirection[keyof typeof SimulationSettingsTradeDirection];
+
+export const SimulationSettingsTradeDirection = {
+  both: 'both',
+  buy_only: 'buy_only',
+  sell_only: 'sell_only',
 } as const;
 
 /**
@@ -570,6 +582,8 @@ export interface SimulationSettings {
   geometryWeights: GeometryWeights | null;
   /** XAUUSD-only direction handling. Normal preserves the source alert side. */
   directionMode: SimulationSettingsDirectionMode;
+  /** Restrict newly simulated trades by source alert direction. */
+  tradeDirection: SimulationSettingsTradeDirection;
   invertWeights: InvertWeights;
   /**
      * Adaptive mode inverts when the normalized score is greater than or equal to this threshold.
@@ -1390,6 +1404,7 @@ export interface SystemIntelligenceRule {
   baselineHitRate: number | null;
   weight: number;
   flagged: boolean;
+  custom?: boolean;
 }
 
 export interface SystemIntelligenceHistoryPoint {
@@ -1596,7 +1611,7 @@ from: string;
 to: string;
 /**
  * @minimum 1
- * @maximum 100000
+ * @maximum 25000
  */
 limit?: number;
 /**
@@ -1604,5 +1619,10 @@ limit?: number;
  * @pattern ^\d{4}-(0[1-9]|1[0-2])$
  */
 chunkMonth?: string;
+/**
+ * Zero-based offset inside chunkMonth; for a whole-window request, offset is global.
+ * @minimum 0
+ */
+chunkOffset?: number;
 };
 

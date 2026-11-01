@@ -85,6 +85,14 @@
 .intel-message p { margin:5px 0 0; }
 .intel-message button { min-height:26px; padding:0 9px; border:1px solid var(--control-border, #353c44); background:var(--control-raised, #1c2229); color:var(--intel-copy); cursor:pointer; font:7px var(--app-font-mono, monospace); }
 .intel-message button:disabled { cursor:not-allowed; opacity:.45; }
+.intel-message[data-testid="intel-accept-suggestion-slot"] { align-items:flex-start; flex-wrap:wrap; }
+.intel-proposal-copy { flex:1 1 260px; min-width:0; }
+.intel-proposal-copy code { display:block; max-height:76px; overflow:auto; margin-top:8px; padding:6px; border:1px solid var(--intel-line); color:var(--intel-copy); overflow-wrap:anywhere; font:7px/1.45 var(--app-font-mono, monospace); }
+.intel-proposal-actions { display:flex; flex:0 1 270px; flex-direction:column; gap:7px; min-width:min(100%,220px); }
+.intel-reject-reason { display:grid; gap:4px; color:var(--intel-muted); font-size:7px; letter-spacing:.06em; }
+.intel-reject-reason input { width:100%; min-height:27px; padding:5px 7px; border:1px solid var(--control-border, #353c44); background:var(--control-raised, #1c2229); color:var(--intel-copy); font:8px var(--app-font-mono, monospace); }
+.intel-proposal-usage { flex:1 0 100%; color:var(--text-subtle, #68717a); font-size:7px; }
+.intel-proposal-error { flex:1 0 100%; color:var(--warning-text, #d1a183); font-size:8px; }
 .intel-skeleton { display:grid; gap:8px; padding:14px; }
 .intel-skeleton i { display:block; height:10px; background:linear-gradient(90deg,var(--loading-a,#191e24),var(--loading-b,#20262d),var(--loading-a,#191e24)); background-size:220% 100%; animation:intel-shimmer 1.6s ease-in-out infinite; }
 .intel-skeleton i:nth-child(2) { width:82%; }

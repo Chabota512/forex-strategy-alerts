@@ -114,6 +114,7 @@ class SimulationSettings:
     stop_wick_multiplier: Decimal = CANDLE_GEOMETRY_SWEEP_WICK_MULTIPLIER
     target_range_multiplier: Decimal = CANDLE_GEOMETRY_TARGET_RANGE_MULTIPLIER
     direction_mode: str = "normal"
+    trade_direction: str = "both"
     invert_weights: Mapping[str, Decimal] = field(
         default_factory=lambda: dict(DEFAULT_INVERT_WEIGHTS)
     )
@@ -192,6 +193,17 @@ class SimulationSettings:
         direction_mode = value.get("directionMode", "normal")
         if not isinstance(direction_mode, str) or direction_mode not in DIRECTION_MODES:
             raise ValueError("Direction mode must be normal, inverted, or adaptive.")
+        trade_direction = value.get(
+            "tradeDirection", value.get("trade_direction", "both")
+        )
+        if not isinstance(trade_direction, str) or trade_direction not in {
+            "both",
+            "buy_only",
+            "sell_only",
+        }:
+            raise ValueError(
+                "Trade direction must be both, buy_only, or sell_only."
+            )
         if normalized_symbol != "XAUUSD" and direction_mode != "normal":
             raise ValueError("Directional inversion modes are available for XAUUSD only.")
         invert_weights_value = value.get("invertWeights")
@@ -239,6 +251,7 @@ class SimulationSettings:
             stop_wick_multiplier=stop_wick_multiplier,
             target_range_multiplier=target_range_multiplier,
             direction_mode=direction_mode,
+            trade_direction=trade_direction,
             invert_weights=invert_weights,
             invert_threshold=invert_threshold,
         )
@@ -257,6 +270,7 @@ class SimulationSettings:
             "stopWickMultiplier": float(self.stop_wick_multiplier),
             "targetRangeMultiplier": float(self.target_range_multiplier),
             "directionMode": self.direction_mode,
+            "tradeDirection": self.trade_direction,
             "invertWeights": {
                 INVERT_WEIGHT_CAMEL_KEYS[feature]: float(self.invert_weights[feature])
                 for feature in INVERT_FEATURES
@@ -629,6 +643,17 @@ class SimulationSession:
             return False
         if candle_index < 0 or candle_index >= len(self.records):
             raise ValueError("Alert index is outside the simulation candle window.")
+        _, effective_direction, _, _ = resolve_simulation_direction(
+            alert, self.settings
+        )
+        if (
+            self.settings.trade_direction == "buy_only"
+            and effective_direction != "BUY"
+        ) or (
+            self.settings.trade_direction == "sell_only"
+            and effective_direction != "SELL"
+        ):
+            return False
         active_filters = (
             filters
             if isinstance(filters, SimulationFilters)

@@ -167,6 +167,7 @@ export function SimulationPanel({
     || draftSettings.rewardMultiple !== settings.rewardMultiple
     || draftSettings.exitModel !== settings.exitModel
     || draftSettings.directionMode !== settings.directionMode
+    || draftSettings.tradeDirection !== settings.tradeDirection
     || geometryMultipliers.stopBodyWeight !== settings.stopBodyWeight
     || geometryMultipliers.stopWickMultiplier !== settings.stopWickMultiplier
     || geometryMultipliers.targetRangeMultiplier !== settings.targetRangeMultiplier;
@@ -185,7 +186,7 @@ export function SimulationPanel({
         <h2>Risk / reward replay</h2>
         <p>Results are calculated from the historical candle sequence shown above.</p>
         <p className="sim-active-mode" data-testid="simulation-active-mode">
-          DIRECTION · {settings.directionMode.toUpperCase()} · SWING {settings.swingVersion}
+          MODE · {settings.directionMode.toUpperCase()} · TRADE SIDE · {settings.tradeDirection.toUpperCase()} · SWING {settings.swingVersion}
         </p>
         {filterScopeLabel && <>
           <p className="sim-filter-scope" data-testid="simulation-filter-scope" aria-live="polite">
@@ -211,6 +212,15 @@ export function SimulationPanel({
         <option value="inverted">INVERTED</option>
         <option value="adaptive">ADAPTIVE</option>
       </select></label>}
+      <label><span>TRADE DIRECTION</span><select
+        value={draftSettings.tradeDirection}
+        onChange={event => change({ tradeDirection: event.target.value as SimulationSettings['tradeDirection'] })}
+        data-testid="select-simulation-trade-direction"
+      >
+        <option value="both">BOTH</option>
+        <option value="buy_only">BUY ONLY</option>
+        <option value="sell_only">SELL ONLY</option>
+      </select></label>
       <div className="sim-exit-settings">
         <label className="sim-exit-model-label">
           <span>EXIT MODEL</span>

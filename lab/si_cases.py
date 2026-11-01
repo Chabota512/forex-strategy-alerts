@@ -25,6 +25,14 @@ if __package__:
         score_belief_rules,
         validate_tunables,
     )
+    from .si_rule_proposals import (
+        PROPOSAL_CASE_THRESHOLD,
+        build_aggregate_summary,
+        candidate_duplicates,
+        condition_matches,
+        condition_signature,
+        normalize_condition,
+    )
     from .versioning import atomic_write_json
 else:
     from capital_context import (
@@ -40,6 +48,14 @@ else:
         matches_rule,
         score_belief_rules,
         validate_tunables,
+    )
+    from si_rule_proposals import (
+        PROPOSAL_CASE_THRESHOLD,
+        build_aggregate_summary,
+        candidate_duplicates,
+        condition_matches,
+        condition_signature,
+        normalize_condition,
     )
     from versioning import atomic_write_json
 
@@ -413,6 +429,16 @@ class SICaseStore:
         else:
             tunables = validate_tunables(tunables)
         lessons = value.get("lessons")
+        raw_custom_rules = value.get("custom_rules")
+        custom_rules = raw_custom_rules if isinstance(raw_custom_rules, list) else []
+        raw_proposal_state = value.get("proposal_state")
+        proposal_state = (
+            raw_proposal_state if isinstance(raw_proposal_state, Mapping) else {}
+        )
+        raw_attempts = proposal_state.get("attempts")
+        raw_proposals = proposal_state.get("proposals")
+        saved_attempts = raw_attempts if isinstance(raw_attempts, list) else []
+        saved_proposals = raw_proposals if isinstance(raw_proposals, list) else []
         last_tuned_case_count = int(value.get("last_tuned_case_count", 0) or 0)
         legacy_thresholds = {"strong_min": 0.67, "neutral_min": 0.33}
         current_thresholds = tunables.get("strength_thresholds", {})
@@ -441,6 +467,44 @@ class SICaseStore:
             ),
             "hit_rate_over_time": [],
             "last_tuned_case_count": last_tuned_case_count,
+            "custom_rules": [
+                {
+                    **item,
+                    "condition": normalize_condition(item["condition"]),
+                    "active_from_case_count": max(
+                        0, int(item.get("active_from_case_count", 0))
+                    ),
+                    "weight": min(
+                        1.0,
+                        max(0.0, float(item.get("weight", 0.2))),
+                    ),
+                }
+                for item in custom_rules
+                if isinstance(item, dict)
+                and isinstance(item.get("condition"), Mapping)
+                and item.get("id")
+                and item.get("name")
+            ],
+            "proposal_state": {
+                "last_proposal_case_count": max(
+                    0,
+                    int(
+                        proposal_state.get("last_proposal_case_count", 0)
+                        or 0
+                    ),
+                ),
+                "generating": False,
+                "attempts": [
+                    item
+                    for item in saved_attempts
+                    if isinstance(item, dict)
+                ][-100:],
+                "proposals": [
+                    item
+                    for item in saved_proposals
+                    if isinstance(item, dict)
+                ][-100:],
+            },
         }
 
     def _rebuild_metrics(self) -> None:
@@ -462,6 +526,24 @@ class SICaseStore:
             }
             for rule in RULE_DEFINITIONS
         }
+        for rule in self._state.get("custom_rules", []):
+            rule_id = str(rule["id"])
+            rules[rule_id] = {
+                **rule,
+                "samples": 0,
+                "hits": 0,
+                "misses": 0,
+                "hit_rate": None,
+                "expectancy": None,
+                "expectancy_money": None,
+                "capital_context": normalize_capital_context(
+                    DEFAULT_CAPITAL_CONTEXT
+                ),
+                "baseline_hit_rate": None,
+                "weight": min(0.35, max(0.0, float(rule.get("weight", 0.2)))),
+                "flagged": False,
+                "custom": True,
+            }
         rule_r_totals = {rule_id: 0.0 for rule_id in rules}
         hits = 0
         total_r = 0.0
@@ -491,7 +573,13 @@ class SICaseStore:
             processed = index + 1
             baseline = hits / processed
             for rule_id, metric in rules.items():
-                if not matches_rule(rule_id, case):
+                if metric.get("custom"):
+                    if processed <= int(metric.get("active_from_case_count", 0)):
+                        continue
+                    matched = condition_matches(metric["condition"], case)
+                else:
+                    matched = matches_rule(rule_id, case)
+                if not matched:
                     continue
                 metric["samples"] += 1
                 metric["hits"] += int(is_hit)
@@ -548,6 +636,11 @@ class SICaseStore:
                         - max(0.0, baseline_hit_rate - float(metric["hit_rate"]))
                         * 2.0,
                     ),
+                )
+            elif metric.get("custom"):
+                metric["weight"] = min(
+                    0.35,
+                    max(0.0, float(metric.get("weight", 0.2))),
                 )
 
         self._state.update(
@@ -656,7 +749,13 @@ class SICaseStore:
 
         rules_by_id = {item["id"]: item for item in self._state["rules"]}
         for rule_id, metric in rules_by_id.items():
-            rule_matched = matches_rule(rule_id, case)
+            if metric.get("custom"):
+                rule_matched = (
+                    count > int(metric.get("active_from_case_count", 0))
+                    and condition_matches(metric["condition"], case)
+                )
+            else:
+                rule_matched = matches_rule(rule_id, case)
             if rule_matched:
                 metric["samples"] += 1
                 metric["hits"] += int(is_hit)
@@ -685,7 +784,7 @@ class SICaseStore:
             new_weight = (
                 max(0.1, min(1.0, 1.0 - max(0.0, baseline - float(rate)) * 2.0))
                 if metric["samples"] >= MIN_RULE_CASES and rate is not None
-                else 1.0
+                else old_weight if metric.get("custom") else 1.0
             )
             metric["flagged"] = flagged
             metric["weight"] = new_weight
@@ -697,7 +796,11 @@ class SICaseStore:
                         "Downweighted below-baseline rule."
                         if new_weight < old_weight
                         else (
-                            "Recorded new evidence for the seeded rule."
+                            (
+                                "Recorded new evidence for the approved proposal rule."
+                                if metric.get("custom")
+                                else "Recorded new evidence for the seeded rule."
+                            )
                             if new_weight == old_weight
                             else "Adjusted rule weight as its relative evidence changed."
                         )
@@ -795,6 +898,244 @@ class SICaseStore:
             self._state["tunables"] = updated
         self._state["last_tuned_case_count"] = next_tuned_count
 
+    def proposal_status(self) -> dict[str, Any]:
+        with self._lock:
+            state = self._state.get("proposal_state", {})
+            attempts = state.get("attempts", [])
+            proposals = state.get("proposals", [])
+            pending = next(
+                (item for item in reversed(proposals) if item.get("status") == "pending"),
+                None,
+            )
+            last_count = int(state.get("last_proposal_case_count", 0))
+            new_cases = max(0, len(self._cases) - last_count)
+            usage_totals = {"input": 0, "output": 0, "total": 0}
+            usage_seen = set()
+            for attempt in attempts:
+                usage = attempt.get("token_usage")
+                if not isinstance(usage, Mapping):
+                    continue
+                for key in usage_totals:
+                    value = usage.get(key)
+                    if isinstance(value, int) and not isinstance(value, bool):
+                        usage_totals[key] += value
+                        usage_seen.add(key)
+            return {
+                "threshold": PROPOSAL_CASE_THRESHOLD,
+                "newResolvedCases": new_cases,
+                "eligible": (
+                    new_cases >= PROPOSAL_CASE_THRESHOLD
+                    and not bool(state.get("generating"))
+                    and pending is None
+                ),
+                "generating": bool(state.get("generating")),
+                "pending": _json_safe(pending) if pending else None,
+                "latestAttempt": (
+                    _json_safe(attempts[-1]) if attempts else None
+                ),
+                "attemptCount": len(attempts),
+                "tokenUsage": (
+                    {
+                        key: usage_totals[key] if key in usage_seen else None
+                        for key in usage_totals
+                    }
+                ),
+            }
+
+    def begin_proposal_attempt(self) -> dict[str, Any]:
+        with self._lock:
+            status = self.proposal_status()
+            if status["generating"]:
+                raise ValueError("A System Intelligence rule proposal is already running.")
+            if status["pending"] is not None:
+                raise ValueError("Review the pending System Intelligence proposal first.")
+            if not status["eligible"]:
+                raise ValueError(
+                    f"At least {PROPOSAL_CASE_THRESHOLD} new resolved cases are required."
+                )
+            state = self._state["proposal_state"]
+            case_count = len(self._cases)
+            attempt_id = hashlib.sha256(
+                f"{case_count}:{len(state['attempts'])}:{_utc_now()}".encode("utf-8")
+            ).hexdigest()[:20]
+            attempt = {
+                "id": attempt_id,
+                "case_count": case_count,
+                "started_at_utc": _utc_now(),
+                "status": "running",
+                "token_usage": None,
+                "provider": None,
+                "key_index": None,
+                "attempts": [],
+            }
+            state["generating"] = True
+            state["last_proposal_case_count"] = case_count
+            state["attempts"].append(attempt)
+            del state["attempts"][:-100]
+            self._persist_state()
+            return {
+                "attempt_id": attempt_id,
+                "aggregates": build_aggregate_summary(self._cases),
+            }
+
+    def complete_proposal_attempt(
+        self,
+        attempt_id: str,
+        *,
+        candidate: Mapping[str, Any] | None,
+        usage: Mapping[str, Any] | None,
+        provider: str | None,
+        key_index: int | None,
+        attempts: Sequence[Mapping[str, Any]],
+        error: str | None = None,
+        discard_reason: str | None = None,
+    ) -> dict[str, Any]:
+        with self._lock:
+            state = self._state["proposal_state"]
+            attempt = next(
+                (
+                    item
+                    for item in state["attempts"]
+                    if item.get("id") == attempt_id
+                ),
+                None,
+            )
+            if attempt is None or attempt.get("status") != "running":
+                raise ValueError("System Intelligence proposal attempt is unavailable.")
+            safe_usage = (
+                {
+                    key: (
+                        value
+                        if isinstance(value, int) and not isinstance(value, bool)
+                        else None
+                    )
+                    for key, value in usage.items()
+                    if key in {"input", "output", "total"}
+                }
+                if isinstance(usage, Mapping)
+                else None
+            )
+            attempt.update(
+                {
+                    "completed_at_utc": _utc_now(),
+                    "provider": provider,
+                    "key_index": key_index,
+                    "token_usage": safe_usage,
+                    "attempts": [
+                        _json_safe(dict(item))
+                        for item in attempts[:10]
+                        if isinstance(item, Mapping)
+                    ],
+                }
+            )
+            state["generating"] = False
+            if error:
+                attempt["status"] = "failed"
+                attempt["reason"] = str(error)[:300]
+            elif candidate is None:
+                attempt["status"] = "discarded"
+                attempt["reason"] = (
+                    str(discard_reason or "The proposal was empty or invalid.")[:300]
+                )
+            elif candidate_duplicates(
+                candidate,
+                self._state.get("rules", []),
+                self._state.get("lessons", []),
+            ):
+                attempt["status"] = "discarded"
+                attempt["reason"] = "The condition duplicates an active or archived rule."
+            else:
+                proposal = {
+                    "proposal_id": str(candidate["id"]),
+                    "candidate": _json_safe(dict(candidate)),
+                    "status": "pending",
+                    "case_count": int(attempt["case_count"]),
+                    "created_at_utc": _utc_now(),
+                }
+                state["proposals"].append(proposal)
+                del state["proposals"][:-100]
+                attempt["status"] = "pending"
+                attempt["proposal_id"] = proposal["proposal_id"]
+            self._persist_state()
+            return self.proposal_status()
+
+    def accept_rule_proposal(self, proposal_id: str) -> dict[str, Any]:
+        with self._lock:
+            state = self._state["proposal_state"]
+            proposal = next(
+                (
+                    item
+                    for item in reversed(state["proposals"])
+                    if item.get("proposal_id") == proposal_id
+                    and item.get("status") == "pending"
+                ),
+                None,
+            )
+            if proposal is None:
+                raise ValueError("Pending System Intelligence proposal was not found.")
+            candidate = proposal["candidate"]
+            if candidate_duplicates(
+                candidate,
+                self._state.get("rules", []),
+                self._state.get("lessons", []),
+            ):
+                raise ValueError("The proposal duplicates an active or archived rule.")
+            active_rule = {
+                "id": candidate["id"],
+                "name": candidate["name"],
+                "description": candidate["description"],
+                "condition": normalize_condition(candidate["condition"]),
+                "condition_hash": condition_signature(candidate["condition"]),
+                "active_from_case_count": len(self._cases),
+                "weight": 0.2,
+                "created_at_utc": _utc_now(),
+            }
+            self._state["custom_rules"].append(active_rule)
+            proposal["status"] = "accepted"
+            proposal["accepted_at_utc"] = _utc_now()
+            self._rebuild_metrics()
+            self._persist_state()
+            return self.dashboard_snapshot()
+
+    def reject_rule_proposal(self, proposal_id: str, reason: str) -> dict[str, Any]:
+        normalized_reason = reason.strip() if isinstance(reason, str) else ""
+        if not normalized_reason or len(normalized_reason) > 300:
+            raise ValueError("A rejection reason from 1 to 300 characters is required.")
+        with self._lock:
+            state = self._state["proposal_state"]
+            proposal = next(
+                (
+                    item
+                    for item in reversed(state["proposals"])
+                    if item.get("proposal_id") == proposal_id
+                    and item.get("status") == "pending"
+                ),
+                None,
+            )
+            if proposal is None:
+                raise ValueError("Pending System Intelligence proposal was not found.")
+            candidate = proposal["candidate"]
+            proposal["status"] = "rejected"
+            proposal["rejection_reason"] = normalized_reason
+            proposal["rejected_at_utc"] = _utc_now()
+            add_lesson_once(
+                self._state["lessons"],
+                lesson_id=f"proposal-rejected:{proposal_id}",
+                rule_id=str(candidate["id"]),
+                rule_name=str(candidate["name"]),
+                action="Archived owner-rejected belief rule proposal.",
+                evidence={
+                    "proposal_id": proposal_id,
+                    "reason": normalized_reason,
+                    "condition": candidate["condition"],
+                    "condition_hash": candidate["condition_hash"],
+                },
+                created_at_utc=_utc_now(),
+                maximum=MAX_LESSONS,
+            )
+            self._persist_state()
+            return self.dashboard_snapshot()
+
     def scoring_snapshot(self) -> dict[str, Any]:
         """Freeze the current evidence for deterministic batch/session scoring."""
         with self._lock:
@@ -825,6 +1166,11 @@ class SICaseStore:
             "swing_reversal": bool(
                 _first(alert, ("swing_reversal", "swingReversal"), False)
             ),
+            "strength_label": _first(
+                alert, ("strength_label", "strengthLabel", "strength"), ""
+            ),
+            "tf": _first(alert, ("tf", "timeframe"), ""),
+            "timeframe": _first(alert, ("timeframe", "tf"), ""),
         }
         rules = state.get("rules", [])
         return score_belief_rules(
@@ -880,6 +1226,7 @@ class SICaseStore:
                     "baselineHitRate": as_percent(item["baseline_hit_rate"]),
                     "weight": item["weight"],
                     "flagged": item["flagged"],
+                    "custom": bool(item.get("custom")),
                 }
                 for item in state.get("rules", [])
             ],
@@ -910,5 +1257,6 @@ class SICaseStore:
                 "strengthThresholds": state["tunables"]["strength_thresholds"],
                 "invertWeights": state["tunables"]["invert_weights"],
             },
+            "proposal": self.proposal_status(),
         }
 
