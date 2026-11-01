@@ -1,0 +1,58 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "sfyB-Y_DoR426W4VdhVWm"
+uri = "file://lab/UPDATED_BUILD_PLAN.txt"
+type = "text"
+title = "Forex Strategy Lab Updated Build Plan"
+description = "Revised plan including the CSV-only, source-agnostic loader and Dukascopy M1 input boundary."
+logical_id = "6d6e5927-4a92-4349-ad05-d4510c81a553"
+content_hash = "sha256:63af512fa62c36d8014b3bbb9a535d8dd5b6420026f23ff4e0c81f28b520aab1"
+size = 15105
+mtime_ms = 1793094230995
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:f139da21-f395-4064-9ab8-edfeeff44e66/6d6e5927-4a92-4349-ad05-d4510c81a553/06ddb0bb-6946-4e1b-bac1-eadbc54f3f9d"
+storage_version_token = "1793094240489438"
+content_type = "text/plain"
+
+[[outputs]]
+id = "emMCcXJrO0bjtueGDgBCL"
+uri = "file://lab/output/report.json"
+type = "unspecified"
+title = "Synthetic backtest report"
+description = "Machine-readable summary of the approved-unfrozen v1.4.0 run, including effective settings, input hashes, chronological split, validation-floor results, and insufficient-lookahead counts."
+logical_id = "87c6cd0e-25fd-4244-8bc8-b81bacf75dbf"
+content_hash = "sha256:fc93b3d959e17679df75b18e248a1fbbdb772a0611c6cd3f98f8c36bd0d4a88a"
+size = 18637
+mtime_ms = 1793100009269
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:11aa35b5-34ff-4bcc-961c-21fc1975e1fe/87c6cd0e-25fd-4244-8bc8-b81bacf75dbf/fb67bd33-7bad-41dd-941d-a692f0de5b41"
+storage_version_token = "1793100138326346"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "BNPaLxizU-MK1W2XlfJl5"
+uri = "file://lab/output/evolution/evolution_20261027T112934Z.json"
+type = "unspecified"
+title = "Gemini proposal run report"
+description = "One live Phase 2 run: baseline and candidate scores, floor results, eligibility decision, and synthetic-data warning."
+logical_id = "67a5fb59-be59-4211-a5e7-d655e13a41f3"
+content_hash = "sha256:e1ed0d757dfb8b2184264fbe247c1062eae2d88334b54864a9f51c0bb2b90b95"
+size = 39876
+mtime_ms = 1793100574602
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:11aa35b5-34ff-4bcc-961c-21fc1975e1fe/67a5fb59-be59-4211-a5e7-d655e13a41f3/4f93ff34-f739-4cc4-86a2-5066782ec05f"
+storage_version_token = "1793100608783973"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "I_zXC4npxhB6ohm6xkP41"
+uri = "file://lab/specs/proposals/candidate_v1_4_1_20261027T112923Z.json"
+type = "unspecified"
+title = "Gemini candidate 1.4.1"
+description = "The candidate generated in the single test run. It remains unfrozen and is marked ineligible because it did not meet the required 10% improvement."
+logical_id = "2bfb6afd-477b-4fbe-9c11-335c3cc60906"
+content_hash = "sha256:84a7dcef799ad3d9be01a688dad9e55b41618a5bbd9860ff5868e71a2288f2a0"
+size = 4633
+mtime_ms = 1793100574605
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:11aa35b5-34ff-4bcc-961c-21fc1975e1fe/2bfb6afd-477b-4fbe-9c11-335c3cc60906/0b0d6b65-b8af-4361-be71-002a5fd7eafc"
+storage_version_token = "1793100609332177"
+content_type = "application/octet-stream"
