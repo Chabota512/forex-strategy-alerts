@@ -376,12 +376,19 @@ class EvolutionLoopTests(unittest.TestCase):
         self.assertIn("validation expectancy_after_costs", prompt)
         self.assertIn("cosmetic to expectancy", prompt)
         self.assertIn("exit_model: swept_level_atr or candle_geometry", prompt)
-        self.assertIn("r_multiple applies only to swept_level_atr", prompt)
+        self.assertIn(
+            "r_multiple: 1.0 through 4.0; tunable only for swept_level_atr",
+            prompt,
+        )
+        self.assertIn(
+            "r_multiple and geometry_weights are mutually exclusive by exit_model",
+            prompt,
+        )
         source = Path(evolve.__file__).read_text(encoding="utf-8")
         self.assertNotIn("score_alert", source)
         self.assertNotIn("follow_through", source)
 
-    def test_discredited_proposal_is_rejected_before_any_simulation(self) -> None:
+    def test_discredited_proposal_is_rejected_before_candidate_simulation(self) -> None:
         archived_diff = [
             {
                 "old_value": ["M5", "M15"],
@@ -460,7 +467,18 @@ class EvolutionLoopTests(unittest.TestCase):
                     self.assertEqual(result["reason_code"], "duplicate_proposal")
                     self.assertIn("simulation skipped", result["reason"])
                     self.assertIsNone(result["candidate_file"])
-                    self.assertEqual(simulation_calls, [])
+                    baseline, _baseline_options = evolve.load_frozen_baseline(
+                        champion_path=champion,
+                        seed_path=seed,
+                    )
+                    expected_baseline_options = evolve.options_for_spec(baseline)
+                    self.assertLessEqual(len(simulation_calls), 1)
+                    self.assertTrue(
+                        all(
+                            options == expected_baseline_options
+                            for options in simulation_calls
+                        )
+                    )
                     self.assertEqual(archived[-1]["reason_code"], "duplicate_proposal")
                     self.assertTrue(Path(result["result_file"]).is_file())
                     self.assertIn("**duplicate_proposal**", changelog)
@@ -537,7 +555,14 @@ class EvolutionLoopTests(unittest.TestCase):
             {"path": "require_engulf", "value": True, "structural": True},
             {"path": "min_strength", "value": "NEUTRAL", "structural": True},
             {"path": "exit_model", "value": "candle_geometry"},
-            {"path": "r_multiple", "value": 2.5},
+            {
+                "path": "geometry_weights",
+                "value": {
+                    "body_weight": 1.25,
+                    "wick_multiplier": 3.0,
+                    "range_multiplier": 4.0,
+                },
+            },
             {"path": "risk_percent", "value": 1.25},
             {"path": "cooldown_candles", "value": 48, "structural": True},
             {"path": "cct.window", "value": 50, "structural": True},
@@ -573,7 +598,8 @@ class EvolutionLoopTests(unittest.TestCase):
         self.assertEqual(candidate["version"], "1.5.1")
         self.assertFalse(candidate["frozen"])
         self.assertEqual(candidate["cct"]["window"], 50)
-        self.assertEqual(candidate_options["r_multiple"], 2.5)
+        self.assertEqual(candidate_options["r_multiple"], 2.0)
+        self.assertEqual(candidate_options["geometry_weights"]["wick_multiplier"], 3.0)
         self.assertEqual(candidate_options["exit_model"], "candle_geometry")
         self.assertEqual(candidate_options["cooldown_candles"], 48)
         self.assertEqual(candidate_options["note_body_ratio"], 0.9)
@@ -846,6 +872,7 @@ class EvolutionLoopTests(unittest.TestCase):
             source_sha256,
             mtf_context=None,
             symbol="XAUUSD",
+            swing_version=None,
         ):
             alerts_by_index = {}
             counts = evolve.Counter()
@@ -1162,6 +1189,7 @@ class EvolutionLoopTests(unittest.TestCase):
             spec=spec,
             settings_fingerprint="fixture",
             mtf_records=m15_records,
+            swing_direction_version="V1",
         )
         session.initial_response()
         session.advance(
@@ -1360,6 +1388,7 @@ class EvolutionLoopTests(unittest.TestCase):
             patch.dict(
                 "os.environ",
                 {"LLM_PROVIDER": "gemini", "GEMINI_API_KEY": secret},
+                clear=True,
             ),
             patch(
                 "lab.llm_client.urllib.request.urlopen",
@@ -1724,6 +1753,7 @@ class EvolutionLoopTests(unittest.TestCase):
                         "GEMINI_API_KEY_2": "mock-gemini-secondary",
                         "GROQ_API_KEY": secret,
                     },
+                    clear=True,
                 ),
                 patch(
                     "lab.llm_client.urllib.request.urlopen",
@@ -1966,7 +1996,10 @@ class EvolutionUiGateTests(unittest.TestCase):
         swept_options = copy.deepcopy(evolve.DEFAULT_OPTIONS)
         geometry_diff = dict(evolve.DEFAULT_OPTIONS["geometry_weights"])
         geometry_diff["wick_multiplier"] = 3.0
-        with self.assertRaisesRegex(evolve.EvolutionError, "only when exit_model is candle_geometry"):
+        with self.assertRaisesRegex(
+            evolve.EvolutionError,
+            "geometry_weights can only be changed when exit_model is candle_geometry",
+        ):
             evolve.apply_model_diff(
                 base_spec,
                 swept_options,
@@ -1976,7 +2009,10 @@ class EvolutionUiGateTests(unittest.TestCase):
             )
         geometry_options = copy.deepcopy(evolve.DEFAULT_OPTIONS)
         geometry_options["exit_model"] = "candle_geometry"
-        with self.assertRaisesRegex(evolve.EvolutionError, "only when exit_model is swept_level_atr"):
+        with self.assertRaisesRegex(
+            evolve.EvolutionError,
+            "r_multiple can only be changed when exit_model is swept_level_atr",
+        ):
             evolve.apply_model_diff(
                 base_spec,
                 geometry_options,

@@ -188,6 +188,8 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
                 "close": Decimal("9.5"),
             })
         spec = backtest.load_spec(SPEC_PATH)
+        if swing_direction_version.upper() == "V2":
+            spec["instruments"] = ["XAUUSD"]
         return ReplaySession(
             session_id="variant-b-test",
             run_id="variant-b-run",
@@ -232,6 +234,7 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
                 "cctLegacy",
                 "cstLegacy",
                 "legacyAgreementPct",
+                "swingReversal",
             },
         )
         self.assertEqual(
@@ -319,6 +322,8 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
                 "close": Decimal("2601.5"),
             },
         ]
+        spec = backtest.load_spec(SPEC_PATH)
+        spec["instruments"] = ["XAUUSD"]
         session = ReplaySession(
             session_id="month-boundary",
             run_id="month-boundary-run",
@@ -328,9 +333,10 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
             records=records,
             source="monthly-fixture",
             source_sha256=SOURCE_SHA256,
-            spec=backtest.load_spec(SPEC_PATH),
+            spec=spec,
             settings_fingerprint="month-boundary-fixture",
             simulation_settings={"enabled": True},
+            swing_direction_version="V2",
         )
         simulation_state = session.simulation
         started = session.initial_response()
@@ -497,50 +503,42 @@ class ReplaySessionParityTests(unittest.TestCase):
             streamed_alerts.extend(response["newAlerts"])
 
         candles = backtest.candle_objects(records)
-        cct_settings = effective_spec["cct"]
-        cst_settings = effective_spec["cst"]
-        batch_cst = compute_cst(
+        (
+            batch_cct,
+            batch_cst,
+            batch_cct_legacy,
+            batch_cst_legacy,
+            batch_cst_v1,
+            batch_cst_v2,
+            batch_swing_reversals,
+        ) = backtest._context_state_arrays(
             candles,
-            break_basis=str(cst_settings["break_basis"]),
+            symbol="XAUUSD",
+            spec=effective_spec,
+            swing_version="V2",
         )
-        batch_cst_legacy = compute_cst_legacy(
-            candles,
-            swing_neighbors=int(cst_settings["major_swing_neighbors"]),
-            break_basis=str(cst_settings["break_basis"]),
-        )
-        batch_cct = [
-            classify_cct(
-                candles[
-                    max(0, index + 1 - int(cct_settings["window"])) : index + 1
-                ],
-                window=int(cct_settings["window"]),
-                swing_neighbors=int(cct_settings["swing_neighbors"]),
-            )
-            for index in range(len(candles))
-        ]
-        batch_cct_legacy = [
-            classify_cct_legacy(
-                candles[
-                    max(0, index + 1 - int(cct_settings["window"])) : index + 1
-                ],
-                window=int(cct_settings["window"]),
-                swing_neighbors=int(cct_settings["swing_neighbors"]),
-            )
-            for index in range(len(candles))
-        ]
         batch_shadow_states = compute_shadow_states(candles)
         batch_states = [
             {
                 "index": index,
                 "cct": str(batch_cct[index]),
                 "cst": str(batch_cst[index]),
+                "cstV1State": str(batch_cst_v1[index]),
+                "cstV2State": batch_cst_v2[index],
+                "swingReversal": bool(batch_swing_reversals[index]),
+                "swingVersionAgreementPct": backtest.swing_version_agreement_pct(
+                    str(batch_cst_v1[index]),
+                    str(batch_cst_v2[index])
+                    if batch_cst_v2[index] is not None
+                    else None,
+                ),
                 "cctLegacy": str(batch_cct_legacy[index]),
                 "cstLegacy": str(batch_cst_legacy[index]),
                 "legacyAgreementPct": (
                     100
                     * (
                         int(str(batch_cct[index]) == str(batch_cct_legacy[index]))
-                        + int(str(batch_cst[index]) == str(batch_cst_legacy[index]))
+                        + int(str(batch_cst_v1[index]) == str(batch_cst_legacy[index]))
                     )
                     // 2
                 ),
@@ -652,6 +650,7 @@ class ConfirmedSwingEventTests(unittest.TestCase):
         )
 
     def test_session_events_are_causal_and_match_batch_output(self) -> None:
+        self.spec["instruments"] = ["XAUUSD"]
         expected = compute_confirmed_swing_events(self.records, self.spec)
         session = ReplaySession(
             session_id="swing-causality",

@@ -117,7 +117,19 @@ class DigestRetentionTests(unittest.TestCase):
             )
         )
         self.assertGreater(digest["truncated_cells"], 0)
-        self.assertLessEqual(digest["estimated_tokens"], 400)
+        self.assertGreater(digest["estimated_tokens"], 400)
+        self.assertTrue(
+            all(
+                group["axis"] in {
+                    "mtf_trend_agree",
+                    "mtf_wp_agree",
+                    "dual_tf_alert",
+                    "mtf_cct_agree",
+                    "swing_version_agreement_pct",
+                }
+                for group in digest["groups"]
+            )
+        )
 
     def test_follow_and_fade_expectancy_respect_resolved_sample_floor(self) -> None:
         snapshots = []

@@ -106,6 +106,7 @@ class ShadowDetectorTests(unittest.TestCase):
         candles = make_candles(72)
         records = records_from(candles)
         spec = backtest.load_spec(SPEC_PATH)
+        spec["instruments"] = ["XAUUSD"]
         fingerprint = backtest.settings_fingerprint(spec)
         session = ReplaySession(
             session_id="shadow-parity",

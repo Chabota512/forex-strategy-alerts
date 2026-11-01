@@ -44,6 +44,7 @@ if __package__:
         detect_trigger_b,
         score_alert,
         smaller_body_note,
+        swing_version_agreement_pct,
         strength_for,
     )
     from .shadow_detectors import compute_shadow_states
@@ -76,6 +77,7 @@ else:
         detect_trigger_b,
         score_alert,
         smaller_body_note,
+        swing_version_agreement_pct,
         strength_for,
     )
     from shadow_detectors import compute_shadow_states
@@ -466,6 +468,12 @@ def run_pair(
                     "swing_reversal": bool(
                         swing_version == "V2" and swing_reversals[index]
                     ),
+                    "swing_version_agreement_pct": swing_version_agreement_pct(
+                        str(cst_v1_states[index]),
+                        str(cst_v2_states[index])
+                        if cst_v2_states[index] is not None
+                        else None,
+                    ),
                     "cct_legacy": cct_legacy_states[index],
                     "cst_legacy": cst_legacy_states[index],
                     "legacy_agreement_pct": (
@@ -510,11 +518,20 @@ def run_pair_smoke(
     spec: dict[str, Any],
     run_id: str,
     config_fingerprint: str,
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """Generate replayable alerts without assigning periods or scoring rewards."""
     cst_settings = spec["cst"]
-    cct_states, cst_states, cct_legacy_states, cst_legacy_states = (
-        _context_state_arrays(candles, symbol=symbol, spec=spec)
+    swing_version = "V2" if symbol == "XAUUSD" else "V1"
+    (
+        cct_states,
+        cst_states,
+        cct_legacy_states,
+        cst_legacy_states,
+        cst_v1_states,
+        cst_v2_states,
+        swing_reversals,
+    ) = _context_state_arrays(
+        candles, symbol=symbol, spec=spec, swing_version=swing_version
     )
     pressure_states = compute_wick_pressure_states(candles)
     optimizer_settings = spec.get("optimizer_settings", {})
@@ -561,13 +578,25 @@ def run_pair_smoke(
                     "alert_type": alert_type,
                     "cct": str(cct),
                     "cst": str(cst_state),
+                    "cst_v1_state": str(cst_v1_states[index]),
+                    "cst_v2_state": cst_v2_states[index],
+                    "swing_direction_version": swing_version,
+                    "swing_reversal": bool(
+                        swing_version == "V2" and swing_reversals[index]
+                    ),
+                    "swing_version_agreement_pct": swing_version_agreement_pct(
+                        str(cst_v1_states[index]),
+                        str(cst_v2_states[index])
+                        if cst_v2_states[index] is not None
+                        else None,
+                    ),
                     "cct_legacy": cct_legacy_states[index],
                     "cst_legacy": cst_legacy_states[index],
                     "legacy_agreement_pct": (
                         100
                         * (
                             int(cct == cct_legacy_states[index])
-                            + int(cst_state == cst_legacy_states[index])
+                            + int(cst_v1_states[index] == cst_legacy_states[index])
                         )
                         // 2
                     ),
