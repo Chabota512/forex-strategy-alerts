@@ -603,6 +603,7 @@ class ReplaySessionParityTests(unittest.TestCase):
             wick_pressure_by_time=wick_pressure_by_time,
             atr14_by_alert_id=batch_simulation["atr14_by_alert_id"],
             trades=batch_simulation["trades"],
+            simulation_settings=simulation_settings,
         )
         self.assertEqual(len(records), 10 * 24 * 60)
         self.assertGreater(len(batch_alerts), 0)
@@ -628,6 +629,7 @@ class ReplaySessionParityTests(unittest.TestCase):
             wick_pressure_by_time=wick_pressure_by_time,
             atr14_by_alert_id=batch_simulation["atr14_by_alert_id"],
             trades=batch_simulation["trades"],
+            simulation_settings=simulation_settings,
         )
         repeated_rows = read_snapshots(batch_snapshot_path)
         self.assertEqual(len(repeated_rows), 2 * len(batch_snapshots))
