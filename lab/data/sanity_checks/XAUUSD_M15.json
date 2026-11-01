@@ -1,0 +1,237 @@
+{
+  "approval_basis": "owner-accepted without external check (\u00a727)",
+  "data_complete": true,
+  "generated_at_utc": "2026-11-01T18:58:35.024289Z",
+  "month_count": 36,
+  "monthly_files": {
+    "2023-01": {
+      "m1_sha256": "9066e6729dc8768932cf224ad5912e587164595b50eb395e9d9183f8bfc10a9e",
+      "path": "XAUUSD/M15/2023-01.csv",
+      "row_count": 2112,
+      "sha256": "e9927bbea23f2bbad50e8108409c51d6ccd61eba31f02b12c1fbf42834582a64"
+    },
+    "2023-02": {
+      "m1_sha256": "47e8ece7f06c3eff23531fc52867725186fe6e9c31d42ba5a9af8d1aaf13039b",
+      "path": "XAUUSD/M15/2023-02.csv",
+      "row_count": 1920,
+      "sha256": "7962d7b2f4bc0c94b317a954e2bb744b4fc0cfa9e698985e857c6f663cc83928"
+    },
+    "2023-03": {
+      "m1_sha256": "3d833f53a219ed86ccb36790129cc532514bc26e977834fafcff535d54f65ce8",
+      "path": "XAUUSD/M15/2023-03.csv",
+      "row_count": 2208,
+      "sha256": "50edc40d6bf97fbdf9e159e88b14b1353f42e2b08b785bf752ebd84c7338d116"
+    },
+    "2023-04": {
+      "m1_sha256": "77a9e1f5ace1882afb964ba99d93866134349f3653b3b8dc4b9b15ae891402d0",
+      "path": "XAUUSD/M15/2023-04.csv",
+      "row_count": 1920,
+      "sha256": "340099fe210e12d7c1f85f003ce3b822926ec1a451dcd58ee1b54ad46412dbf2"
+    },
+    "2023-05": {
+      "m1_sha256": "483429f41585b5ecaf43bb12805018beba88ee451b9b9278b310149511fc55ca",
+      "path": "XAUUSD/M15/2023-05.csv",
+      "row_count": 2208,
+      "sha256": "2566c088a4f3ba308425c90ef426e37da2d9c67ff8bbc7d57aca3d0fbd7c6633"
+    },
+    "2023-06": {
+      "m1_sha256": "532b463271c1e44ad06d89665964afdeeb65006c6beecd7aa033fe3539411412",
+      "path": "XAUUSD/M15/2023-06.csv",
+      "row_count": 2112,
+      "sha256": "5728ba7c89bdb301b221c61b72995c5268944d9b34d2661c82f05e81a80badf4"
+    },
+    "2023-07": {
+      "m1_sha256": "747a3c40b31468c9a1cb09598a43fec780786469c4bc1979dcf38ed54865eede",
+      "path": "XAUUSD/M15/2023-07.csv",
+      "row_count": 2016,
+      "sha256": "070757fa3fbbe52010c37b64c6e6b90824491eb125c23359113177574f54b6f5"
+    },
+    "2023-08": {
+      "m1_sha256": "1f4094b3fa661df10915ca681fdc5152c93974dd351a7c5b24800acb385c5c32",
+      "path": "XAUUSD/M15/2023-08.csv",
+      "row_count": 2208,
+      "sha256": "4cf73a6313e2d27c2329ee23dac14c949e61f5c7979ef3f6c8c50be11457bf03"
+    },
+    "2023-09": {
+      "m1_sha256": "b0e4d8218b399d34668622c60baeb4c82e01d1312102d5c29289e69311097d90",
+      "path": "XAUUSD/M15/2023-09.csv",
+      "row_count": 2016,
+      "sha256": "73844bec57bc03ffec6739d4dfe55606a3be02722f80ed3b04cb044854295350"
+    },
+    "2023-10": {
+      "m1_sha256": "6eebfe487874254f63c656816dcd06929e369b1fbd796d3d382fcda461735543",
+      "path": "XAUUSD/M15/2023-10.csv",
+      "row_count": 2112,
+      "sha256": "03364ebc30e5b8226bec45d1846e5a02f9a41cfe077436a172da922e7dea20a9"
+    },
+    "2023-11": {
+      "m1_sha256": "90f8c4eeca95fff5e6cd91fbb961f55d4f1ed3c08318d983b961144ac2966080",
+      "path": "XAUUSD/M15/2023-11.csv",
+      "row_count": 2112,
+      "sha256": "bba16077948673e0a15b61baf63545bd132b5008a90aa7d202fda82dd367eb2c"
+    },
+    "2023-12": {
+      "m1_sha256": "a566ad888f48d414f3cbec23c5827602489723546f3bcb6f4725995ff339b513",
+      "path": "XAUUSD/M15/2023-12.csv",
+      "row_count": 2016,
+      "sha256": "c57b115d500d440f977607313cbf48367b56b213e323fd77c91fe8fec695e99c"
+    },
+    "2024-01": {
+      "m1_sha256": "de1f92e3393cf92508e46d9d146138cd20285dc663a8b5b69f0a54dfc55826c3",
+      "path": "XAUUSD/M15/2024-01.csv",
+      "row_count": 2208,
+      "sha256": "a2ff8fe9856710d9ea81cb467f4a9c7b99716f47c83b5e36329021298084737b"
+    },
+    "2024-02": {
+      "m1_sha256": "e02e59e458b54e51c8d6adaf2eb53205345ca8a97a2e29c0df95fa83d47d5d5c",
+      "path": "XAUUSD/M15/2024-02.csv",
+      "row_count": 2016,
+      "sha256": "dd61d9cb280c1847833eaff5fc0f0d13addb08fe8ebc70536fe5d27a4a42d920"
+    },
+    "2024-03": {
+      "m1_sha256": "e17b3607d96dd8e25ce95e889cac1285a02b18cdbdbcc172eebe57ec0f2e2904",
+      "path": "XAUUSD/M15/2024-03.csv",
+      "row_count": 2016,
+      "sha256": "49406a3ea998124ffb911502b605cb2351a73594a817e8e50925301bdba2f8b8"
+    },
+    "2024-04": {
+      "m1_sha256": "15941cbf4f61a269dbdecccfaaa09f7f3a06cc9a4a05eeafec709338e84f612e",
+      "path": "XAUUSD/M15/2024-04.csv",
+      "row_count": 2112,
+      "sha256": "f5e84224390084991042ca3a1929a39ded348a7f9b1564a028821dc1d6616bbd"
+    },
+    "2024-05": {
+      "m1_sha256": "7942530c4ddfef887cd5197ab9027fe80a2ae6b1aa79019a798de0fb6a6e30a5",
+      "path": "XAUUSD/M15/2024-05.csv",
+      "row_count": 2208,
+      "sha256": "366298c8bc125f897b56d4c1eaf2b02ba00d845f8ff9c1da76d2926bfaffa544"
+    },
+    "2024-06": {
+      "m1_sha256": "ea6bdc00f905b4d1cc324e791433cd8111903ae7795e09e4aa810c73cff53e0c",
+      "path": "XAUUSD/M15/2024-06.csv",
+      "row_count": 1920,
+      "sha256": "f000cecfa992d084a52033086050924911c600bf5b739362734c2b219620e40c"
+    },
+    "2024-07": {
+      "m1_sha256": "eb92f3effdce8fa6b9e94d36cc455be303ba4cfc4d4cddeb66a4c6ccb2e2c911",
+      "path": "XAUUSD/M15/2024-07.csv",
+      "row_count": 2208,
+      "sha256": "36f441e54dfead83839b22dbfa2306935ba4e2a948ddb1ecb83922828199a75c"
+    },
+    "2024-08": {
+      "m1_sha256": "00c52c3afd301e6b79da9ddd56ca33b3f359eb5ee59dd4363ca6a4f281535017",
+      "path": "XAUUSD/M15/2024-08.csv",
+      "row_count": 2112,
+      "sha256": "0ea0aa8ae3d72d980c45a439a1c3caa38bda1365d30021cd898618ad7802bf58"
+    },
+    "2024-09": {
+      "m1_sha256": "754f07de8ed5235495fe00d17081369a940a8b757151bbb659026b4e0a7bd17f",
+      "path": "XAUUSD/M15/2024-09.csv",
+      "row_count": 2016,
+      "sha256": "4606668c7ec0c1461a97f73a934f4627949ff22dcca10e397ea49a0dddbada63"
+    },
+    "2024-10": {
+      "m1_sha256": "094380459dd02073cf4734ffc13ed04014e90f1a8ab982fa48e2d8114acfd5ca",
+      "path": "XAUUSD/M15/2024-10.csv",
+      "row_count": 2208,
+      "sha256": "7d79397db662f1e8a214f5018375a82805a6356ab0d86322bf52787cd6279817"
+    },
+    "2024-11": {
+      "m1_sha256": "baea945387747f9f9cf547b6011082869d0b00fa814d95b314ee1b7295ea4750",
+      "path": "XAUUSD/M15/2024-11.csv",
+      "row_count": 2016,
+      "sha256": "c744c0ed7597cacddb45ff1ea2c6da73e1061e2458607f424531452381904dba"
+    },
+    "2024-12": {
+      "m1_sha256": "75a3d36ec74527160313d2728ad2b9a58ea5842f9ee39039dca049ec921cf338",
+      "path": "XAUUSD/M15/2024-12.csv",
+      "row_count": 2112,
+      "sha256": "2ac8d3c3740bbcb6c8d32be5f868529943a8b64eef554da2db87c402cba198eb"
+    },
+    "2025-01": {
+      "m1_sha256": "25f3e92d078eb0e0f11db8a5a9c861b1b419050503de71743a2daadde0a70bd3",
+      "path": "XAUUSD/M15/2025-01.csv",
+      "row_count": 2208,
+      "sha256": "c2c82d128be9a40b3e17a27690be6235e8232573ce5edd7f9b8b616d55635640"
+    },
+    "2025-02": {
+      "m1_sha256": "78bd161fcf0f3dbc1bea62ff1ca0ee8d50fa1a1a17d5c9f5ddf41bd3aad8d21a",
+      "path": "XAUUSD/M15/2025-02.csv",
+      "row_count": 1920,
+      "sha256": "951f6a0a1461d5eb830df2a7e76ee3cc7378199d0e8b8e89738908b50701f286"
+    },
+    "2025-03": {
+      "m1_sha256": "1a0ccaf08dc074590426c1c3d506b98d7941495bf7e892961a53309979e2f86b",
+      "path": "XAUUSD/M15/2025-03.csv",
+      "row_count": 2016,
+      "sha256": "18a273660d16b529778c5347cbfe6fa3930a304b39f75bbc8097e4166261f603"
+    },
+    "2025-04": {
+      "m1_sha256": "6c204d1b999b6d913187f7b72cd4b44aa66e8147929e983a146728471b8380ab",
+      "path": "XAUUSD/M15/2025-04.csv",
+      "row_count": 2112,
+      "sha256": "23bc12864a407b19fe6643585af14a836962113213e9abe3c468af7299bad1e3"
+    },
+    "2025-05": {
+      "m1_sha256": "78fe625871e6bc2f1acd26aca0a2bde2150751b700592951b3aa5ff83707e00d",
+      "path": "XAUUSD/M15/2025-05.csv",
+      "row_count": 2112,
+      "sha256": "6fdc86e15fcf89d00b61f2871413e34c1705df00964711ada459aa2d775c7bad"
+    },
+    "2025-06": {
+      "m1_sha256": "7449d3ddfbcb2454dd321b9e50fec939f91650407e6121531902ecddb1dba34f",
+      "path": "XAUUSD/M15/2025-06.csv",
+      "row_count": 2016,
+      "sha256": "f7f9fd4470badd45f51af513c11c451b56d39909341aa2a5d7d0143fa2fd5165"
+    },
+    "2025-07": {
+      "m1_sha256": "45883d20c9966c36351788a939e8943e9e236128d918f99c24b01a42826ce2f3",
+      "path": "XAUUSD/M15/2025-07.csv",
+      "row_count": 2208,
+      "sha256": "082e95cccea27f0e7b7ab7f6aa55141d918d3b6bc664be7f7a14acedb5cb34f4"
+    },
+    "2025-08": {
+      "m1_sha256": "da1e07889544bd8c164afcd007594872e4b7e54607e21fc1f6430c6946a02d8a",
+      "path": "XAUUSD/M15/2025-08.csv",
+      "row_count": 2016,
+      "sha256": "394704ffc514b92caa36f7ada20da272479be6cf630f1be05ae8c476555542d5"
+    },
+    "2025-09": {
+      "m1_sha256": "4e4101054273075bbe78b0963cb211a4f70a86474d3b689c49d28299807fb9dc",
+      "path": "XAUUSD/M15/2025-09.csv",
+      "row_count": 2112,
+      "sha256": "d8a139beb90da72899c1e7c7aea7626f0f218c162b94a33c793af8538438b75a"
+    },
+    "2025-10": {
+      "m1_sha256": "86ee48adde5c55494061f0314229af742044f0f79705ccc7c56b8d1547ebf60a",
+      "path": "XAUUSD/M15/2025-10.csv",
+      "row_count": 2208,
+      "sha256": "76e3f5e331cc31e802caec43cbec81ed9e431c91a3e051a5ca6928155f976571"
+    },
+    "2025-11": {
+      "m1_sha256": "3cc103c793dcb5e9b298ab91cc6e92a4384914e9a14d1c7483d045a46d3b9834",
+      "path": "XAUUSD/M15/2025-11.csv",
+      "row_count": 1920,
+      "sha256": "a9f3ae652bbaa237f8b97f3595115a54daa2eae539be0514a63ecbf4a36ec001"
+    },
+    "2025-12": {
+      "m1_sha256": "8fa750933058d2cb6cd01a1af5de68ba3a747903f92756189785a5f30ce2dd2e",
+      "path": "XAUUSD/M15/2025-12.csv",
+      "row_count": 2208,
+      "sha256": "b3fe3905891e9fd31bd383f0fe4a47ffa8a664dd84aafa3d45f553ec8c6f1c05"
+    }
+  },
+  "owner_approved": true,
+  "primary_manifest": "XAUUSD/monthly-manifest.json",
+  "primary_manifest_sha256": "228af3f9d38cf738afdca9092c73c1ffce680d73a1a4faa693119efefb20ca06",
+  "primary_sha256": "a4c8a8cac41d4808ef74550a2add9b293fda1f081af05d4ae0c595c49adab66b",
+  "primary_source": "dukascopy",
+  "reference_file": null,
+  "review_method": "OWNER_ACCEPTED_WITHOUT_EXTERNAL_CHECK",
+  "review_note": "Owner accepted the complete tracked XAUUSD monthly dataset under \u00a727; no external market-data comparison was performed.",
+  "row_count": 75168,
+  "schema_version": 1,
+  "status": "OWNER_APPROVED",
+  "symbol": "XAUUSD",
+  "timeframe": "M15"
+}
