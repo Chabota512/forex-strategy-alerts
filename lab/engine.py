@@ -36,8 +36,8 @@ DEFAULT_STRENGTH_WEIGHTS: dict[str, Decimal] = {
     for feature in STRENGTH_FEATURES
 }
 DEFAULT_STRENGTH_THRESHOLDS: dict[str, Decimal] = {
-    "strong_min": Decimal("0.67"),
-    "neutral_min": Decimal("0.33"),
+    "strong_min": Decimal("0.58"),
+    "neutral_min": Decimal("0.42"),
 }
 
 

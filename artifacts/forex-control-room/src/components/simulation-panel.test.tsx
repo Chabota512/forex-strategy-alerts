@@ -5,7 +5,7 @@ import { SimulationPanel } from './simulation-panel';
 
 const settings: SimulationSettings = {
   enabled: true,
-  startingBalance: 10_000,
+  startingBalance: 1_000,
   riskPercent: 1,
   sizingMode: 'LOTS',
   lotSize: 0.01,
@@ -52,6 +52,7 @@ function snapshot(): SimulationSnapshot {
       winRatePct: 66.7,
       avgR: 0.8,
       expectancyAfterCosts: 0.5,
+      expectancyMoneyAfterCosts: -0.21,
       maxDrawdown: 50,
       maxDrawdownPct: 0.5,
       profitFactor: 1.5,

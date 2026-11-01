@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from .alert_snapshots import DEFAULT_SNAPSHOT_PATH, read_snapshots
+from .capital_context import normalize_capital_context
 
 MIN_CELL_SIZE = 30
 MAX_DIGEST_TOKENS = 2_000
@@ -83,6 +84,15 @@ def _cell_metrics(
         if enough_follow_samples
         else None
     )
+    money_resolved = [
+        row for row in resolved if row.get("sim_net_pnl") is not None
+    ]
+    expectancy_money = (
+        sum((_decimal(row, "sim_net_pnl") for row in money_resolved), Decimal("0"))
+        / len(money_resolved)
+        if len(money_resolved) >= min_cell_size
+        else None
+    )
     fade_resolved = [
         row
         for row in rows
@@ -99,6 +109,28 @@ def _cell_metrics(
         if enough_fade_samples
         else None
     )
+    fade_money_resolved = [
+        row
+        for row in fade_resolved
+        if row.get("sim_fade_net_pnl") is not None
+    ]
+    fade_expectancy_money = (
+        sum(
+            (_decimal(row, "sim_fade_net_pnl") for row in fade_money_resolved),
+            Decimal("0"),
+        )
+        / len(fade_money_resolved)
+        if len(fade_money_resolved) >= min_cell_size
+        else None
+    )
+    capital_contexts: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        context = normalize_capital_context(
+            row.get("capital_context"), symbol=str(row.get("symbol", "XAUUSD"))
+        )
+        key = json.dumps(context, sort_keys=True, separators=(",", ":"))
+        capital_contexts[key] = context
+    capital_context_values = list(capital_contexts.values())
     return {
         "n": len(rows),
         "resolved": count,
@@ -112,6 +144,16 @@ def _cell_metrics(
         "expectancy_after_costs": (
             round(float(expectancy), 4) if expectancy is not None else None
         ),
+        "expectancy_money": (
+            round(float(expectancy_money), 2)
+            if expectancy_money is not None
+            else None
+        ),
+        "capital_context": (
+            capital_context_values[0]
+            if len(capital_context_values) == 1
+            else capital_context_values
+        ),
         "follow_vs_fade": {
             "follow_resolved": count,
             "follow_expectancy_after_costs": (
@@ -120,6 +162,16 @@ def _cell_metrics(
             "fade_expectancy_after_costs": (
                 round(float(fade_expectancy), 4)
                 if fade_expectancy is not None
+                else None
+            ),
+            "follow_expectancy_money": (
+                round(float(expectancy_money), 2)
+                if expectancy_money is not None
+                else None
+            ),
+            "fade_expectancy_money": (
+                round(float(fade_expectancy_money), 2)
+                if fade_expectancy_money is not None
                 else None
             ),
             "fade_resolved": len(fade_resolved),

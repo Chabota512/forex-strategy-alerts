@@ -33,7 +33,10 @@ const sampleData: IntelligenceData = {
   symbol: 'XAUUSD',
   informationalOnly: true,
   caseCount: 12,
-  overall: { hits: 7, misses: 5, hitRate: 58.3, expectancy: 0.27 },
+  overall: {
+    hits: 7, misses: 5, hitRate: 58.3, expectancy: 0.27, expectancyMoney: -0.21,
+    capitalContext: { balance_usd: 1000, sizing: 'LOTS', lots: { XAUUSD: 0.01 } },
+  },
   rules: [{
     id: 'rule-a',
     name: 'Trend confirmation',
@@ -43,11 +46,17 @@ const sampleData: IntelligenceData = {
     misses: 5,
     hitRate: 58.3,
     expectancy: 0.27,
+    expectancyMoney: -0.21,
+    capitalContext: { balance_usd: 1000, sizing: 'LOTS', lots: { XAUUSD: 0.01 } },
     baselineHitRate: 51.2,
     weight: 0.65,
     flagged: true,
   }],
-  hitRateOverTime: [{ at: '2025-01-01T00:00:00Z', caseCount: 12, hitRate: 58.3, expectancy: 0.27 }],
+  hitRateOverTime: [{
+    at: '2025-01-01T00:00:00Z', caseCount: 12, hitRate: 58.3,
+    expectancy: 0.27, expectancyMoney: -0.21,
+    capitalContext: { balance_usd: 1000, sizing: 'LOTS', lots: { XAUUSD: 0.01 } },
+  }],
   lessons: [{
     id: 'lesson-1',
     ruleId: 'rule-a',
@@ -85,6 +94,8 @@ describe('SystemIntelligence', () => {
     expect(screen.getByRole('img', { name: 'XAUUSD hit rate over time' })).toBeTruthy();
     expect(screen.getByTestId('intel-rules').textContent).toContain('HIT RATE');
     expect(screen.getByText('Retain the rule for further observation.')).toBeTruthy();
+    expect(screen.getByText(/−\$0\.21\/trade/)).toBeTruthy();
+    expect(screen.getByText(/CAPITAL · \$1,000 · LOTS · 0\.01 XAUUSD/)).toBeTruthy();
     expect(screen.getByText(/SAMPLE COUNT:/)).toBeTruthy();
     expect(screen.getByText('STRENGTH THRESHOLDS')).toBeTruthy();
     expect((screen.getByTestId('button-accept-intel-suggestion') as HTMLButtonElement).disabled).toBe(true);
@@ -110,5 +121,24 @@ describe('SystemIntelligence', () => {
     expect(screen.getByTestId('intel-empty')).toBeTruthy();
     expect(screen.getByText(/There is no historical sample/)).toBeTruthy();
     expect(screen.getByText(/SIMULATION ONLY/)).toBeTruthy();
+  });
+
+  it('shows newest lessons first and keeps the ledger scrollable', () => {
+    const lessons = Array.from({ length: 8 }, (_, index) => ({
+      ...sampleData.lessons[0],
+      id: `lesson-${index + 1}`,
+      action: `lesson action ${index + 1}`,
+    }));
+    useGetSystemIntelligence.mockReturnValue({
+      data: { ...sampleData, lessons }, isLoading: false, isError: false, refetch: vi.fn(),
+    });
+
+    render(<SystemIntelligence/>);
+
+    const ledger = screen.getByTestId('intel-lessons');
+    expect(ledger.style.maxHeight).toBe('320px');
+    expect(ledger.style.overflowY).toBe('auto');
+    expect(ledger.firstElementChild?.textContent).toContain('lesson action 8');
+    expect(ledger.children).toHaveLength(8);
   });
 });

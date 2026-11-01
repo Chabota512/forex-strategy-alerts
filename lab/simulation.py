@@ -103,7 +103,7 @@ def normalize_invert_weights(value: Mapping[str, Any] | None) -> dict[str, Decim
 @dataclass(frozen=True)
 class SimulationSettings:
     enabled: bool = True
-    starting_balance: Decimal = Decimal("10000")
+    starting_balance: Decimal = Decimal("1000")
     risk_percent: Decimal = Decimal("1")
     sizing_mode: str = SIZING_MODE_RISK_PERCENT
     lot_size: Decimal = Decimal("0.01")
@@ -138,7 +138,7 @@ class SimulationSettings:
         if not isinstance(enabled, bool):
             raise ValueError("Simulation enabled must be a boolean.")
         starting_balance = _as_decimal(
-            value.get("startingBalance", "10000"), "Starting balance"
+            value.get("startingBalance", "1000"), "Starting balance"
         )
         risk_percent = _as_decimal(value.get("riskPercent", "1"), "Risk percent")
         sizing_mode = value.get("sizingMode", SIZING_MODE_RISK_PERCENT)
@@ -1076,6 +1076,11 @@ class SimulationSession:
             else 0.0,
             "expectancyAfterCosts": float(
                 sum((trade.net_r for trade in closed), ZERO) / count
+            )
+            if count
+            else 0.0,
+            "expectancyMoneyAfterCosts": float(
+                sum((trade.net_pnl for trade in closed), ZERO) / count
             )
             if count
             else 0.0,

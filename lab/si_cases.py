@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 if __package__:
+    from .capital_context import (
+        DEFAULT_CAPITAL_CONTEXT,
+        normalize_capital_context,
+    )
     from .si_beliefs import (
         MIN_RULE_CASES,
         RULE_DEFINITIONS,
@@ -22,6 +26,10 @@ if __package__:
     )
     from .versioning import atomic_write_json
 else:
+    from capital_context import (
+        DEFAULT_CAPITAL_CONTEXT,
+        normalize_capital_context,
+    )
     from si_beliefs import (
         MIN_RULE_CASES,
         RULE_DEFINITIONS,
@@ -83,6 +91,18 @@ def _json_safe(value: Any) -> Any:
             raise ValueError("System Intelligence values must be finite.")
         return float(value)
     raise ValueError(f"Unsupported System Intelligence value: {type(value).__name__}.")
+
+
+def _finite_optional_float(value: Any, label: str) -> float | None:
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{label} must be a finite number.") from exc
+    if not math.isfinite(number):
+        raise ValueError(f"{label} must be a finite number.")
+    return number
 
 
 def _first(mapping: Mapping[str, Any], keys: Sequence[str], default: Any = None) -> Any:
@@ -241,6 +261,9 @@ def cases_from_snapshot(
     )
     if not isinstance(fingerprint, dict):
         fingerprint = {}
+    capital_context = normalize_capital_context(
+        snapshot.get("capital_context"), symbol=str(snapshot.get("symbol", "XAUUSD"))
+    )
 
     cases: list[dict[str, Any]] = []
     for trade in trades:
@@ -256,6 +279,9 @@ def cases_from_snapshot(
             raise ValueError("A resolved case requires finite net R.") from exc
         if not math.isfinite(net_r):
             raise ValueError("A resolved case requires finite net R.")
+        net_usd = _finite_optional_float(
+            trade.get("netPnl", trade.get("net_pnl")), "Resolved case net USD"
+        )
         alert_id = str(
             trade.get("alertId", trade.get("alert_id", snapshot.get("alert_id", "")))
         )
@@ -282,9 +308,11 @@ def cases_from_snapshot(
             "trade_id": trade_id,
             "case_type": case_type,
             "net_r": net_r,
+            "net_usd": net_usd,
             "features": features,
             "fingerprint": fingerprint,
             "config": config,
+            "capital_context": capital_context,
         }
         case_id = hashlib.sha256(
             json.dumps(
@@ -316,6 +344,8 @@ def cases_from_snapshot(
                 "resolved_at_utc": _utc_now(),
                 "outcome": outcome,
                 "net_r": net_r,
+                "net_usd": net_usd,
+                "capital_context": capital_context,
                 "features": features,
                 "formation_fingerprint": fingerprint,
             }
@@ -381,6 +411,24 @@ class SICaseStore:
         else:
             tunables = validate_tunables(tunables)
         lessons = value.get("lessons")
+        last_tuned_case_count = int(value.get("last_tuned_case_count", 0) or 0)
+        legacy_thresholds = {"strong_min": 0.67, "neutral_min": 0.33}
+        current_thresholds = tunables.get("strength_thresholds", {})
+        if (
+            last_tuned_case_count == 0
+            and isinstance(current_thresholds, Mapping)
+            and math.isclose(
+                float(current_thresholds.get("strong_min", -1)),
+                legacy_thresholds["strong_min"],
+            )
+            and math.isclose(
+                float(current_thresholds.get("neutral_min", -1)),
+                legacy_thresholds["neutral_min"],
+            )
+        ):
+            tunables["strength_thresholds"] = initial_tunables()[
+                "strength_thresholds"
+            ]
         return {
             "schema_version": 1,
             "tunables": tunables,
@@ -390,7 +438,7 @@ class SICaseStore:
                 else []
             ),
             "hit_rate_over_time": [],
-            "last_tuned_case_count": int(value.get("last_tuned_case_count", 0) or 0),
+            "last_tuned_case_count": last_tuned_case_count,
         }
 
     def _rebuild_metrics(self) -> None:
@@ -402,6 +450,10 @@ class SICaseStore:
                 "misses": 0,
                 "hit_rate": None,
                 "expectancy": None,
+                "expectancy_money": None,
+                "capital_context": normalize_capital_context(
+                    DEFAULT_CAPITAL_CONTEXT
+                ),
                 "baseline_hit_rate": None,
                 "weight": 1.0,
                 "flagged": False,
@@ -411,6 +463,11 @@ class SICaseStore:
         rule_r_totals = {rule_id: 0.0 for rule_id in rules}
         hits = 0
         total_r = 0.0
+        total_money = 0.0
+        money_count = 0
+        overall_capital_context = normalize_capital_context(DEFAULT_CAPITAL_CONTEXT)
+        rule_money_totals = {rule_id: 0.0 for rule_id in rules}
+        rule_money_counts = {rule_id: 0 for rule_id in rules}
         history: list[dict[str, Any]] = []
         lessons = list(self._state.get("lessons", []))
         case_count = len(self._cases)
@@ -420,6 +477,15 @@ class SICaseStore:
             is_hit = net_r > 0
             hits += int(is_hit)
             total_r += net_r
+            net_usd = _finite_optional_float(case.get("net_usd"), "Case net USD")
+            if net_usd is not None:
+                total_money += net_usd
+                money_count += 1
+            case_capital_context = normalize_capital_context(
+                case.get("capital_context"),
+                symbol=str(case.get("symbol", "XAUUSD")),
+            )
+            overall_capital_context = case_capital_context
             processed = index + 1
             baseline = hits / processed
             for rule_id, metric in rules.items():
@@ -433,6 +499,13 @@ class SICaseStore:
                 metric["expectancy"] = (
                     rule_r_totals[rule_id] / metric["samples"]
                 )
+                metric["capital_context"] = case_capital_context
+                if net_usd is not None:
+                    rule_money_totals[rule_id] += net_usd
+                    rule_money_counts[rule_id] += 1
+                    metric["expectancy_money"] = (
+                        rule_money_totals[rule_id] / rule_money_counts[rule_id]
+                    )
             if index >= history_start:
                 history.append(
                     {
@@ -441,6 +514,10 @@ class SICaseStore:
                         "case_count": processed,
                         "hit_rate": baseline,
                         "expectancy": total_r / processed,
+                        "expectancy_money": (
+                            total_money / money_count if money_count else None
+                        ),
+                        "capital_context": case_capital_context,
                     }
                 )
 
@@ -479,6 +556,10 @@ class SICaseStore:
                     "misses": overall_count - hits,
                     "hit_rate": baseline_hit_rate,
                     "expectancy": total_r / overall_count if overall_count else None,
+                    "expectancy_money": (
+                        total_money / money_count if money_count else None
+                    ),
+                    "capital_context": overall_capital_context,
                 },
                 "rules": list(rules.values()),
                 "hit_rate_over_time": history[-MAX_HISTORY_POINTS:],
@@ -489,6 +570,10 @@ class SICaseStore:
         self._rule_r_totals = rule_r_totals
         self._overall_r_total = total_r
         self._overall_hits = hits
+        self._overall_money_total = total_money
+        self._overall_money_count = money_count
+        self._rule_money_totals = rule_money_totals
+        self._rule_money_counts = rule_money_counts
 
     def _persist_state(self) -> None:
         atomic_write_json(self.state_path, self._state)
@@ -540,9 +625,16 @@ class SICaseStore:
         overall = self._state["overall"]
         count = int(self._state["case_count"]) + 1
         net_r = float(case["net_r"])
+        net_usd = _finite_optional_float(case.get("net_usd"), "Case net USD")
+        capital_context = normalize_capital_context(
+            case.get("capital_context"), symbol=str(case.get("symbol", "XAUUSD"))
+        )
         is_hit = net_r > 0
         self._overall_hits += int(is_hit)
         self._overall_r_total += net_r
+        if net_usd is not None:
+            self._overall_money_total += net_usd
+            self._overall_money_count += 1
         baseline = self._overall_hits / count
         overall.update(
             {
@@ -550,6 +642,12 @@ class SICaseStore:
                 "misses": count - self._overall_hits,
                 "hit_rate": baseline,
                 "expectancy": self._overall_r_total / count,
+                "expectancy_money": (
+                    self._overall_money_total / self._overall_money_count
+                    if self._overall_money_count
+                    else None
+                ),
+                "capital_context": capital_context,
             }
         )
         self._state["case_count"] = count
@@ -566,6 +664,14 @@ class SICaseStore:
                 metric["expectancy"] = (
                     self._rule_r_totals[rule_id] / metric["samples"]
                 )
+                metric["capital_context"] = capital_context
+                if net_usd is not None:
+                    self._rule_money_totals[rule_id] += net_usd
+                    self._rule_money_counts[rule_id] += 1
+                    metric["expectancy_money"] = (
+                        self._rule_money_totals[rule_id]
+                        / self._rule_money_counts[rule_id]
+                    )
             metric["baseline_hit_rate"] = baseline
             old_weight = float(metric.get("weight", 1.0))
             rate = metric.get("hit_rate")
@@ -602,6 +708,8 @@ class SICaseStore:
                         "hit_rate": metric["hit_rate"],
                         "baseline_hit_rate": baseline,
                         "expectancy": metric["expectancy"],
+                        "expectancy_money": metric["expectancy_money"],
+                        "capital_context": capital_context,
                         "window": count,
                         "previous_weight": old_weight,
                         "weight": new_weight,
@@ -616,6 +724,12 @@ class SICaseStore:
                 "case_count": count,
                 "hit_rate": baseline,
                 "expectancy": self._overall_r_total / count,
+                "expectancy_money": (
+                    self._overall_money_total / self._overall_money_count
+                    if self._overall_money_count
+                    else None
+                ),
+                "capital_context": capital_context,
             }
         )
         del history[:-MAX_HISTORY_POINTS]
@@ -665,6 +779,12 @@ class SICaseStore:
                 evidence={
                     "n": count,
                     "expectancy": self._state["overall"]["expectancy"],
+                    "expectancy_money": self._state["overall"][
+                        "expectancy_money"
+                    ],
+                    "capital_context": self._state["overall"][
+                        "capital_context"
+                    ],
                     "window": min(count, 200),
                     "changed": changed,
                     "tunables": updated,
@@ -692,6 +812,8 @@ class SICaseStore:
                 "misses": int(overall.get("misses", 0)),
                 "hitRate": as_percent(overall.get("hit_rate")),
                 "expectancy": overall.get("expectancy"),
+                "expectancyMoney": overall.get("expectancy_money"),
+                "capitalContext": overall.get("capital_context"),
             },
             "rules": [
                 {
@@ -703,6 +825,8 @@ class SICaseStore:
                     "misses": item["misses"],
                     "hitRate": as_percent(item["hit_rate"]),
                     "expectancy": item["expectancy"],
+                    "expectancyMoney": item.get("expectancy_money"),
+                    "capitalContext": item.get("capital_context"),
                     "baselineHitRate": as_percent(item["baseline_hit_rate"]),
                     "weight": item["weight"],
                     "flagged": item["flagged"],
@@ -715,6 +839,8 @@ class SICaseStore:
                     "caseCount": item["case_count"],
                     "hitRate": as_percent(item["hit_rate"]),
                     "expectancy": item["expectancy"],
+                    "expectancyMoney": item.get("expectancy_money"),
+                    "capitalContext": item.get("capital_context"),
                 }
                 for item in state.get("hit_rate_over_time", [])
             ],

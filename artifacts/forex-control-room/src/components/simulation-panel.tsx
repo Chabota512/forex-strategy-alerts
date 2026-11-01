@@ -15,6 +15,9 @@ import './equity-curve-dialog.css';
 const money = (value?: number | null) => typeof value === 'number'
   ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   : '—';
+const expectancyMoney = (value?: number | null) => typeof value === 'number'
+  ? `${value < 0 ? '−' : '+'}$${Math.abs(value).toFixed(2)}`
+  : '—';
 const price = (value?: number | null) => typeof value === 'number'
   ? value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 3 })
   : '—';
@@ -170,7 +173,7 @@ export function SimulationPanel({
   const metricItems = [
     { label: 'WIN RATE', value: stats ? `${stats.winRatePct.toFixed(1)}%` : '—', note: `${stats?.wins ?? 0} W / ${stats?.losses ?? 0} L` },
     { label: 'AVERAGE R', value: stats ? `${stats.avgR.toFixed(2)}R` : '—', note: 'closed trades' },
-    { label: 'EXPECTANCY · NET', value: stats ? `${stats.expectancyAfterCosts.toFixed(2)}R` : '—', note: 'after costs per trade' },
+    { label: 'EXPECTANCY · NET', value: stats ? `${stats.expectancyAfterCosts.toFixed(2)}R · ${expectancyMoney(stats.expectancyMoneyAfterCosts)}` : '—', note: 'after costs per trade' },
     { label: 'MAX DRAWDOWN', value: stats ? money(stats.maxDrawdown) : '—', note: stats ? `${stats.maxDrawdownPct.toFixed(2)}%` : 'peak-to-trough' },
     { label: 'PROFIT FACTOR', value: stats?.profitFactor === null || stats?.profitFactor === undefined ? '—' : stats.profitFactor.toFixed(2), note: 'net wins / losses' },
   ];

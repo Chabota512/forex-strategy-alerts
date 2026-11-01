@@ -61,7 +61,9 @@
 .intel-rule-metrics strong { display:block; margin-top:4px; color:var(--intel-copy); font-size:9px; font-weight:400; }
 .intel-rule-weight { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:9px; color:var(--intel-muted); font-size:7px; }
 .intel-rule-weight strong { color:var(--intel-accent); font-weight:400; }
-.intel-ledger { display:grid; }
+.intel-ledger { display:grid; max-height:320px; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
+.intel-ledger:focus-visible { outline:1px solid var(--intel-accent); outline-offset:3px; }
+.intel-capital-context { margin:0 0 12px; color:var(--intel-muted); font-size:8px; letter-spacing:.03em; }
 .intel-lesson { display:grid; grid-template-columns:108px minmax(0,1fr); gap:12px; padding:9px 0; border-top:1px solid var(--line-faint, #292f36); }
 .intel-lesson:first-child { border-top:0; }
 .intel-lesson-meta { display:flex; flex-direction:column; gap:5px; color:var(--intel-muted); font-size:7px; }

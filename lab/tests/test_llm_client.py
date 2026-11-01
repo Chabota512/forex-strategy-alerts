@@ -459,6 +459,90 @@ class LLMClientTests(unittest.TestCase):
         self.assertEqual(caught.exception.category, "quota")
         self.assertEqual(sleep.call_args_list, [call(5), call(5)])
 
+    def test_system_and_evolution_key_pools_never_cross(self) -> None:
+        credentials = {
+            "LLM_PROVIDER": "auto",
+            "GEMINI_API_KEY": "mock-gemini-1",
+            "GEMINI_API_KEY_2": "mock-gemini-2",
+            "GEMINI_API_KEY_3": "mock-gemini-3",
+            "GROQ_API_KEY": "mock-groq-1",
+            "GROQ_API_KEY_2": "mock-groq-2",
+        }
+        for pool, provider, url, response in (
+            ("evolve", "groq", llm_client.GROQ_CHAT_COMPLETIONS_URL,
+             _groq_response('{"no_change":true}')),
+            ("si", "gemini", "https://generativelanguage.googleapis.com/v1beta/"
+             "models/gemini-2.5-flash:generateContent",
+             _gemini_response('{"no_change":true}')),
+        ):
+            with (
+                patch.dict(os.environ, credentials, clear=True),
+                patch(
+                    "lab.llm_client.urllib.request.urlopen",
+                    return_value=response,
+                ) as urlopen,
+            ):
+                result = llm_client.propose("fixture prompt", key_pool=pool)
+
+            self.assertEqual(result.provider, provider)
+            self.assertEqual(urlopen.call_count, 1)
+            self.assertEqual(urlopen.call_args.args[0].full_url, url)
+
+        with (
+            patch.dict(os.environ, credentials, clear=True),
+            patch(
+                "lab.llm_client.urllib.request.urlopen",
+                side_effect=[
+                    _http_error(401, "invalid API key"),
+                    _http_error(401, "invalid API key"),
+                ],
+            ) as urlopen,
+            patch("lab.llm_client.time.sleep"),
+        ):
+            with self.assertRaises(llm_client.LLMRequestError):
+                llm_client.propose("fixture prompt", key_pool="evolve")
+
+        self.assertEqual(urlopen.call_count, 2)
+        self.assertTrue(
+            all(
+                call.args[0].full_url == llm_client.GROQ_CHAT_COMPLETIONS_URL
+                for call in urlopen.call_args_list
+            )
+        )
+
+    def test_key_pool_provider_overrides_are_isolated(self) -> None:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "EVOLVE_PROVIDER": "gemini",
+                    "SI_PROVIDER": "groq",
+                    "GEMINI_API_KEY": "mock-gemini",
+                    "GROQ_API_KEY": "mock-groq",
+                },
+                clear=True,
+            ),
+            patch(
+                "lab.llm_client.urllib.request.urlopen",
+                side_effect=[
+                    _gemini_response('{"no_change":true}'),
+                    _groq_response('{"no_change":true}'),
+                ],
+            ) as urlopen,
+        ):
+            evolve = llm_client.propose("fixture prompt", key_pool="evolve")
+            si = llm_client.propose("fixture prompt", key_pool="si")
+
+        self.assertEqual((evolve.provider, si.provider), ("gemini", "groq"))
+        self.assertEqual(
+            [call.args[0].full_url for call in urlopen.call_args_list],
+            [
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                "gemini-2.5-flash:generateContent",
+                llm_client.GROQ_CHAT_COMPLETIONS_URL,
+            ],
+        )
+
     def test_redaction_includes_second_groq_key(self) -> None:
         secret = "mock-groq-secret-never-expose"
         with patch.dict(

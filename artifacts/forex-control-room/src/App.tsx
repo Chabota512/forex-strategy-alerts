@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster as SonnerToaster } from 'sonner';
 import NotFound from '@/pages/not-found';
 import {
   getGetLabCandlesQueryKey,
@@ -27,6 +28,7 @@ import { SwingConnectorLayer } from '@/components/swing-connector-layer';
 import { SwingDirectionSwitch } from '@/components/swing-direction-switch';
 import { selectVisibleSwingEvents, selectVisibleSwingSegments, type SwingFamily, type SwingFamilySettings } from '@/lib/swing-events';
 import { applyAiPolicyView } from '@/lib/ai-policy-view';
+import { getSiFailureCategory, notifySiFailure } from '@/lib/si-failure-toast';
 import { monthForIndex, monthOrdinal, nextReplayPosition } from '@/lib/month-flow';
 import { followCursorChartStart, isManualChartPan } from '@/lib/chart-window';
 import { DEFAULT_LOT_SIZES } from '@/lib/simulation-defaults';
@@ -76,6 +78,10 @@ const fmtPrice = (value: number | undefined, symbol: InstrumentSymbol) => {
     maximumFractionDigits: digits,
   });
 };
+const fmtMoneyPerTrade = (value: number | null | undefined) =>
+  value == null || !Number.isFinite(value)
+    ? '—'
+    : `${value < 0 ? '−' : '+'}$${Math.abs(value).toFixed(2)}/trade`;
 const cctColor = (state?: string) => state === 'uptrend'
   ? 'var(--trend-up)' : state === 'downtrend' ? 'var(--trend-down)' : 'var(--trend-neutral)';
 const cstColor = (state?: string) => state === 'uptrend'
@@ -948,7 +954,7 @@ export function Home() {
   const [viewMonth, setViewMonth] = useState('2023-01');
   const [replaySession, setReplaySession] = useState<ReplaySessionStartResult | null>(null);
   const [simulationSettings, setSimulationSettings] = useState<SimulationSettings>({
-    enabled: true, startingBalance: 10000, riskPercent: 1, sizingMode: 'LOTS', lotSize: DEFAULT_LOT_SIZES.XAUUSD, rewardMultiple: 2,
+    enabled: true, startingBalance: 1000, riskPercent: 1, sizingMode: 'LOTS', lotSize: DEFAULT_LOT_SIZES.XAUUSD, rewardMultiple: 2,
     exitModel: 'candle_geometry',
     stopBodyWeight: 1,
     stopWickMultiplier: 2,
@@ -1254,6 +1260,11 @@ export function Home() {
     }
     policyVersionRef.current = version;
   }, [evolvePolicy.data?.version]);
+  useEffect(() => {
+    if (evolvePolicy.isError) {
+      notifySiFailure(getSiFailureCategory(evolvePolicy.error), aiFilterEnabled);
+    }
+  }, [aiFilterEnabled, evolvePolicy.error, evolvePolicy.isError]);
   const selectSymbol = (symbol: typeof selectedSymbol) => {
     if (symbol === selectedSymbol) return;
     if (!instrumentReviews.some(review => review.symbol === symbol && review.ownerApproved)) return;
@@ -1568,6 +1579,9 @@ export function Home() {
       expectancyAfterCosts: closedTrades.length
         ? closedTrades.reduce((total, trade) => total + trade.netR, 0) / closedTrades.length
         : null,
+      expectancyMoneyAfterCosts: closedTrades.length
+        ? closedTrades.reduce((total, trade) => total + trade.netPnl, 0) / closedTrades.length
+        : null,
       totalPnlAfterCosts: closedTrades.reduce((total, trade) => total + trade.netPnl, 0),
     };
   }, [shownAlertItems, displayedSimulatedTrades]);
@@ -1875,7 +1889,15 @@ export function Home() {
   };
   const requestNote = () => {
     if (!selected) return;
-    commentHook.mutate({ data: { alert: selected } }, { onSuccess: setComment });
+    commentHook.mutate({ data: { alert: selected } }, {
+      onSuccess: result => {
+        setComment(result);
+        if (!result.available) {
+          notifySiFailure(result.failureCategory ?? 'unknown', aiFilterEnabled);
+        }
+      },
+      onError: error => notifySiFailure(getSiFailureCategory(error), aiFilterEnabled),
+    });
   };
   const resetWindow = () => { void startReplay(false, true); };
   const selectMonth = (month: string) => {
@@ -2249,6 +2271,7 @@ export function Home() {
         symbol={selectedSymbol}
         selectedTradeId={focusedTrade?.tradeId ?? null}
         onSelect={focusTrade}
+        systemIntelligenceEnabled={aiFilterEnabled}
       /> : <aside className="alert-pane">
         <div className="alert-header">
           <div><strong>ALERT TAPE</strong><span>{matchingSession ? 'INCREMENTAL ENGINE OUTPUT · REVEALED' : m1DataReplay ? 'CANDLE-ONLY M1 REPLAY · NO ENGINE OUTPUT' : 'PRESS RUN TO BEGIN REPLAY'}</span></div>
@@ -2288,7 +2311,7 @@ export function Home() {
           <span>{filteredAlertStats.closedTradeCount} CLOSED</span>
           <span>WR {filteredAlertStats.winRatePct === null ? '—' : `${filteredAlertStats.winRatePct.toFixed(1)}%`}</span>
           <span>AVG R {filteredAlertStats.averageR === null ? '—' : `${filteredAlertStats.averageR >= 0 ? '+' : ''}${filteredAlertStats.averageR.toFixed(2)}`}</span>
-          <span>EXP {filteredAlertStats.expectancyAfterCosts === null ? '—' : `${filteredAlertStats.expectancyAfterCosts >= 0 ? '+' : ''}${filteredAlertStats.expectancyAfterCosts.toFixed(2)}R`}</span>
+          <span>EXP {filteredAlertStats.expectancyAfterCosts === null ? '—' : `${filteredAlertStats.expectancyAfterCosts >= 0 ? '+' : ''}${filteredAlertStats.expectancyAfterCosts.toFixed(2)}R`} · {fmtMoneyPerTrade(filteredAlertStats.expectancyMoneyAfterCosts)}</span>
           <span>P&L {filteredAlertStats.totalPnlAfterCosts >= 0 ? `+$${filteredAlertStats.totalPnlAfterCosts.toFixed(2)}` : `-$${Math.abs(filteredAlertStats.totalPnlAfterCosts).toFixed(2)}`}</span>
         </div>
         <div className="alert-list" data-testid="alert-list">
@@ -2347,7 +2370,7 @@ export function Home() {
     />
     <EvolveControl symbol={selectedSymbol} symbolApproved={Boolean(activeDataset?.ownerApproved)} swingVersion={swingDirectionVersion} />
     <AutoevolveControl/>
-    {selectedSymbol === 'XAUUSD' && <SystemIntelligence/>}
+    {selectedSymbol === 'XAUUSD' && <SystemIntelligence enabled={aiFilterEnabled}/>}
     <footer className="disclaimer" data-testid="persistent-disclaimer">{DISCLAIMER}</footer>
   </main>;
 }
@@ -2360,6 +2383,6 @@ function RouteBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 function App() {
-  return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router/></WouterRouter><Toaster/></TooltipProvider></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router/></WouterRouter><Toaster/><SonnerToaster richColors/></TooltipProvider></QueryClientProvider>;
 }
 export default App;

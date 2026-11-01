@@ -849,7 +849,7 @@ describe('symbol switching session', () => {
           closedTradeCount: 0,
           settings: {
             enabled: true,
-            startingBalance: 10000,
+            startingBalance: 1000,
             riskPercent: 1,
             sizingMode: 'LOTS',
             lotSize: 0.01,
@@ -866,6 +866,7 @@ describe('symbol switching session', () => {
             winRatePct: 0,
             avgR: 0,
             expectancyAfterCosts: 0,
+            expectancyMoneyAfterCosts: 0,
             maxDrawdown: 0,
             maxDrawdownPct: 0,
             profitFactor: null,
@@ -1516,6 +1517,10 @@ describe('symbol switching session', () => {
     fireEvent.click(screen.getByTestId('button-next-candle'));
 
     await screen.findByTestId(`alert-row-${matchingAlert.alert.alertId}`);
+    expect(screen.getByTestId(`alert-row-${matchingAlert.alert.alertId}`).textContent)
+      .toContain('STRONG');
+    expect(screen.getByLabelText('Revealed alert counts').textContent)
+      .toContain('STR 1');
     await waitFor(() => expect(screen.getByTestId('simulation-filter-scope').textContent)
       .toBe('Simulating: STRONG + BUY + VARIANT B + WP UP + ENGULF only · 1 of 1 alerts'));
     expect(api.advance).toHaveBeenCalledWith(expect.objectContaining({

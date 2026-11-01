@@ -7,6 +7,7 @@ from lab.engine import (
     AmplitudeSwing,
     Candle,
     CandleDataError,
+    DEFAULT_STRENGTH_THRESHOLDS,
     StreamingAmplitudeCST,
     SwingDirectionV2,
     body_engulfs_previous,
@@ -17,6 +18,7 @@ from lab.engine import (
     detect_trigger,
     detect_trigger_b,
     score_alert,
+    score_strength,
     strength_for,
     smaller_body_note,
 )
@@ -559,6 +561,35 @@ class CstTests(unittest.TestCase):
         self.assertEqual(strength_for("BUY", "downtrend"), "WEAK")
         self.assertEqual(strength_for("SELL", "transition"), "NEUTRAL")
         self.assertEqual(strength_for("SELL", "undefined"), "NEUTRAL")
+
+    def test_default_composite_thresholds_produce_a_mixed_tier_distribution(self):
+        self.assertEqual(
+            DEFAULT_STRENGTH_THRESHOLDS,
+            {"strong_min": Decimal("0.58"), "neutral_min": Decimal("0.42")},
+        )
+        signed_features = (
+            "cst_alignment",
+            "cct_alignment",
+            "wp_agree",
+            "mtf_trend_agree",
+            "mtf_wp_agree",
+        )
+        tier_features = []
+        for signed_value, engulf, dual_alert in (
+            (-1, 0, 0),
+            (0, 0, 1),
+            (1, 1, 1),
+        ):
+            features = {feature: signed_value for feature in signed_features}
+            features.update({"engulf": engulf, "dual_tf_alert": dual_alert})
+            tier_features.extend([features] * 20)
+
+        labels = [score_strength(features)[1] for features in tier_features]
+
+        self.assertEqual(
+            {label: labels.count(label) for label in set(labels)},
+            {"STRONG": 20, "NEUTRAL": 20, "WEAK": 20},
+        )
 
 
 if __name__ == "__main__":

@@ -987,6 +987,7 @@ components:
           type: number
           exclusiveMinimum: 0
           maximum: 1000000000000
+          default: 1000
           default: 10000
         riskPercent:
           type: number
@@ -1625,6 +1626,8 @@ components:
           type: number
         expectancyAfterCosts:
           type: number
+        expectancyMoneyAfterCosts:
+          type: number
         maxDrawdown:
           type: number
           minimum: 0
@@ -1640,6 +1643,7 @@ components:
         - winRatePct
         - avgR
         - expectancyAfterCosts
+        - expectancyMoneyAfterCosts
         - maxDrawdown
         - maxDrawdownPct
         - profitFactor
@@ -1913,7 +1917,10 @@ components:
             - type: "null"
         message:
           type: ["string", "null"]
-      required: [available, alertId, comment, cached, tokenUsage, message]
+        failureCategory:
+          type: ["string", "null"]
+          enum: [auth, quota, rate_limit, network, model_not_found, unknown, null]
+      required: [available, alertId, comment, cached, tokenUsage, message, failureCategory]
     TradeCommentResult:
       type: object
       properties:
@@ -1931,13 +1938,19 @@ components:
             - type: "null"
         message:
           type: ["string", "null"]
-      required: [available, tradeId, comment, cached, tokenUsage, message]
+        failureCategory:
+          type: ["string", "null"]
+          enum: [auth, quota, rate_limit, network, model_not_found, unknown, null]
+      required: [available, tradeId, comment, cached, tokenUsage, message, failureCategory]
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-      required: [error]
+        failureCategory:
+          type: ["string", "null"]
+          enum: [auth, quota, rate_limit, network, model_not_found, unknown, null]
+      required: [error, failureCategory]
     EvolveRunInput:
       type: object
       properties:
@@ -2019,7 +2032,11 @@ components:
           type: ["number", "null"]
         expectancy:
           type: ["number", "null"]
-      required: [hits, misses, hitRate, expectancy]
+        expectancyMoney:
+          type: ["number", "null"]
+        capitalContext:
+          $ref: "#/components/schemas/CapitalContext"
+      required: [hits, misses, hitRate, expectancy, expectancyMoney, capitalContext]
     SystemIntelligenceRule:
       type: object
       properties:
@@ -2039,6 +2056,10 @@ components:
           type: ["number", "null"]
         expectancy:
           type: ["number", "null"]
+        expectancyMoney:
+          type: ["number", "null"]
+        capitalContext:
+          $ref: "#/components/schemas/CapitalContext"
         baselineHitRate:
           type: ["number", "null"]
         weight:
@@ -2054,6 +2075,8 @@ components:
         - misses
         - hitRate
         - expectancy
+        - expectancyMoney
+        - capitalContext
         - baselineHitRate
         - weight
         - flagged
@@ -2068,7 +2091,11 @@ components:
           type: number
         expectancy:
           type: number
-      required: [at, caseCount, hitRate, expectancy]
+        expectancyMoney:
+          type: ["number", "null"]
+        capitalContext:
+          $ref: "#/components/schemas/CapitalContext"
+      required: [at, caseCount, hitRate, expectancy, expectancyMoney, capitalContext]
     SystemIntelligenceLesson:
       type: object
       properties:
@@ -2086,6 +2113,21 @@ components:
         createdAtUtc:
           type: string
       required: [id, ruleId, ruleName, action, evidence, createdAtUtc]
+    CapitalContext:
+      type: object
+      properties:
+        balance_usd:
+          type: number
+          exclusiveMinimum: 0
+        sizing:
+          type: string
+          enum: [LOTS, RISK_PERCENT]
+        lots:
+          type: object
+          additionalProperties:
+            type: number
+            exclusiveMinimum: 0
+      required: [balance_usd, sizing, lots]
     SystemIntelligenceTunables:
       type: object
       properties:

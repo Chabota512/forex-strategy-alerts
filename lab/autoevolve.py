@@ -274,7 +274,7 @@ class AutoevolveManager:
 
     def _propose_groq(self, prompt: str) -> llm_client.LLMProposalResponse:
         try:
-            response = llm_client.propose(prompt, provider="groq")
+            response = llm_client.propose(prompt, key_pool="evolve")
         except LLMRequestError as exc:
             self._record_provider_attempts(exc.attempts, failure_category=exc.category)
             raise

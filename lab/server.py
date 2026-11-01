@@ -177,7 +177,7 @@ def _normalise_trade_comment(value: str) -> str | None:
 def _trade_comment_prompt(snapshot: dict[str, Any]) -> str:
     return (
         f"{TRADE_COMMENT_PROMPT_RULES}\n\n"
-        "Trade snapshot (one trade only; features and context, not a raw candle series):\n"
+        "Research snapshot (one alert or trade; features and context, not a raw candle series):\n"
         f"{json.dumps(snapshot, sort_keys=True, separators=(',', ':'), ensure_ascii=True)}"
     )
 
@@ -539,7 +539,7 @@ class LabService:
             self.source = "dukascopy"
             self.source_sha256 = sha256_file(data_path)
         self.spec = backtest.load_spec(spec_path)
-        self.ai_generator = ai_generator or _gemini_comment
+        self.ai_generator = ai_generator
         self.cache_lock = threading.RLock()
         self._data_lock = threading.RLock()
         self._trend_state_cache: dict[
@@ -1904,16 +1904,21 @@ class LabService:
                     "cached": True,
                     "tokenUsage": None,
                     "message": None,
+                    "failureCategory": None,
                 }
 
             try:
-                response = llm_client.propose(_trade_comment_prompt(snapshot))
+                response = llm_client.propose(
+                    _trade_comment_prompt(snapshot), key_pool="si"
+                )
                 comment = _normalise_trade_comment(response.rationale)
                 if not comment:
                     raise ValueError("The provider returned a note outside journal rules.")
             except Exception as exc:
                 logger.warning("Trade AI note unavailable: %s", type(exc).__name__)
-                return self._unavailable_trade_comment(trade_id)
+                return self._unavailable_trade_comment(
+                    trade_id, failure_category=llm_client.classify_error(exc)
+                )
 
             cache[cache_key] = {
                 "contextSha256": context_hash,
@@ -1962,11 +1967,15 @@ class LabService:
                 "cached": False,
                 "tokenUsage": token_usage,
                 "message": None,
+                "failureCategory": None,
             }
 
     @staticmethod
     def _unavailable_trade_comment(
-        trade_id: str, message: str = "AI assist unavailable"
+        trade_id: str,
+        message: str = "AI assist unavailable",
+        *,
+        failure_category: str | None = None,
     ) -> dict[str, Any]:
         return {
             "available": False,
@@ -1975,6 +1984,7 @@ class LabService:
             "cached": False,
             "tokenUsage": None,
             "message": message,
+            "failureCategory": failure_category,
         }
 
     def alert_comment(self, alert: dict[str, Any]) -> dict[str, Any]:
@@ -2023,19 +2033,36 @@ class LabService:
                     "cached": True,
                     "tokenUsage": None,
                     "message": None,
+                    "failureCategory": None,
                 }
 
-            api_key = os.environ.get("GEMINI_API_KEY")
-            if not api_key:
-                return self._unavailable_comment(alert_id)
             try:
-                comment, usage = self.ai_generator(alert, api_key)
+                if self.ai_generator is not None:
+                    api_key = os.environ.get("GEMINI_API_KEY")
+                    if not api_key:
+                        return self._unavailable_comment(alert_id, "auth")
+                    comment, usage = self.ai_generator(alert, api_key)
+                    provider_usage = {
+                        "input": usage.get("promptTokens"),
+                        "output": usage.get("responseTokens"),
+                        "total": usage.get("totalTokens"),
+                    }
+                    provider = "gemini"
+                else:
+                    response = llm_client.propose(
+                        _trade_comment_prompt(alert), key_pool="si"
+                    )
+                    comment = response.rationale
+                    provider_usage = response.usage
+                    provider = response.provider
                 comment = _normalise_comment(comment)
                 if not comment:
                     raise RuntimeError("Empty AI response")
             except Exception as exc:
                 logger.warning("AI assist unavailable: %s", type(exc).__name__)
-                return self._unavailable_comment(alert_id)
+                return self._unavailable_comment(
+                    alert_id, llm_client.classify_error(exc)
+                )
 
             cache[alert_id] = {
                 "contextSha256": context_hash,
@@ -2051,29 +2078,44 @@ class LabService:
             usage_record = {
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "alertId": alert_id,
-                "model": GEMINI_MODEL,
-                **usage,
+                "provider": provider,
+                **provider_usage,
             }
             with usage_path.open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps(usage_record, sort_keys=True) + "\n")
             logger.info(
-                "Gemini token usage alert=%s prompt=%d response=%d total=%d",
+                "SI token usage alert=%s provider=%s prompt=%s response=%s total=%s",
                 alert_id,
-                usage["promptTokens"],
-                usage["responseTokens"],
-                usage["totalTokens"],
+                provider,
+                provider_usage["input"],
+                provider_usage["output"],
+                provider_usage["total"],
             )
+            token_usage = None
+            if all(
+                isinstance(provider_usage.get(key), int)
+                and not isinstance(provider_usage.get(key), bool)
+                for key in ("input", "output", "total")
+            ):
+                token_usage = {
+                    "promptTokens": provider_usage["input"],
+                    "responseTokens": provider_usage["output"],
+                    "totalTokens": provider_usage["total"],
+                }
             return {
                 "available": True,
                 "alertId": alert_id,
                 "comment": comment,
                 "cached": False,
-                "tokenUsage": usage,
+                "tokenUsage": token_usage,
                 "message": None,
+                "failureCategory": None,
             }
 
     @staticmethod
-    def _unavailable_comment(alert_id: str) -> dict[str, Any]:
+    def _unavailable_comment(
+        alert_id: str, failure_category: str | None = None
+    ) -> dict[str, Any]:
         return {
             "available": False,
             "alertId": alert_id,
@@ -2081,6 +2123,7 @@ class LabService:
             "cached": False,
             "tokenUsage": None,
             "message": "AI assist unavailable",
+            "failureCategory": failure_category,
         }
 
 
@@ -2102,8 +2145,16 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(body)
 
-        def _error(self, status: int, message: str) -> None:
-            self._send_json(status, {"error": message})
+        def _error(
+            self,
+            status: int,
+            message: str,
+            failure_category: str | None = None,
+        ) -> None:
+            self._send_json(
+                status,
+                {"error": message, "failureCategory": failure_category},
+            )
 
         def _read_json(self) -> dict[str, Any]:
             try:
@@ -2208,9 +2259,13 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
                 self._error(400, str(exc))
             except (BrokenPipeError, ConnectionResetError):
                 return
-            except Exception:
+            except Exception as exc:
                 logger.exception("Unhandled GET request failure path=%s", parsed.path)
-                self._error(500, "The lab request could not be completed.")
+                self._error(
+                    500,
+                    "The lab request could not be completed.",
+                    llm_client.classify_error(exc),
+                )
 
         def do_POST(self) -> None:
             parsed = urllib.parse.urlsplit(self.path)
@@ -2420,9 +2475,13 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
                 self._error(400, str(exc))
             except (BrokenPipeError, ConnectionResetError):
                 return
-            except Exception:
+            except Exception as exc:
                 logger.exception("Unhandled POST request failure path=%s", parsed.path)
-                self._error(500, "The lab request could not be completed.")
+                self._error(
+                    500,
+                    "The lab request could not be completed.",
+                    llm_client.classify_error(exc),
+                )
 
         def log_message(self, _format: str, *args: Any) -> None:
             logger.info(

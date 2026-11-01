@@ -378,11 +378,45 @@ def _credential_plan(
 
 
 def propose(
-    prompt: str, *, provider: str | None = None
+    prompt: str,
+    *,
+    provider: str | None = None,
+    key_pool: str | None = None,
 ) -> LLMProposalResponse:
-    """Request a proposal, optionally restricting fallback to one provider."""
+    """Request a proposal from an optional provider or isolated key pool."""
+    if provider is not None and key_pool is not None:
+        raise LLMRequestError(
+            "Choose either a provider or a key pool, not both.",
+            category="unknown",
+            attempts=[],
+        )
     mode = os.environ.get("LLM_PROVIDER", "auto").strip().lower() or "auto"
-    only_provider = provider.strip().lower() if isinstance(provider, str) else None
+    if key_pool is not None:
+        normalized_pool = key_pool.strip().lower()
+        pool_settings = {
+            "evolve": ("EVOLVE_PROVIDER", "groq"),
+            "si": ("SI_PROVIDER", "gemini"),
+        }
+        if normalized_pool not in pool_settings:
+            raise LLMRequestError(
+                "Unsupported key pool; use evolve or si.",
+                category="unknown",
+                attempts=[],
+            )
+        env_name, default_provider = pool_settings[normalized_pool]
+        only_provider = (
+            os.environ.get(env_name, default_provider).strip().lower()
+            or default_provider
+        )
+        if only_provider not in {"gemini", "groq"}:
+            raise LLMRequestError(
+                f"Unsupported {env_name} value; use gemini or groq.",
+                category="unknown",
+                attempts=[],
+            )
+        mode = only_provider
+    else:
+        only_provider = provider.strip().lower() if isinstance(provider, str) else None
     if only_provider is not None and only_provider not in {"gemini", "groq"}:
         raise LLMRequestError(
             f"Unsupported provider {provider!r}; use gemini or groq.",

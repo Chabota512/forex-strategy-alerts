@@ -1,20 +1,29 @@
 {
-  "active_job_id": "b9f4b55e-fa9e-443f-904f-cfcef563676a",
-  "alerts": [],
+  "active_job_id": null,
+  "alerts": [
+    {
+      "created_at_utc": "2026-11-01T21:03:44.407616Z",
+      "id": "bd0234ac-8f3b-47b7-a593-32e58cda4a38",
+      "job_id": null,
+      "kind": "round-interrupted",
+      "message": "An unfinished AUTOEVOLVE round was archived as failed after restart.",
+      "persistent": true
+    }
+  ],
   "cooldown_seconds": 60,
   "cooldown_until_utc": null,
-  "error": null,
+  "error": "The server restarted during a round; a failed archive was saved.",
   "keys": {
     "key1": "unknown",
     "key2": "unknown"
   },
-  "last_result_file": "evolve_round_02_20261101T203612702328Z_result.json",
+  "last_result_file": "evolve_round_03_20261101T204629683143Z_result.json",
   "last_verdict": "failed",
-  "phase": "training",
+  "phase": "failed",
   "round": 3,
-  "running": true,
-  "state": "stopping",
-  "stop_requested": true,
+  "running": false,
+  "state": "failed",
+  "stop_requested": false,
   "swing_version": "V2",
-  "updated_at_utc": "2026-11-01T20:58:12.069762Z"
+  "updated_at_utc": "2026-11-01T21:03:44.407634Z"
 }

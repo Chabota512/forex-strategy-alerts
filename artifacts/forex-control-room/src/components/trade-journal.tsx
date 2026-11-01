@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useGetTradeComment } from '@workspace/api-client-react';
 import type { InstrumentSymbol, SimulatedTrade, TradeCommentResult } from '@workspace/api-client-react';
+import { getSiFailureCategory, notifySiFailure } from '@/lib/si-failure-toast';
 
 type OutcomeFilter = 'ALL' | 'WIN' | 'LOSS';
 type SortKey = 'entryTime' | 'direction' | 'netPnl' | 'pipPnl' | 'netR';
@@ -17,11 +18,12 @@ const price = (value: number, symbol: InstrumentSymbol) => value.toLocaleString(
 });
 const money = (value: number, currency: string) => `${value < 0 ? '−' : '+'}${currency} ${Math.abs(value).toFixed(2)}`;
 
-export function TradeJournal({ trades, symbol, selectedTradeId, onSelect }: {
+export function TradeJournal({ trades, symbol, selectedTradeId, onSelect, systemIntelligenceEnabled }: {
   trades: SimulatedTrade[];
   symbol: InstrumentSymbol;
   selectedTradeId: string | null;
   onSelect: (trade: SimulatedTrade) => void;
+  systemIntelligenceEnabled: boolean;
 }) {
   const [filter, setFilter] = useState<OutcomeFilter>('ALL');
   const [sortKey, setSortKey] = useState<SortKey>('entryTime');
@@ -52,8 +54,16 @@ export function TradeJournal({ trades, symbol, selectedTradeId, onSelect }: {
     if (notes[tradeId] || hook.isPending) return;
     setNoteErrors(current => ({ ...current, [tradeId]: false }));
     hook.mutate({ data: { tradeId } }, {
-      onSuccess: result => setNotes(current => ({ ...current, [tradeId]: result })),
-      onError: () => setNoteErrors(current => ({ ...current, [tradeId]: true })),
+      onSuccess: result => {
+        setNotes(current => ({ ...current, [tradeId]: result }));
+        if (!result.available) {
+          notifySiFailure(result.failureCategory ?? 'unknown', systemIntelligenceEnabled);
+        }
+      },
+      onError: error => {
+        setNoteErrors(current => ({ ...current, [tradeId]: true }));
+        notifySiFailure(getSiFailureCategory(error), systemIntelligenceEnabled);
+      },
     });
   };
   return <aside className="trade-journal" aria-label="Trade journal" data-testid="trade-journal">

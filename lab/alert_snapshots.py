@@ -11,6 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from .capital_context import capital_context_from_settings
 from .engine import Candle, body_engulfs_previous
 from .simulation import SimulationSettings, resolve_simulation_direction
 
@@ -81,6 +82,7 @@ def _trade_snapshot_fields(
         "sim_net_pnl": None,
         "sim_fade_outcome": None,
         "sim_fade_r_after_costs": None,
+        "sim_fade_net_pnl": None,
     }
     if trade is not None:
         trade_id = _get(trade, "tradeId", "trade_id")
@@ -138,6 +140,9 @@ def _trade_snapshot_fields(
             fields["sim_fade_outcome"] = fade_outcome
             fields["sim_fade_r_after_costs"] = _decimal_text(
                 _decimal(_get(fade_trade, "netR", "net_r"))
+            )
+            fields["sim_fade_net_pnl"] = _decimal_text(
+                _decimal(_get(fade_trade, "netPnl", "net_pnl"))
             )
     fields.update(
         {
@@ -305,6 +310,9 @@ def build_alert_snapshot(
         "penetration_atr": _decimal_text(penetration_atr),
         "hour_utc": parsed_time.hour,
         "day_of_week": parsed_time.weekday(),
+        "capital_context": capital_context_from_settings(
+            simulation_settings, symbol=str(alert.get("symbol", "XAUUSD"))
+        ),
     }
     snapshot.update(_trade_snapshot_fields(trade, fade_trade))
     if simulation_settings is not None:

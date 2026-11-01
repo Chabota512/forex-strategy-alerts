@@ -1,5 +1,6 @@
 import { getGetSystemIntelligenceQueryKey, useGetSystemIntelligence } from '@workspace/api-client-react';
 import type { SystemIntelligence } from '@workspace/api-client-react';
+import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   CartesianGrid,
@@ -10,12 +11,20 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { getSiFailureCategory, notifySiFailure } from '@/lib/si-failure-toast';
 import './system-intelligence.css';
 
 const pct = (value: number | null | undefined) =>
   value == null || !Number.isFinite(value) ? '—' : `${value.toFixed(1)}%`;
 const number = (value: number | null | undefined) =>
   value == null || !Number.isFinite(value) ? '—' : value.toFixed(2);
+const expectancyText = (r: number | null | undefined, money: number | null | undefined) => {
+  const rText = r == null || !Number.isFinite(r) ? '—' : `${r.toFixed(2)}R`;
+  const moneyText = money == null || !Number.isFinite(money)
+    ? '—'
+    : `${money < 0 ? '−' : '+'}$${Math.abs(money).toFixed(2)}`;
+  return `${rText} · ${moneyText}/trade`;
+};
 const dateLabel = (value: string) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
@@ -69,6 +78,10 @@ function IntelligenceChart({ data }: { data: SystemIntelligence['hitRateOverTime
             <time>{dateTime(String(at ?? ''))}</time>
             <strong>HIT RATE · {pct(Number(payload[0]?.value))}</strong>
             <strong>CASES · {Number(payload[0]?.payload.caseCount ?? 0).toLocaleString()}</strong>
+            <strong>EXPECTANCY · {expectancyText(
+              Number(payload[0]?.payload.expectancy),
+              Number(payload[0]?.payload.expectancyMoney),
+            )}</strong>
           </div> : null}
         />
         <Line type="monotone" dataKey="hitRate" stroke="var(--accent)" strokeWidth={2} dot={{ r: 2.5, fill: 'var(--surface)', stroke: 'var(--accent)', strokeWidth: 1.5 }} activeDot={{ r: 4, fill: 'var(--accent)' }} isAnimationActive={false}/>
@@ -87,9 +100,13 @@ function LoadedIntelligence({ data }: { data: SystemIntelligence }) {
         <div className="intel-overall-foot">{data.overall.hits.toLocaleString()} hits / {data.overall.misses.toLocaleString()} misses</div>
       </div>
       <div className="intel-stat"><span>CASE COUNT</span><strong>{data.caseCount.toLocaleString()}</strong></div>
-      <div className="intel-stat"><span>EXPECTANCY</span><strong className={expectancyClass}>{number(data.overall.expectancy)} R</strong></div>
+      <div className="intel-stat"><span>EXPECTANCY</span><strong className={expectancyClass}>{expectancyText(data.overall.expectancy, data.overall.expectancyMoney)}</strong></div>
       <div className="intel-stat"><span>ACTIVE RULES</span><strong>{data.rules.length.toString().padStart(2, '0')}</strong></div>
     </div>
+    <p className="intel-capital-context" data-testid="intel-capital-context">
+      CAPITAL · ${data.overall.capitalContext.balance_usd.toLocaleString('en-US')} · {data.overall.capitalContext.sizing}
+      {Object.entries(data.overall.capitalContext.lots).map(([symbol, lots]) => ` · ${lots} ${symbol}`).join('')}
+    </p>
     <section className="intel-section" aria-labelledby="intel-history-title">
       <div className="intel-section-head"><h3 id="intel-history-title">HIT RATE · OVER TIME</h3><span>{data.hitRateOverTime.length} observations</span></div>
       {data.hitRateOverTime.length ? <IntelligenceChart data={data.hitRateOverTime}/> :
@@ -104,7 +121,7 @@ function LoadedIntelligence({ data }: { data: SystemIntelligence }) {
           <div className="intel-rule-metrics">
             <div><span>SAMPLES</span><strong>{rule.samples.toLocaleString()}</strong></div>
             <div><span>HIT RATE</span><strong>{pct(rule.hitRate)}</strong></div>
-            <div><span>EXPECTANCY</span><strong>{number(rule.expectancy)} R</strong></div>
+            <div><span>EXPECTANCY</span><strong>{expectancyText(rule.expectancy, rule.expectancyMoney)}</strong></div>
             <div><span>BASELINE</span><strong>{pct(rule.baselineHitRate)}</strong></div>
           </div>
           <div className="intel-rule-weight"><span>RULE WEIGHT</span><strong>{number(rule.weight)}</strong></div>
@@ -113,8 +130,8 @@ function LoadedIntelligence({ data }: { data: SystemIntelligence }) {
     </section>
     <section className="intel-section" aria-labelledby="intel-lessons-title">
       <div className="intel-section-head"><h3 id="intel-lessons-title">LESSON LEDGER</h3><span>{data.lessons.length} evidence records</span></div>
-      {data.lessons.length ? <div className="intel-ledger" data-testid="intel-lessons">
-        {data.lessons.map(lesson => <article className="intel-lesson" key={lesson.id} data-testid={`intel-lesson-${lesson.id}`}>
+      {data.lessons.length ? <div className="intel-ledger" data-testid="intel-lessons" tabIndex={0} aria-label="Scrollable lesson ledger">
+        {[...data.lessons].reverse().map(lesson => <article className="intel-lesson" key={lesson.id} data-testid={`intel-lesson-${lesson.id}`}>
           <div className="intel-lesson-meta"><strong>{lesson.ruleName}</strong><time dateTime={lesson.createdAtUtc}>{dateTime(lesson.createdAtUtc)}</time></div>
           <div className="intel-lesson-body"><div className="intel-lesson-action">{lesson.action}</div><Evidence evidence={lesson.evidence}/></div>
         </article>)}
@@ -144,11 +161,16 @@ function LoadedIntelligence({ data }: { data: SystemIntelligence }) {
   </>;
 }
 
-export function SystemIntelligencePanel() {
+export function SystemIntelligencePanel({ enabled = false }: { enabled?: boolean }) {
   const query = useGetSystemIntelligence({
     query: { queryKey: getGetSystemIntelligenceQueryKey(), refetchInterval: 30000 },
   });
   const data = query.data;
+  useEffect(() => {
+    if (query.isError) {
+      notifySiFailure(getSiFailureCategory(query.error), enabled);
+    }
+  }, [enabled, query.error, query.isError]);
   return <section className="system-intelligence" aria-label="System intelligence" data-testid="system-intelligence">
     <header className="intel-heading">
       <div className="intel-title-group"><span className="intel-mark" aria-hidden="true">SI</span><div><span className="intel-kicker">XAUUSD · RESEARCH SURFACE</span><h2>SYSTEM INTELLIGENCE</h2></div></div>
