@@ -46,6 +46,14 @@ export const EvolvePolicySettingsExitModel = {
   candle_geometry: 'candle_geometry',
 } as const;
 
+export type EvolvePolicySettingsMinSiScoreMode = typeof EvolvePolicySettingsMinSiScoreMode[keyof typeof EvolvePolicySettingsMinSiScoreMode];
+
+
+export const EvolvePolicySettingsMinSiScoreMode = {
+  auto: 'auto',
+  override: 'override',
+} as const;
+
 export interface EvolvePolicySettings {
   min_strength: EvolvePolicySettingsMinStrength;
   require_wp_agree: boolean;
@@ -60,9 +68,72 @@ export interface EvolvePolicySettings {
   cooldown_candles: number;
   /**
      * @minimum 0
-     * @maximum 1
+     * @maximum 0.8
      */
   min_si_score: number;
+  min_si_score_mode: EvolvePolicySettingsMinSiScoreMode;
+  /**
+     * @minimum 0
+     * @maximum 0.8
+     * @nullable
+     */
+  min_si_score_override: number | null;
+}
+
+export type EvolvePolicyMinSiScoreEvidenceStatus = typeof EvolvePolicyMinSiScoreEvidenceStatus[keyof typeof EvolvePolicyMinSiScoreEvidenceStatus];
+
+
+export const EvolvePolicyMinSiScoreEvidenceStatus = {
+  calibrating: 'calibrating',
+  calibrated: 'calibrated',
+} as const;
+
+export interface EvolvePolicyMinSiScoreEvidence {
+  status: EvolvePolicyMinSiScoreEvidenceStatus;
+  /** @minimum 0 */
+  caseCount: number;
+  /** @minimum 0 */
+  totalScoredCases: number;
+  /** @minimum 1 */
+  requiredCaseCount: number;
+  /** @minimum 0 */
+  casesNeeded: number;
+  /** @minimum 1 */
+  windowSize: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  minimumRetention: number;
+  /** @minimum 0 */
+  gridStep: number;
+  /**
+     * @minimum 0
+     * @maximum 0.8
+     */
+  maxThreshold: number;
+  /** @nullable */
+  windowStartUtc: string | null;
+  /** @nullable */
+  windowEndUtc: string | null;
+  /**
+     * @minimum 0
+     * @maximum 0.8
+     */
+  threshold: number;
+  /** @minimum 0 */
+  filteredCaseCount: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  retention: number | null;
+  /** @nullable */
+  baselineExpectancyR: number | null;
+  /** @nullable */
+  filteredExpectancyR: number | null;
+  message: string;
 }
 
 export type EvolvePolicyMode = typeof EvolvePolicyMode[keyof typeof EvolvePolicyMode];
@@ -83,6 +154,12 @@ export interface EvolvePolicy {
   promoted_at_utc: string | null;
   /** @nullable */
   source_champion_version: string | null;
+  /**
+     * @minimum 0
+     * @maximum 0.8
+     */
+  min_si_score_auto?: number;
+  min_si_score_evidence?: EvolvePolicyMinSiScoreEvidence;
 }
 
 export interface EvolvePolicyRestoreInput {
@@ -93,9 +170,10 @@ export interface EvolvePolicyRestoreInput {
 export interface EvolvePolicyMinSiScoreInput {
   /**
      * @minimum 0
-     * @maximum 1
+     * @maximum 0.8
+     * @nullable
      */
-  min_si_score: number;
+  min_si_score: number | null;
 }
 
 export type EvolvePolicyVersionMode = typeof EvolvePolicyVersionMode[keyof typeof EvolvePolicyVersionMode];
@@ -393,10 +471,10 @@ export interface CandleWindow {
   chunkMonth: string | null;
   /** @minimum 0 */
   chunkOffset: number;
-  /** Offset within the calendar-month chunk requested by the client. */
-  chunkLocalOffset?: number;
-  /** Candle count for the month or window chunk. */
-  chunkCount?: number;
+  /** @minimum 0 */
+  chunkLocalOffset: number;
+  /** @minimum 0 */
+  chunkCount: number;
   source: string;
   sourceSha256: string;
 }
@@ -453,7 +531,11 @@ export const SimulationSettingsDirectionMode = {
   adaptive: 'adaptive',
 } as const;
 
+/**
+ * Limit simulated entries to both sides, buys only, or sells only.
+ */
 export type SimulationSettingsTradeDirection = typeof SimulationSettingsTradeDirection[keyof typeof SimulationSettingsTradeDirection];
+
 
 export const SimulationSettingsTradeDirection = {
   both: 'both',
@@ -582,7 +664,7 @@ export interface SimulationSettings {
   geometryWeights: GeometryWeights | null;
   /** XAUUSD-only direction handling. Normal preserves the source alert side. */
   directionMode: SimulationSettingsDirectionMode;
-  /** Restrict newly simulated trades by source alert direction. */
+  /** Limit simulated entries to both sides, buys only, or sells only. */
   tradeDirection: SimulationSettingsTradeDirection;
   invertWeights: InvertWeights;
   /**
@@ -1611,7 +1693,7 @@ from: string;
 to: string;
 /**
  * @minimum 1
- * @maximum 25000
+ * @maximum 100000
  */
 limit?: number;
 /**
@@ -1620,7 +1702,7 @@ limit?: number;
  */
 chunkMonth?: string;
 /**
- * Zero-based offset inside chunkMonth; for a whole-window request, offset is global.
+ * Zero-based local offset within the selected UTC calendar month.
  * @minimum 0
  */
 chunkOffset?: number;

@@ -102,6 +102,57 @@ describe('SystemIntelligence', () => {
     expect(screen.getByText(/SIMULATION ONLY/)).toBeTruthy();
   });
 
+  it('shows cluster-stat evidence on a pending proposal', () => {
+    const data = {
+      ...sampleData,
+      proposal: {
+        threshold: 50,
+        newResolvedCases: 0,
+        eligible: false,
+        generating: false,
+        pending: {
+          proposal_id: 'proposal-1',
+          status: 'pending',
+          candidate: {
+            id: 'rule-proposal-1',
+            name: 'Uptrend follow-through',
+            description: 'Track the cluster.',
+            rationale: 'The uptrend cluster is supported by resolved cases.',
+            condition: { all: [{ field: 'features.cct', op: 'eq', value: 'uptrend' }] },
+          },
+          evidence: {
+            resolvedCaseCount: 50,
+            minimumClusterSize: 30,
+            interpretation: 'Single-feature aggregate statistics; not a joint rule backtest.',
+            clusters: [{
+              condition: { all: [{ field: 'features.cct', op: 'eq', value: 'uptrend' }] },
+              sampleCount: 50,
+              hitRate: 0.7,
+              expectancyR: 0.4,
+              fadeVsFollow: { pairedAlerts: 18, meanFadeMinusFollowR: -0.2 },
+            }],
+          },
+        },
+        latestAttempt: null,
+        attemptCount: 1,
+        tokenUsage: { input: null, output: null, total: null },
+      },
+    } as IntelligenceData;
+    useGetSystemIntelligence.mockReturnValue({
+      data, isLoading: false, isError: false, refetch: vi.fn(),
+    });
+
+    render(<SystemIntelligence/>);
+
+    const evidence = screen.getByTestId('intel-proposal-evidence');
+    expect(evidence.textContent).toContain('50 RESOLVED CASES');
+    expect(evidence.textContent).toContain('n 50');
+    expect(evidence.textContent).toContain('HIT 70.0%');
+    expect(evidence.textContent).toContain('E[R] 0.40R');
+    expect(evidence.textContent).toContain('FADE−FOLLOW -0.20R · 18 PAIRS');
+    expect(evidence.textContent).toContain('not a joint rule backtest');
+  });
+
   it('offers a retry action when the research request fails', () => {
     const refetch = vi.fn();
     useGetSystemIntelligence.mockReturnValue({

@@ -50,6 +50,6 @@ export function notifySiFailure(
   }
 
   lastToastAt.set(category, now);
-  toast.error(message);
+  toast.warning(message, { className: 'si-warning-toast' });
   return true;
 }

@@ -23,4 +23,9 @@ limit?: number;
  * @pattern ^\d{4}-(0[1-9]|1[0-2])$
  */
 chunkMonth?: string;
+/**
+ * Zero-based local offset within the selected UTC calendar month.
+ * @minimum 0
+ */
+chunkOffset?: number;
 };

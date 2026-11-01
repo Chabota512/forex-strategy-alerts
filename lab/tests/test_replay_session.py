@@ -252,7 +252,13 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
 
     def test_pretrade_score_is_attached_before_system_intelligence_filtering(self):
         policy = passthrough_policy()
-        policy["settings"]["min_si_score"] = 0.8
+        policy["settings"].update(
+            {
+                "min_si_score": 0.8,
+                "min_si_score_mode": "override",
+                "min_si_score_override": 0.8,
+            }
+        )
         session = self.make_session(
             alert_policy=policy,
             si_score_provider=lambda _alert, _fingerprint: 0.73,

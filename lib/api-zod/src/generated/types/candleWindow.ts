@@ -26,6 +26,10 @@ export interface CandleWindow {
   chunkMonth: string | null;
   /** @minimum 0 */
   chunkOffset: number;
+  /** @minimum 0 */
+  chunkLocalOffset: number;
+  /** @minimum 0 */
+  chunkCount: number;
   source: string;
   sourceSha256: string;
 }

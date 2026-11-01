@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EvolvePolicySettingsExitModel } from './evolvePolicySettingsExitModel';
+import type { EvolvePolicySettingsMinSiScoreMode } from './evolvePolicySettingsMinSiScoreMode';
 import type { EvolvePolicySettingsMinStrength } from './evolvePolicySettingsMinStrength';
 import type { ReviewTimeframe } from './reviewTimeframe';
 
@@ -23,7 +24,14 @@ export interface EvolvePolicySettings {
   cooldown_candles: number;
   /**
      * @minimum 0
-     * @maximum 1
+     * @maximum 0.8
      */
   min_si_score: number;
+  min_si_score_mode: EvolvePolicySettingsMinSiScoreMode;
+  /**
+     * @minimum 0
+     * @maximum 0.8
+     * @nullable
+     */
+  min_si_score_override: number | null;
 }

@@ -11,6 +11,7 @@ import type { SimulationSettingsDirectionMode } from './simulationSettingsDirect
 import type { SimulationSettingsExitModel } from './simulationSettingsExitModel';
 import type { SimulationSettingsSizingMode } from './simulationSettingsSizingMode';
 import type { SimulationSettingsSwingVersion } from './simulationSettingsSwingVersion';
+import type { SimulationSettingsTradeDirection } from './simulationSettingsTradeDirection';
 
 export interface SimulationSettings {
   enabled: boolean;
@@ -59,6 +60,8 @@ export interface SimulationSettings {
   geometryWeights: GeometryWeights | null;
   /** XAUUSD-only direction handling. Normal preserves the source alert side. */
   directionMode: SimulationSettingsDirectionMode;
+  /** Limit simulated entries to both sides, buys only, or sells only. */
+  tradeDirection: SimulationSettingsTradeDirection;
   invertWeights: InvertWeights;
   /**
      * Adaptive mode inverts when the normalized score is greater than or equal to this threshold.

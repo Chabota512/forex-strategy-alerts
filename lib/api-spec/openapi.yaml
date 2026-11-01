@@ -91,6 +91,14 @@ paths:
           schema:
             type: string
             pattern: "^\\d{4}-(0[1-9]|1[0-2])$"
+        - name: chunkOffset
+          in: query
+          required: false
+          description: Zero-based local offset within the selected UTC calendar month.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       responses:
         "200":
           description: Candle window, with an explicit truncation indicator
@@ -542,7 +550,14 @@ components:
         min_si_score:
           type: number
           minimum: 0
-          maximum: 1
+          maximum: 0.8
+        min_si_score_mode:
+          type: string
+          enum: [auto, override]
+        min_si_score_override:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 0.8
       required:
         - min_strength
         - require_wp_agree
@@ -551,6 +566,80 @@ components:
         - exit_model
         - cooldown_candles
         - min_si_score
+        - min_si_score_mode
+        - min_si_score_override
+    EvolvePolicyMinSiScoreEvidence:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [calibrating, calibrated]
+        caseCount:
+          type: integer
+          minimum: 0
+        totalScoredCases:
+          type: integer
+          minimum: 0
+        requiredCaseCount:
+          type: integer
+          minimum: 1
+        casesNeeded:
+          type: integer
+          minimum: 0
+        windowSize:
+          type: integer
+          minimum: 1
+        minimumRetention:
+          type: number
+          minimum: 0
+          maximum: 1
+        gridStep:
+          type: number
+          minimum: 0
+        maxThreshold:
+          type: number
+          minimum: 0
+          maximum: 0.8
+        windowStartUtc:
+          type: ["string", "null"]
+        windowEndUtc:
+          type: ["string", "null"]
+        threshold:
+          type: number
+          minimum: 0
+          maximum: 0.8
+        filteredCaseCount:
+          type: integer
+          minimum: 0
+        retention:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 1
+        baselineExpectancyR:
+          type: ["number", "null"]
+        filteredExpectancyR:
+          type: ["number", "null"]
+        message:
+          type: string
+      required:
+        - status
+        - caseCount
+        - totalScoredCases
+        - requiredCaseCount
+        - casesNeeded
+        - windowSize
+        - minimumRetention
+        - gridStep
+        - maxThreshold
+        - windowStartUtc
+        - windowEndUtc
+        - threshold
+        - filteredCaseCount
+        - retention
+        - baselineExpectancyR
+        - filteredExpectancyR
+        - message
+      additionalProperties: false
     EvolvePolicy:
       type: object
       properties:
@@ -569,6 +658,12 @@ components:
           type: ["string", "null"]
         source_champion_version:
           type: ["string", "null"]
+        min_si_score_auto:
+          type: number
+          minimum: 0
+          maximum: 0.8
+        min_si_score_evidence:
+          $ref: "#/components/schemas/EvolvePolicyMinSiScoreEvidence"
       required:
         - schema_version
         - version
@@ -588,9 +683,9 @@ components:
       type: object
       properties:
         min_si_score:
-          type: number
+          type: ["number", "null"]
           minimum: 0
-          maximum: 1
+          maximum: 0.8
       required: [min_si_score]
       additionalProperties: false
     EvolvePolicyVersion:
@@ -958,6 +1053,12 @@ components:
         chunkOffset:
           type: integer
           minimum: 0
+        chunkLocalOffset:
+          type: integer
+          minimum: 0
+        chunkCount:
+          type: integer
+          minimum: 0
         source:
           type: string
         sourceSha256:
@@ -975,6 +1076,8 @@ components:
         - chunks
         - chunkMonth
         - chunkOffset
+        - chunkLocalOffset
+        - chunkCount
         - source
         - sourceSha256
     BacktestInput:
@@ -1078,6 +1181,11 @@ components:
           enum: [normal, inverted, adaptive]
           default: normal
           description: XAUUSD-only direction handling. Normal preserves the source alert side.
+        tradeDirection:
+          type: string
+          enum: [both, buy_only, sell_only]
+          default: both
+          description: Limit simulated entries to both sides, buys only, or sells only.
         invertWeights:
           $ref: "#/components/schemas/InvertWeights"
         invertThreshold:
@@ -1090,7 +1198,7 @@ components:
           type: string
           enum: [V1, V2]
           default: V2
-      required: [enabled, startingBalance, riskPercent, sizingMode, lotSize, rewardMultiple, stopBodyWeight, stopWickMultiplier, targetRangeMultiplier, exitModel, geometryWeights, directionMode, invertWeights, invertThreshold, swingVersion]
+      required: [enabled, startingBalance, riskPercent, sizingMode, lotSize, rewardMultiple, stopBodyWeight, stopWickMultiplier, targetRangeMultiplier, exitModel, geometryWeights, directionMode, tradeDirection, invertWeights, invertThreshold, swingVersion]
     GeometryWeights:
       type: object
       properties:
@@ -2106,6 +2214,8 @@ components:
         weight:
           type: number
         flagged:
+          type: boolean
+        custom:
           type: boolean
       required:
         - id

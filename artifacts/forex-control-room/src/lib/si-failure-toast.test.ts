@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const toastError = vi.hoisted(() => vi.fn());
+const toastWarning = vi.hoisted(() => vi.fn());
 
-vi.mock('sonner', () => ({ toast: { error: toastError } }));
+vi.mock('sonner', () => ({ toast: { warning: toastWarning } }));
 
 import { getSiFailureCategory, notifySiFailure } from './si-failure-toast';
 
 describe('System Intelligence failure toasts', () => {
-  beforeEach(() => toastError.mockClear());
+  beforeEach(() => toastWarning.mockClear());
 
   it('maps provider taxonomy to owner-facing reasons', () => {
     const cases = [
@@ -20,7 +20,7 @@ describe('System Intelligence failure toasts', () => {
 
     cases.forEach(([category, message], index) => {
       expect(notifySiFailure(category, true, index * 300_001)).toBe(true);
-      expect(toastError).toHaveBeenLastCalledWith(message);
+      expect(toastWarning).toHaveBeenLastCalledWith(message, { className: 'si-warning-toast' });
     });
   });
 
@@ -29,7 +29,7 @@ describe('System Intelligence failure toasts', () => {
     expect(notifySiFailure('quota', true, 1_000_000 + 299_999)).toBe(false);
     expect(notifySiFailure('quota', true, 1_000_000 + 300_000)).toBe(true);
     expect(notifySiFailure('auth', false, 2_000_000)).toBe(false);
-    expect(toastError).toHaveBeenCalledTimes(2);
+    expect(toastWarning).toHaveBeenCalledTimes(2);
   });
 
   it('classifies API errors using the exposed provider category and status', () => {

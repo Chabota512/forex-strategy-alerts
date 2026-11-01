@@ -21,8 +21,11 @@ POLICY_SETTING_KEYS = (
     "exit_model",
     "cooldown_candles",
     "min_si_score",
+    "min_si_score_mode",
+    "min_si_score_override",
 )
-_LEGACY_POLICY_SETTING_KEYS = frozenset(POLICY_SETTING_KEYS[:-1])
+_LEGACY_POLICY_SETTING_KEYS = frozenset(POLICY_SETTING_KEYS[:-3])
+_PRE_AUTO_POLICY_SETTING_KEYS = frozenset(POLICY_SETTING_KEYS[:-2])
 POLICY_DEFAULT_SETTINGS: dict[str, Any] = {
     "min_strength": "NONE",
     "require_wp_agree": False,
@@ -31,6 +34,8 @@ POLICY_DEFAULT_SETTINGS: dict[str, Any] = {
     "exit_model": "swept_level_atr",
     "cooldown_candles": 0,
     "min_si_score": 0.0,
+    "min_si_score_mode": "auto",
+    "min_si_score_override": None,
 }
 POLICY_VERSION_PATTERN = re.compile(r"^policy_v([1-9]\d*)\.json$")
 _POLICY_VERSION_LOCK = threading.RLock()
@@ -53,6 +58,15 @@ def validate_policy_settings(value: Any) -> dict[str, Any]:
     keys = set(value)
     if keys == _LEGACY_POLICY_SETTING_KEYS:
         value = {**POLICY_DEFAULT_SETTINGS, **value}
+    elif keys == _PRE_AUTO_POLICY_SETTING_KEYS:
+        score = value.get("min_si_score", 0.0)
+        mode = "override" if isinstance(score, (int, float)) and score > 0 else "auto"
+        value = {
+            **POLICY_DEFAULT_SETTINGS,
+            **value,
+            "min_si_score_mode": mode,
+            "min_si_score_override": score if mode == "override" else None,
+        }
     elif keys != set(POLICY_SETTING_KEYS):
         raise ValueError("Alert policy settings do not match the supported whitelist.")
 
@@ -81,9 +95,26 @@ def validate_policy_settings(value: Any) -> dict[str, Any]:
         isinstance(min_si_score, bool)
         or not isinstance(min_si_score, (int, float))
         or not math.isfinite(float(min_si_score))
-        or not 0 <= float(min_si_score) <= 1
+        or not 0 <= float(min_si_score) <= 0.8
     ):
-        raise ValueError("Policy min_si_score must be a finite number from 0 through 1.")
+        raise ValueError("Policy min_si_score must be a finite number from 0 through 0.8.")
+
+    mode = value.get("min_si_score_mode")
+    override = value.get("min_si_score_override")
+    if mode not in {"auto", "override"}:
+        raise ValueError("Policy min_si_score_mode must be auto or override.")
+    if mode == "auto":
+        if override is not None or float(min_si_score) != 0:
+            raise ValueError("AUTO SI MIN cannot contain a saved score override.")
+    else:
+        if (
+            isinstance(override, bool)
+            or not isinstance(override, (int, float))
+            or not math.isfinite(float(override))
+            or not 0 <= float(override) <= 0.8
+            or not math.isclose(float(min_si_score), float(override), abs_tol=1e-9)
+        ):
+            raise ValueError("An SI MIN override must be a finite number from 0 through 0.8.")
 
     return {
         "min_strength": minimum_strength,
@@ -93,6 +124,10 @@ def validate_policy_settings(value: Any) -> dict[str, Any]:
         "exit_model": exit_model,
         "cooldown_candles": cooldown,
         "min_si_score": float(min_si_score),
+        "min_si_score_mode": mode,
+        "min_si_score_override": (
+            float(override) if override is not None else None
+        ),
     }
 
 
@@ -122,6 +157,28 @@ def validate_policy(value: Any) -> dict[str, Any]:
         "promoted_at_utc": promoted_at,
         "source_champion_version": champion_version,
     }
+
+
+def freeze_effective_policy_for_replay(
+    policy: Mapping[str, Any], *, symbol: str
+) -> dict[str, Any]:
+    settings_value = policy.get("settings")
+    if not isinstance(settings_value, Mapping):
+        raise ValueError("Alert policy settings must be an object.")
+    threshold = settings_value.get("min_si_score", 0.0)
+    if symbol.strip().upper() != "XAUUSD":
+        threshold = 0.0
+    settings = dict(settings_value)
+    settings.update(
+        {
+            "min_si_score": threshold,
+            "min_si_score_mode": "override",
+            "min_si_score_override": threshold,
+        }
+    )
+    frozen = dict(policy)
+    frozen["settings"] = settings
+    return validate_policy(frozen)
 
 
 def load_policy(path: Path) -> dict[str, Any]:
@@ -297,6 +354,10 @@ def write_promoted_policy(
                 {
                     **settings,
                     "min_si_score": current["settings"]["min_si_score"],
+                    "min_si_score_mode": current["settings"]["min_si_score_mode"],
+                    "min_si_score_override": current["settings"][
+                        "min_si_score_override"
+                    ],
                 }
             ),
             "promoted_at_utc": promoted_at_utc,
@@ -313,23 +374,34 @@ def write_promoted_policy(
 def set_policy_min_si_score(
     *,
     current_path: Path,
-    min_si_score: float,
+    min_si_score: float | None,
     versions_dir: Path | None = None,
 ) -> dict[str, Any]:
-    """Version an owner-set SI score threshold without letting SI tune it."""
-    if (
+    """Version an owner override, or return the owner-controlled setting to AUTO."""
+    if min_si_score is not None and (
         isinstance(min_si_score, bool)
         or not isinstance(min_si_score, (int, float))
         or not math.isfinite(float(min_si_score))
-        or not 0 <= float(min_si_score) <= 1
+        or not 0 <= float(min_si_score) <= 0.8
     ):
-        raise ValueError("min_si_score must be a finite number from 0 through 1.")
+        raise ValueError("min_si_score must be null or a number from 0 through 0.8.")
 
     version_dir = versions_dir or current_path.parent
     with _POLICY_VERSION_LOCK:
         current = load_policy(current_path)
-        score = float(min_si_score)
-        if math.isclose(score, current["settings"]["min_si_score"], abs_tol=1e-9):
+        mode = "auto" if min_si_score is None else "override"
+        override = None if min_si_score is None else float(min_si_score)
+        if (
+            mode == current["settings"]["min_si_score_mode"]
+            and (
+                override is None
+                or math.isclose(
+                    override,
+                    float(current["settings"]["min_si_score_override"]),
+                    abs_tol=1e-9,
+                )
+            )
+        ):
             return current
         _ensure_current_policy_version(current_path, version_dir, current)
         updated = {
@@ -337,7 +409,9 @@ def set_policy_min_si_score(
             "version": current["version"] + 1,
             "settings": {
                 **current["settings"],
-                "min_si_score": score,
+                "min_si_score": override or 0.0,
+                "min_si_score_mode": mode,
+                "min_si_score_override": override,
             },
             "promoted_at_utc": _utc_now(),
             "created_at_utc": _utc_now(),

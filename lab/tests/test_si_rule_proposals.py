@@ -246,6 +246,65 @@ def test_service_uses_gemini_and_records_token_usage_with_mocked_provider(
     assert result["tokenUsage"]["total"] == 125
 
 
+def test_mocked_gemini_proposal_accepts_learns_and_is_never_reproposed(
+    tmp_path: Path,
+) -> None:
+    store = _ready_store(tmp_path)
+    service = LabService.__new__(LabService)
+    service.si_case_store = store
+    mock_response = SimpleNamespace(
+        diff_json=json.dumps(_candidate()),
+        usage={"input": 100, "output": 25, "total": 125},
+        provider="gemini",
+        key_index=2,
+        attempts=[{"attempt": 1, "provider": "gemini", "status": "succeeded"}],
+    )
+
+    with patch("lab.server.llm_client.propose", return_value=mock_response) as mocked:
+        proposed = service.propose_system_intelligence_rule()
+
+    pending = proposed["pending"]
+    assert pending["evidence"]["resolvedCaseCount"] == PROPOSAL_CASE_THRESHOLD
+    assert pending["evidence"]["clusters"][0]["sampleCount"] == PROPOSAL_CASE_THRESHOLD
+    assert pending["evidence"]["clusters"][0]["expectancyR"] is not None
+    assert "not a joint rule backtest" in pending["evidence"]["interpretation"]
+
+    accepted = store.accept_rule_proposal(pending["proposal_id"])
+    accepted_rule = next(
+        rule for rule in accepted["rules"] if rule["id"] == pending["candidate"]["id"]
+    )
+    assert accepted_rule["weight"] == 0.2
+    assert accepted_rule["samples"] == 0
+
+    store.ingest_cases([_case(PROPOSAL_CASE_THRESHOLD, net_r=1.0)])
+    learning_rule = next(
+        rule
+        for rule in store.snapshot()["rules"]
+        if rule["id"] == pending["candidate"]["id"]
+    )
+    assert learning_rule["samples"] == 1
+    assert learning_rule["hits"] == 1
+    assert learning_rule["hit_rate"] == 1.0
+
+    store.ingest_cases(
+        [_case(index, net_r=1.0 if index % 2 else -1.0) for index in range(51, 101)]
+    )
+    with patch("lab.server.llm_client.propose", return_value=mock_response) as mocked_again:
+        duplicate = service.propose_system_intelligence_rule()
+
+    assert mocked.called
+    assert mocked_again.called
+    assert duplicate["latestAttempt"]["status"] == "discarded"
+    assert "duplicates an active" in duplicate["latestAttempt"]["reason"]
+    assert duplicate["pending"] is None
+    learning_rule = next(
+        rule
+        for rule in store.snapshot()["rules"]
+        if rule["id"] == pending["candidate"]["id"]
+    )
+    assert learning_rule["samples"] == 51
+
+
 def test_malformed_model_proposal_is_discarded_with_reason_and_usage(
     tmp_path: Path,
 ) -> None:

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from lab import evolve
 from lab.alert_policy import (
+    freeze_effective_policy_for_replay,
     load_policy,
     passthrough_policy,
     policy_rejection_reasons,
@@ -65,6 +66,31 @@ class AlertPolicyTests(unittest.TestCase):
             [],
         )
 
+    def test_legacy_nonzero_score_becomes_an_owner_override(self) -> None:
+        legacy = dict(passthrough_policy()["settings"])
+        legacy.pop("min_si_score_mode")
+        legacy.pop("min_si_score_override")
+        legacy["min_si_score"] = 0.65
+
+        normalized = validate_policy_settings(legacy)
+
+        self.assertEqual(normalized["min_si_score_mode"], "override")
+        self.assertEqual(normalized["min_si_score_override"], 0.65)
+
+    def test_replay_freezes_effective_score_without_mutating_auto_policy(self) -> None:
+        policy = passthrough_policy()
+        policy["settings"]["min_si_score"] = 0.41
+        runtime = freeze_effective_policy_for_replay(policy, symbol="XAUUSD")
+
+        self.assertEqual(policy["settings"]["min_si_score_mode"], "auto")
+        self.assertEqual(runtime["settings"]["min_si_score"], 0.41)
+        self.assertEqual(runtime["settings"]["min_si_score_mode"], "override")
+        self.assertEqual(runtime["settings"]["min_si_score_override"], 0.41)
+
+        other_symbol = freeze_effective_policy_for_replay(policy, symbol="EURUSD")
+        self.assertEqual(other_symbol["settings"]["min_si_score"], 0.0)
+        self.assertEqual(other_symbol["settings"]["min_si_score_override"], 0.0)
+
     def test_owner_score_setting_is_versioned_and_survives_policy_promotion(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -77,6 +103,8 @@ class AlertPolicyTests(unittest.TestCase):
             )
             self.assertEqual(updated["version"], 2)
             self.assertEqual(updated["settings"]["min_si_score"], 0.65)
+            self.assertEqual(updated["settings"]["min_si_score_mode"], "override")
+            self.assertEqual(updated["settings"]["min_si_score_override"], 0.65)
             promoted, _archive = write_promoted_policy(
                 current_path=current_path,
                 history_dir=root / "history",
@@ -89,6 +117,17 @@ class AlertPolicyTests(unittest.TestCase):
                 versions_dir=root / "versions",
             )
             self.assertEqual(promoted["settings"]["min_si_score"], 0.65)
+            self.assertEqual(promoted["settings"]["min_si_score_mode"], "override")
+
+            reset = set_policy_min_si_score(
+                current_path=current_path,
+                min_si_score=None,
+                versions_dir=root / "versions",
+            )
+            self.assertEqual(reset["version"], 4)
+            self.assertEqual(reset["settings"]["min_si_score"], 0.0)
+            self.assertEqual(reset["settings"]["min_si_score_mode"], "auto")
+            self.assertIsNone(reset["settings"]["min_si_score_override"])
 
     def test_active_policy_reports_each_rejecting_setting(self) -> None:
         policy = passthrough_policy()

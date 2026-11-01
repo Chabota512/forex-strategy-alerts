@@ -25,4 +25,5 @@ export interface SystemIntelligenceRule {
   baselineHitRate: number | null;
   weight: number;
   flagged: boolean;
+  custom?: boolean;
 }

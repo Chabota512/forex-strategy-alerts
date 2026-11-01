@@ -1614,9 +1614,17 @@ class EvolutionLoopTests(unittest.TestCase):
             expected_policy_settings = {
                 key: candidate_options[key]
                 for key in POLICY_SETTING_KEYS
-                if key != "min_si_score"
+                if key in candidate_options
+                and key
+                not in {
+                    "min_si_score",
+                    "min_si_score_mode",
+                    "min_si_score_override",
+                }
             }
             expected_policy_settings["min_si_score"] = 0.0
+            expected_policy_settings["min_si_score_mode"] = "auto"
+            expected_policy_settings["min_si_score_override"] = None
             self.assertEqual(
                 current_policy["settings"],
                 expected_policy_settings,

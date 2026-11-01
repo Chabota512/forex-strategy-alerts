@@ -56,6 +56,24 @@ type ProposedRule = {
   condition: Record<string, unknown>;
 };
 
+type ProposalCluster = {
+  condition?: { all?: Array<{ field?: string; value?: unknown }> };
+  sampleCount?: number;
+  hitRate?: number;
+  expectancyR?: number;
+  fadeVsFollow?: {
+    pairedAlerts?: number;
+    meanFadeMinusFollowR?: number | null;
+  };
+};
+
+type ProposalEvidence = {
+  resolvedCaseCount?: number;
+  minimumClusterSize?: number;
+  clusters?: ProposalCluster[];
+  interpretation?: string;
+};
+
 type ProposalAttempt = {
   status: string;
   reason?: string;
@@ -72,6 +90,7 @@ type ProposalSummary = {
   pending: {
     proposal_id: string;
     candidate: ProposedRule;
+    evidence?: ProposalEvidence;
     status: string;
   } | null;
   latestAttempt: ProposalAttempt | null;
@@ -227,6 +246,26 @@ function LoadedIntelligence({ data, refresh }: {
             <p>{pending.candidate.rationale}</p>
             <code>{JSON.stringify(pending.candidate.condition)}</code>
             <p>Based on aggregate-only evidence. Approval starts this rule at low confidence and collects new cases only.</p>
+            <div className="intel-proposal-evidence" data-testid="intel-proposal-evidence">
+              <div className="intel-proposal-evidence-head">
+                <strong>CLUSTER-STAT EVIDENCE</strong>
+                <span>{pending.evidence?.resolvedCaseCount ?? 0} RESOLVED CASES · MIN CLUSTER {pending.evidence?.minimumClusterSize ?? '—'}</span>
+              </div>
+              {(pending.evidence?.clusters ?? []).length > 0
+                ? pending.evidence?.clusters?.map((cluster, index) => {
+                  const clause = cluster.condition?.all?.[0];
+                  const delta = cluster.fadeVsFollow?.meanFadeMinusFollowR;
+                  return <div className="intel-proposal-cluster" key={`${clause?.field ?? 'cluster'}-${index}`}>
+                    <strong>{label(clause?.field ?? 'cluster')} = {evidenceValue(clause?.value)}</strong>
+                    <span>n {cluster.sampleCount ?? '—'}</span>
+                    <span>HIT {cluster.hitRate == null ? '—' : `${(cluster.hitRate * 100).toFixed(1)}%`}</span>
+                    <span>E[R] {cluster.expectancyR == null ? '—' : `${cluster.expectancyR.toFixed(2)}R`}</span>
+                    {delta != null && <span>FADE−FOLLOW {delta >= 0 ? '+' : ''}{delta.toFixed(2)}R · {cluster.fadeVsFollow?.pairedAlerts ?? 0} PAIRS</span>}
+                  </div>;
+                })
+                : <p>No matching clusters met the minimum sample size.</p>}
+              <p>{pending.evidence?.interpretation ?? 'Single-feature aggregate statistics; not a joint rule backtest.'}</p>
+            </div>
           </div>
           <div className="intel-proposal-actions">
             <button

@@ -109,7 +109,7 @@ describe('equity curve expansion', () => {
     renderPanel(onSettingsChange);
 
     expect(screen.getByTestId('simulation-active-mode').textContent)
-      .toBe('DIRECTION · NORMAL · SWING V2');
+      .toBe('DIRECTION · NORMAL · TRADE SIDE · BOTH · SWING V2');
     fireEvent.change(screen.getByTestId('select-simulation-direction-mode'), {
       target: { value: 'inverted' },
     });

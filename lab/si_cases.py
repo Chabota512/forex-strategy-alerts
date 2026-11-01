@@ -983,12 +983,13 @@ class SICaseStore:
         attempt_id: str,
         *,
         candidate: Mapping[str, Any] | None,
+        error: str | None = None,
+        discard_reason: str | None = None,
+        evidence: Mapping[str, Any] | None = None,
         usage: Mapping[str, Any] | None,
         provider: str | None,
         key_index: int | None,
         attempts: Sequence[Mapping[str, Any]],
-        error: str | None = None,
-        discard_reason: str | None = None,
     ) -> dict[str, Any]:
         with self._lock:
             state = self._state["proposal_state"]
@@ -1039,7 +1040,10 @@ class SICaseStore:
                 )
             elif candidate_duplicates(
                 candidate,
-                self._state.get("rules", []),
+                [
+                    *self._state.get("rules", []),
+                    *self._state.get("custom_rules", []),
+                ],
                 self._state.get("lessons", []),
             ):
                 attempt["status"] = "discarded"
@@ -1048,6 +1052,11 @@ class SICaseStore:
                 proposal = {
                     "proposal_id": str(candidate["id"]),
                     "candidate": _json_safe(dict(candidate)),
+                    "evidence": (
+                        _json_safe(dict(evidence))
+                        if isinstance(evidence, Mapping)
+                        else {}
+                    ),
                     "status": "pending",
                     "case_count": int(attempt["case_count"]),
                     "created_at_utc": _utc_now(),
@@ -1076,7 +1085,10 @@ class SICaseStore:
             candidate = proposal["candidate"]
             if candidate_duplicates(
                 candidate,
-                self._state.get("rules", []),
+                [
+                    *self._state.get("rules", []),
+                    *self._state.get("custom_rules", []),
+                ],
                 self._state.get("lessons", []),
             ):
                 raise ValueError("The proposal duplicates an active or archived rule.")
@@ -1135,6 +1147,11 @@ class SICaseStore:
             )
             self._persist_state()
             return self.dashboard_snapshot()
+
+    def scored_case_history(self) -> list[dict[str, Any]]:
+        """Return a safe copy of case history for windowed policy calibration."""
+        with self._lock:
+            return _json_safe(self._cases)
 
     def scoring_snapshot(self) -> dict[str, Any]:
         """Freeze the current evidence for deterministic batch/session scoring."""

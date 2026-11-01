@@ -71,6 +71,9 @@ export const getLabCandlesQueryLimitDefault = 100000;
 export const getLabCandlesQueryLimitMax = 100000;
 
 export const getLabCandlesQueryChunkMonthRegExp = new RegExp('^\\d{4}-(0[1-9]|1[0-2])$');
+export const getLabCandlesQueryChunkOffsetDefault = 0;
+export const getLabCandlesQueryChunkOffsetMin = 0;
+
 
 
 export const GetLabCandlesQueryParams = zod.object({
@@ -79,7 +82,8 @@ export const GetLabCandlesQueryParams = zod.object({
   "from": zod.date(),
   "to": zod.date(),
   "limit": zod.coerce.number().int().min(1).max(getLabCandlesQueryLimitMax).default(getLabCandlesQueryLimitDefault),
-  "chunkMonth": zod.coerce.string().regex(getLabCandlesQueryChunkMonthRegExp).optional().describe('Return only this UTC calendar month while including the full selected-window index metadata.')
+  "chunkMonth": zod.coerce.string().regex(getLabCandlesQueryChunkMonthRegExp).optional().describe('Return only this UTC calendar month while including the full selected-window index metadata.'),
+  "chunkOffset": zod.coerce.number().int().min(getLabCandlesQueryChunkOffsetMin).default(getLabCandlesQueryChunkOffsetDefault).describe('Zero-based local offset within the selected UTC calendar month.')
 })
 
 export const getLabCandlesResponseCandlesItemSwingVersionAgreementPctMin = 0;
@@ -101,6 +105,10 @@ export const getLabCandlesResponseChunksItemStartIndexMin = 0;
 
 
 export const getLabCandlesResponseChunkOffsetMin = 0;
+
+export const getLabCandlesResponseChunkLocalOffsetMin = 0;
+
+export const getLabCandlesResponseChunkCountMin = 0;
 
 
 
@@ -149,6 +157,8 @@ export const GetLabCandlesResponse = zod.object({
 })),
   "chunkMonth": zod.string().nullable(),
   "chunkOffset": zod.number().int().min(getLabCandlesResponseChunkOffsetMin),
+  "chunkLocalOffset": zod.number().int().min(getLabCandlesResponseChunkLocalOffsetMin),
+  "chunkCount": zod.number().int().min(getLabCandlesResponseChunkCountMin),
   "source": zod.string(),
   "sourceSha256": zod.string()
 })
@@ -194,6 +204,7 @@ export const runLabBacktestBodySimulationSettingsGeometryWeightsOneRangeMultipli
 export const runLabBacktestBodySimulationSettingsGeometryWeightsOneRangeMultiplierMax = 6;
 
 export const runLabBacktestBodySimulationSettingsDirectionModeDefault = `normal`;
+export const runLabBacktestBodySimulationSettingsTradeDirectionDefault = `both`;
 export const runLabBacktestBodySimulationSettingsInvertWeightsDirectionMin = -1;
 export const runLabBacktestBodySimulationSettingsInvertWeightsDirectionMax = 1;
 
@@ -264,6 +275,7 @@ export const RunLabBacktestBody = zod.object({
   "rangeMultiplier": zod.number().min(runLabBacktestBodySimulationSettingsGeometryWeightsOneRangeMultiplierMin).max(runLabBacktestBodySimulationSettingsGeometryWeightsOneRangeMultiplierMax)
 }),zod.null()]).describe('Active candle-geometry multipliers; null when swept_level_atr is selected.'),
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']).default(runLabBacktestBodySimulationSettingsDirectionModeDefault).describe('XAUUSD-only direction handling. Normal preserves the source alert side.'),
+  "tradeDirection": zod.enum(['both', 'buy_only', 'sell_only']).default(runLabBacktestBodySimulationSettingsTradeDirectionDefault).describe('Limit simulated entries to both sides, buys only, or sells only.'),
   "invertWeights": zod.object({
   "direction": zod.number().min(runLabBacktestBodySimulationSettingsInvertWeightsDirectionMin).max(runLabBacktestBodySimulationSettingsInvertWeightsDirectionMax),
   "variant": zod.number().min(runLabBacktestBodySimulationSettingsInvertWeightsVariantMin).max(runLabBacktestBodySimulationSettingsInvertWeightsVariantMax),
@@ -364,6 +376,7 @@ export const runLabBacktestResponseSimulationSettingsGeometryWeightsOneRangeMult
 export const runLabBacktestResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMax = 6;
 
 export const runLabBacktestResponseSimulationSettingsDirectionModeDefault = `normal`;
+export const runLabBacktestResponseSimulationSettingsTradeDirectionDefault = `both`;
 export const runLabBacktestResponseSimulationSettingsInvertWeightsDirectionMin = -1;
 export const runLabBacktestResponseSimulationSettingsInvertWeightsDirectionMax = 1;
 
@@ -589,6 +602,7 @@ export const RunLabBacktestResponse = zod.object({
   "rangeMultiplier": zod.number().min(runLabBacktestResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMin).max(runLabBacktestResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMax)
 }),zod.null()]).describe('Active candle-geometry multipliers; null when swept_level_atr is selected.'),
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']).default(runLabBacktestResponseSimulationSettingsDirectionModeDefault).describe('XAUUSD-only direction handling. Normal preserves the source alert side.'),
+  "tradeDirection": zod.enum(['both', 'buy_only', 'sell_only']).default(runLabBacktestResponseSimulationSettingsTradeDirectionDefault).describe('Limit simulated entries to both sides, buys only, or sells only.'),
   "invertWeights": zod.object({
   "direction": zod.number().min(runLabBacktestResponseSimulationSettingsInvertWeightsDirectionMin).max(runLabBacktestResponseSimulationSettingsInvertWeightsDirectionMax),
   "variant": zod.number().min(runLabBacktestResponseSimulationSettingsInvertWeightsVariantMin).max(runLabBacktestResponseSimulationSettingsInvertWeightsVariantMax),
@@ -711,6 +725,7 @@ export const startLabReplaySessionBodySimulationSettingsGeometryWeightsOneRangeM
 export const startLabReplaySessionBodySimulationSettingsGeometryWeightsOneRangeMultiplierMax = 6;
 
 export const startLabReplaySessionBodySimulationSettingsDirectionModeDefault = `normal`;
+export const startLabReplaySessionBodySimulationSettingsTradeDirectionDefault = `both`;
 export const startLabReplaySessionBodySimulationSettingsInvertWeightsDirectionMin = -1;
 export const startLabReplaySessionBodySimulationSettingsInvertWeightsDirectionMax = 1;
 
@@ -776,6 +791,7 @@ export const StartLabReplaySessionBody = zod.object({
   "rangeMultiplier": zod.number().min(startLabReplaySessionBodySimulationSettingsGeometryWeightsOneRangeMultiplierMin).max(startLabReplaySessionBodySimulationSettingsGeometryWeightsOneRangeMultiplierMax)
 }),zod.null()]).describe('Active candle-geometry multipliers; null when swept_level_atr is selected.'),
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']).default(startLabReplaySessionBodySimulationSettingsDirectionModeDefault).describe('XAUUSD-only direction handling. Normal preserves the source alert side.'),
+  "tradeDirection": zod.enum(['both', 'buy_only', 'sell_only']).default(startLabReplaySessionBodySimulationSettingsTradeDirectionDefault).describe('Limit simulated entries to both sides, buys only, or sells only.'),
   "invertWeights": zod.object({
   "direction": zod.number().min(startLabReplaySessionBodySimulationSettingsInvertWeightsDirectionMin).max(startLabReplaySessionBodySimulationSettingsInvertWeightsDirectionMax),
   "variant": zod.number().min(startLabReplaySessionBodySimulationSettingsInvertWeightsVariantMin).max(startLabReplaySessionBodySimulationSettingsInvertWeightsVariantMax),
@@ -857,6 +873,7 @@ export const startLabReplaySessionResponseSimulationSettingsGeometryWeightsOneRa
 export const startLabReplaySessionResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMax = 6;
 
 export const startLabReplaySessionResponseSimulationSettingsDirectionModeDefault = `normal`;
+export const startLabReplaySessionResponseSimulationSettingsTradeDirectionDefault = `both`;
 export const startLabReplaySessionResponseSimulationSettingsInvertWeightsDirectionMin = -1;
 export const startLabReplaySessionResponseSimulationSettingsInvertWeightsDirectionMax = 1;
 
@@ -957,6 +974,7 @@ export const startLabReplaySessionResponsePolicySimulationOneSettingsGeometryWei
 export const startLabReplaySessionResponsePolicySimulationOneSettingsGeometryWeightsOneRangeMultiplierMax = 6;
 
 export const startLabReplaySessionResponsePolicySimulationOneSettingsDirectionModeDefault = `normal`;
+export const startLabReplaySessionResponsePolicySimulationOneSettingsTradeDirectionDefault = `both`;
 export const startLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsDirectionMin = -1;
 export const startLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsDirectionMax = 1;
 
@@ -1110,6 +1128,7 @@ export const StartLabReplaySessionResponse = zod.object({
   "rangeMultiplier": zod.number().min(startLabReplaySessionResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMin).max(startLabReplaySessionResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMax)
 }),zod.null()]).describe('Active candle-geometry multipliers; null when swept_level_atr is selected.'),
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']).default(startLabReplaySessionResponseSimulationSettingsDirectionModeDefault).describe('XAUUSD-only direction handling. Normal preserves the source alert side.'),
+  "tradeDirection": zod.enum(['both', 'buy_only', 'sell_only']).default(startLabReplaySessionResponseSimulationSettingsTradeDirectionDefault).describe('Limit simulated entries to both sides, buys only, or sells only.'),
   "invertWeights": zod.object({
   "direction": zod.number().min(startLabReplaySessionResponseSimulationSettingsInvertWeightsDirectionMin).max(startLabReplaySessionResponseSimulationSettingsInvertWeightsDirectionMax),
   "variant": zod.number().min(startLabReplaySessionResponseSimulationSettingsInvertWeightsVariantMin).max(startLabReplaySessionResponseSimulationSettingsInvertWeightsVariantMax),
@@ -1169,6 +1188,7 @@ export const StartLabReplaySessionResponse = zod.object({
   "rangeMultiplier": zod.number().min(startLabReplaySessionResponsePolicySimulationOneSettingsGeometryWeightsOneRangeMultiplierMin).max(startLabReplaySessionResponsePolicySimulationOneSettingsGeometryWeightsOneRangeMultiplierMax)
 }),zod.null()]).describe('Active candle-geometry multipliers; null when swept_level_atr is selected.'),
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']).default(startLabReplaySessionResponsePolicySimulationOneSettingsDirectionModeDefault).describe('XAUUSD-only direction handling. Normal preserves the source alert side.'),
+  "tradeDirection": zod.enum(['both', 'buy_only', 'sell_only']).default(startLabReplaySessionResponsePolicySimulationOneSettingsTradeDirectionDefault).describe('Limit simulated entries to both sides, buys only, or sells only.'),
   "invertWeights": zod.object({
   "direction": zod.number().min(startLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsDirectionMin).max(startLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsDirectionMax),
   "variant": zod.number().min(startLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsVariantMin).max(startLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsVariantMax),
@@ -1403,6 +1423,7 @@ export const advanceLabReplaySessionResponsePolicySimulationOneSettingsGeometryW
 export const advanceLabReplaySessionResponsePolicySimulationOneSettingsGeometryWeightsOneRangeMultiplierMax = 6;
 
 export const advanceLabReplaySessionResponsePolicySimulationOneSettingsDirectionModeDefault = `normal`;
+export const advanceLabReplaySessionResponsePolicySimulationOneSettingsTradeDirectionDefault = `both`;
 export const advanceLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsDirectionMin = -1;
 export const advanceLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsDirectionMax = 1;
 
@@ -1580,6 +1601,7 @@ export const advanceLabReplaySessionResponseSimulationSettingsGeometryWeightsOne
 export const advanceLabReplaySessionResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMax = 6;
 
 export const advanceLabReplaySessionResponseSimulationSettingsDirectionModeDefault = `normal`;
+export const advanceLabReplaySessionResponseSimulationSettingsTradeDirectionDefault = `both`;
 export const advanceLabReplaySessionResponseSimulationSettingsInvertWeightsDirectionMin = -1;
 export const advanceLabReplaySessionResponseSimulationSettingsInvertWeightsDirectionMax = 1;
 
@@ -1807,6 +1829,7 @@ export const AdvanceLabReplaySessionResponse = zod.object({
   "rangeMultiplier": zod.number().min(advanceLabReplaySessionResponsePolicySimulationOneSettingsGeometryWeightsOneRangeMultiplierMin).max(advanceLabReplaySessionResponsePolicySimulationOneSettingsGeometryWeightsOneRangeMultiplierMax)
 }),zod.null()]).describe('Active candle-geometry multipliers; null when swept_level_atr is selected.'),
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']).default(advanceLabReplaySessionResponsePolicySimulationOneSettingsDirectionModeDefault).describe('XAUUSD-only direction handling. Normal preserves the source alert side.'),
+  "tradeDirection": zod.enum(['both', 'buy_only', 'sell_only']).default(advanceLabReplaySessionResponsePolicySimulationOneSettingsTradeDirectionDefault).describe('Limit simulated entries to both sides, buys only, or sells only.'),
   "invertWeights": zod.object({
   "direction": zod.number().min(advanceLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsDirectionMin).max(advanceLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsDirectionMax),
   "variant": zod.number().min(advanceLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsVariantMin).max(advanceLabReplaySessionResponsePolicySimulationOneSettingsInvertWeightsVariantMax),
@@ -1994,6 +2017,7 @@ export const AdvanceLabReplaySessionResponse = zod.object({
   "rangeMultiplier": zod.number().min(advanceLabReplaySessionResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMin).max(advanceLabReplaySessionResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMax)
 }),zod.null()]).describe('Active candle-geometry multipliers; null when swept_level_atr is selected.'),
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']).default(advanceLabReplaySessionResponseSimulationSettingsDirectionModeDefault).describe('XAUUSD-only direction handling. Normal preserves the source alert side.'),
+  "tradeDirection": zod.enum(['both', 'buy_only', 'sell_only']).default(advanceLabReplaySessionResponseSimulationSettingsTradeDirectionDefault).describe('Limit simulated entries to both sides, buys only, or sells only.'),
   "invertWeights": zod.object({
   "direction": zod.number().min(advanceLabReplaySessionResponseSimulationSettingsInvertWeightsDirectionMin).max(advanceLabReplaySessionResponseSimulationSettingsInvertWeightsDirectionMax),
   "variant": zod.number().min(advanceLabReplaySessionResponseSimulationSettingsInvertWeightsVariantMin).max(advanceLabReplaySessionResponseSimulationSettingsInvertWeightsVariantMax),
@@ -2375,7 +2399,37 @@ export const getEvolvePolicyResponseSettingsCooldownCandlesMin = 0;
 export const getEvolvePolicyResponseSettingsCooldownCandlesMax = 48;
 
 export const getEvolvePolicyResponseSettingsMinSiScoreMin = 0;
-export const getEvolvePolicyResponseSettingsMinSiScoreMax = 1;
+export const getEvolvePolicyResponseSettingsMinSiScoreMax = 0.8;
+
+export const getEvolvePolicyResponseSettingsMinSiScoreOverrideMin = 0;
+export const getEvolvePolicyResponseSettingsMinSiScoreOverrideMax = 0.8;
+
+export const getEvolvePolicyResponseMinSiScoreAutoMin = 0;
+export const getEvolvePolicyResponseMinSiScoreAutoMax = 0.8;
+
+export const getEvolvePolicyResponseMinSiScoreEvidenceCaseCountMin = 0;
+
+export const getEvolvePolicyResponseMinSiScoreEvidenceTotalScoredCasesMin = 0;
+
+
+export const getEvolvePolicyResponseMinSiScoreEvidenceCasesNeededMin = 0;
+
+
+export const getEvolvePolicyResponseMinSiScoreEvidenceMinimumRetentionMin = 0;
+export const getEvolvePolicyResponseMinSiScoreEvidenceMinimumRetentionMax = 1;
+
+export const getEvolvePolicyResponseMinSiScoreEvidenceGridStepMin = 0;
+
+export const getEvolvePolicyResponseMinSiScoreEvidenceMaxThresholdMin = 0;
+export const getEvolvePolicyResponseMinSiScoreEvidenceMaxThresholdMax = 0.8;
+
+export const getEvolvePolicyResponseMinSiScoreEvidenceThresholdMin = 0;
+export const getEvolvePolicyResponseMinSiScoreEvidenceThresholdMax = 0.8;
+
+export const getEvolvePolicyResponseMinSiScoreEvidenceFilteredCaseCountMin = 0;
+
+export const getEvolvePolicyResponseMinSiScoreEvidenceRetentionMin = 0;
+export const getEvolvePolicyResponseMinSiScoreEvidenceRetentionMax = 1;
 
 
 
@@ -2390,10 +2444,32 @@ export const GetEvolvePolicyResponse = zod.object({
   "timeframes": zod.array(zod.enum(['M5', 'M15'])).min(1),
   "exit_model": zod.enum(['swept_level_atr', 'candle_geometry']),
   "cooldown_candles": zod.number().int().min(getEvolvePolicyResponseSettingsCooldownCandlesMin).max(getEvolvePolicyResponseSettingsCooldownCandlesMax),
-  "min_si_score": zod.number().min(getEvolvePolicyResponseSettingsMinSiScoreMin).max(getEvolvePolicyResponseSettingsMinSiScoreMax)
+  "min_si_score": zod.number().min(getEvolvePolicyResponseSettingsMinSiScoreMin).max(getEvolvePolicyResponseSettingsMinSiScoreMax),
+  "min_si_score_mode": zod.enum(['auto', 'override']),
+  "min_si_score_override": zod.number().min(getEvolvePolicyResponseSettingsMinSiScoreOverrideMin).max(getEvolvePolicyResponseSettingsMinSiScoreOverrideMax).nullable()
 }),
   "promoted_at_utc": zod.string().nullable(),
-  "source_champion_version": zod.string().nullable()
+  "source_champion_version": zod.string().nullable(),
+  "min_si_score_auto": zod.number().min(getEvolvePolicyResponseMinSiScoreAutoMin).max(getEvolvePolicyResponseMinSiScoreAutoMax).optional(),
+  "min_si_score_evidence": zod.object({
+  "status": zod.enum(['calibrating', 'calibrated']),
+  "caseCount": zod.number().int().min(getEvolvePolicyResponseMinSiScoreEvidenceCaseCountMin),
+  "totalScoredCases": zod.number().int().min(getEvolvePolicyResponseMinSiScoreEvidenceTotalScoredCasesMin),
+  "requiredCaseCount": zod.number().int().min(1),
+  "casesNeeded": zod.number().int().min(getEvolvePolicyResponseMinSiScoreEvidenceCasesNeededMin),
+  "windowSize": zod.number().int().min(1),
+  "minimumRetention": zod.number().min(getEvolvePolicyResponseMinSiScoreEvidenceMinimumRetentionMin).max(getEvolvePolicyResponseMinSiScoreEvidenceMinimumRetentionMax),
+  "gridStep": zod.number().min(getEvolvePolicyResponseMinSiScoreEvidenceGridStepMin),
+  "maxThreshold": zod.number().min(getEvolvePolicyResponseMinSiScoreEvidenceMaxThresholdMin).max(getEvolvePolicyResponseMinSiScoreEvidenceMaxThresholdMax),
+  "windowStartUtc": zod.string().nullable(),
+  "windowEndUtc": zod.string().nullable(),
+  "threshold": zod.number().min(getEvolvePolicyResponseMinSiScoreEvidenceThresholdMin).max(getEvolvePolicyResponseMinSiScoreEvidenceThresholdMax),
+  "filteredCaseCount": zod.number().int().min(getEvolvePolicyResponseMinSiScoreEvidenceFilteredCaseCountMin),
+  "retention": zod.number().min(getEvolvePolicyResponseMinSiScoreEvidenceRetentionMin).max(getEvolvePolicyResponseMinSiScoreEvidenceRetentionMax).nullable(),
+  "baselineExpectancyR": zod.number().nullable(),
+  "filteredExpectancyR": zod.number().nullable(),
+  "message": zod.string()
+}).optional()
 })
 
 
@@ -2447,7 +2523,8 @@ export const GetSystemIntelligenceResponse = zod.object({
 }),
   "baselineHitRate": zod.number().nullable(),
   "weight": zod.number(),
-  "flagged": zod.boolean()
+  "flagged": zod.boolean(),
+  "custom": zod.boolean().optional()
 })),
   "hitRateOverTime": zod.array(zod.object({
   "at": zod.string(),
@@ -2486,7 +2563,10 @@ export const getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMi
 export const getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMax = 48;
 
 export const getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMin = 0;
-export const getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMax = 1;
+export const getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMax = 0.8;
+
+export const getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreOverrideMin = 0;
+export const getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreOverrideMax = 0.8;
 
 
 
@@ -2502,7 +2582,9 @@ export const GetEvolvePolicyHistoryResponse = zod.object({
   "timeframes": zod.array(zod.enum(['M5', 'M15'])).min(1),
   "exit_model": zod.enum(['swept_level_atr', 'candle_geometry']),
   "cooldown_candles": zod.number().int().min(getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMin).max(getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMax),
-  "min_si_score": zod.number().min(getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMin).max(getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMax)
+  "min_si_score": zod.number().min(getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMin).max(getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMax),
+  "min_si_score_mode": zod.enum(['auto', 'override']),
+  "min_si_score_override": zod.number().min(getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreOverrideMin).max(getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreOverrideMax).nullable()
 }),
   "promoted_at_utc": zod.string().nullable(),
   "source_champion_version": zod.string().nullable(),
@@ -2529,7 +2611,37 @@ export const restoreEvolvePolicyResponseSettingsCooldownCandlesMin = 0;
 export const restoreEvolvePolicyResponseSettingsCooldownCandlesMax = 48;
 
 export const restoreEvolvePolicyResponseSettingsMinSiScoreMin = 0;
-export const restoreEvolvePolicyResponseSettingsMinSiScoreMax = 1;
+export const restoreEvolvePolicyResponseSettingsMinSiScoreMax = 0.8;
+
+export const restoreEvolvePolicyResponseSettingsMinSiScoreOverrideMin = 0;
+export const restoreEvolvePolicyResponseSettingsMinSiScoreOverrideMax = 0.8;
+
+export const restoreEvolvePolicyResponseMinSiScoreAutoMin = 0;
+export const restoreEvolvePolicyResponseMinSiScoreAutoMax = 0.8;
+
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceCaseCountMin = 0;
+
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceTotalScoredCasesMin = 0;
+
+
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceCasesNeededMin = 0;
+
+
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceMinimumRetentionMin = 0;
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceMinimumRetentionMax = 1;
+
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceGridStepMin = 0;
+
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceMaxThresholdMin = 0;
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceMaxThresholdMax = 0.8;
+
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceThresholdMin = 0;
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceThresholdMax = 0.8;
+
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceFilteredCaseCountMin = 0;
+
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceRetentionMin = 0;
+export const restoreEvolvePolicyResponseMinSiScoreEvidenceRetentionMax = 1;
 
 
 
@@ -2544,10 +2656,32 @@ export const RestoreEvolvePolicyResponse = zod.object({
   "timeframes": zod.array(zod.enum(['M5', 'M15'])).min(1),
   "exit_model": zod.enum(['swept_level_atr', 'candle_geometry']),
   "cooldown_candles": zod.number().int().min(restoreEvolvePolicyResponseSettingsCooldownCandlesMin).max(restoreEvolvePolicyResponseSettingsCooldownCandlesMax),
-  "min_si_score": zod.number().min(restoreEvolvePolicyResponseSettingsMinSiScoreMin).max(restoreEvolvePolicyResponseSettingsMinSiScoreMax)
+  "min_si_score": zod.number().min(restoreEvolvePolicyResponseSettingsMinSiScoreMin).max(restoreEvolvePolicyResponseSettingsMinSiScoreMax),
+  "min_si_score_mode": zod.enum(['auto', 'override']),
+  "min_si_score_override": zod.number().min(restoreEvolvePolicyResponseSettingsMinSiScoreOverrideMin).max(restoreEvolvePolicyResponseSettingsMinSiScoreOverrideMax).nullable()
 }),
   "promoted_at_utc": zod.string().nullable(),
-  "source_champion_version": zod.string().nullable()
+  "source_champion_version": zod.string().nullable(),
+  "min_si_score_auto": zod.number().min(restoreEvolvePolicyResponseMinSiScoreAutoMin).max(restoreEvolvePolicyResponseMinSiScoreAutoMax).optional(),
+  "min_si_score_evidence": zod.object({
+  "status": zod.enum(['calibrating', 'calibrated']),
+  "caseCount": zod.number().int().min(restoreEvolvePolicyResponseMinSiScoreEvidenceCaseCountMin),
+  "totalScoredCases": zod.number().int().min(restoreEvolvePolicyResponseMinSiScoreEvidenceTotalScoredCasesMin),
+  "requiredCaseCount": zod.number().int().min(1),
+  "casesNeeded": zod.number().int().min(restoreEvolvePolicyResponseMinSiScoreEvidenceCasesNeededMin),
+  "windowSize": zod.number().int().min(1),
+  "minimumRetention": zod.number().min(restoreEvolvePolicyResponseMinSiScoreEvidenceMinimumRetentionMin).max(restoreEvolvePolicyResponseMinSiScoreEvidenceMinimumRetentionMax),
+  "gridStep": zod.number().min(restoreEvolvePolicyResponseMinSiScoreEvidenceGridStepMin),
+  "maxThreshold": zod.number().min(restoreEvolvePolicyResponseMinSiScoreEvidenceMaxThresholdMin).max(restoreEvolvePolicyResponseMinSiScoreEvidenceMaxThresholdMax),
+  "windowStartUtc": zod.string().nullable(),
+  "windowEndUtc": zod.string().nullable(),
+  "threshold": zod.number().min(restoreEvolvePolicyResponseMinSiScoreEvidenceThresholdMin).max(restoreEvolvePolicyResponseMinSiScoreEvidenceThresholdMax),
+  "filteredCaseCount": zod.number().int().min(restoreEvolvePolicyResponseMinSiScoreEvidenceFilteredCaseCountMin),
+  "retention": zod.number().min(restoreEvolvePolicyResponseMinSiScoreEvidenceRetentionMin).max(restoreEvolvePolicyResponseMinSiScoreEvidenceRetentionMax).nullable(),
+  "baselineExpectancyR": zod.number().nullable(),
+  "filteredExpectancyR": zod.number().nullable(),
+  "message": zod.string()
+}).optional()
 })
 
 
@@ -2555,12 +2689,12 @@ export const RestoreEvolvePolicyResponse = zod.object({
  * @summary Set the owner-controlled SYSTEM INTELLIGENCE score threshold
  */
 export const setEvolvePolicyMinSiScoreBodyMinSiScoreMin = 0;
-export const setEvolvePolicyMinSiScoreBodyMinSiScoreMax = 1;
+export const setEvolvePolicyMinSiScoreBodyMinSiScoreMax = 0.8;
 
 
 
 export const SetEvolvePolicyMinSiScoreBody = zod.object({
-  "min_si_score": zod.number().min(setEvolvePolicyMinSiScoreBodyMinSiScoreMin).max(setEvolvePolicyMinSiScoreBodyMinSiScoreMax)
+  "min_si_score": zod.number().min(setEvolvePolicyMinSiScoreBodyMinSiScoreMin).max(setEvolvePolicyMinSiScoreBodyMinSiScoreMax).nullable()
 })
 
 
@@ -2569,7 +2703,37 @@ export const setEvolvePolicyMinSiScoreResponseSettingsCooldownCandlesMin = 0;
 export const setEvolvePolicyMinSiScoreResponseSettingsCooldownCandlesMax = 48;
 
 export const setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMin = 0;
-export const setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMax = 1;
+export const setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMax = 0.8;
+
+export const setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreOverrideMin = 0;
+export const setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreOverrideMax = 0.8;
+
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreAutoMin = 0;
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreAutoMax = 0.8;
+
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceCaseCountMin = 0;
+
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceTotalScoredCasesMin = 0;
+
+
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceCasesNeededMin = 0;
+
+
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceMinimumRetentionMin = 0;
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceMinimumRetentionMax = 1;
+
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceGridStepMin = 0;
+
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceMaxThresholdMin = 0;
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceMaxThresholdMax = 0.8;
+
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceThresholdMin = 0;
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceThresholdMax = 0.8;
+
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceFilteredCaseCountMin = 0;
+
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceRetentionMin = 0;
+export const setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceRetentionMax = 1;
 
 
 
@@ -2584,10 +2748,32 @@ export const SetEvolvePolicyMinSiScoreResponse = zod.object({
   "timeframes": zod.array(zod.enum(['M5', 'M15'])).min(1),
   "exit_model": zod.enum(['swept_level_atr', 'candle_geometry']),
   "cooldown_candles": zod.number().int().min(setEvolvePolicyMinSiScoreResponseSettingsCooldownCandlesMin).max(setEvolvePolicyMinSiScoreResponseSettingsCooldownCandlesMax),
-  "min_si_score": zod.number().min(setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMin).max(setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMax)
+  "min_si_score": zod.number().min(setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMin).max(setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMax),
+  "min_si_score_mode": zod.enum(['auto', 'override']),
+  "min_si_score_override": zod.number().min(setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreOverrideMin).max(setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreOverrideMax).nullable()
 }),
   "promoted_at_utc": zod.string().nullable(),
-  "source_champion_version": zod.string().nullable()
+  "source_champion_version": zod.string().nullable(),
+  "min_si_score_auto": zod.number().min(setEvolvePolicyMinSiScoreResponseMinSiScoreAutoMin).max(setEvolvePolicyMinSiScoreResponseMinSiScoreAutoMax).optional(),
+  "min_si_score_evidence": zod.object({
+  "status": zod.enum(['calibrating', 'calibrated']),
+  "caseCount": zod.number().int().min(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceCaseCountMin),
+  "totalScoredCases": zod.number().int().min(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceTotalScoredCasesMin),
+  "requiredCaseCount": zod.number().int().min(1),
+  "casesNeeded": zod.number().int().min(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceCasesNeededMin),
+  "windowSize": zod.number().int().min(1),
+  "minimumRetention": zod.number().min(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceMinimumRetentionMin).max(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceMinimumRetentionMax),
+  "gridStep": zod.number().min(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceGridStepMin),
+  "maxThreshold": zod.number().min(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceMaxThresholdMin).max(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceMaxThresholdMax),
+  "windowStartUtc": zod.string().nullable(),
+  "windowEndUtc": zod.string().nullable(),
+  "threshold": zod.number().min(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceThresholdMin).max(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceThresholdMax),
+  "filteredCaseCount": zod.number().int().min(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceFilteredCaseCountMin),
+  "retention": zod.number().min(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceRetentionMin).max(setEvolvePolicyMinSiScoreResponseMinSiScoreEvidenceRetentionMax).nullable(),
+  "baselineExpectancyR": zod.number().nullable(),
+  "filteredExpectancyR": zod.number().nullable(),
+  "message": zod.string()
+}).optional()
 })
 
 

@@ -1008,6 +1008,14 @@ export function Home() {
   });
   const setMinSiScoreMutation = useSetEvolvePolicyMinSiScore();
   const minSiScore = evolvePolicy.data?.settings?.min_si_score ?? 0;
+  const minSiScoreAuto = evolvePolicy.data?.min_si_score_auto ?? 0;
+  const minSiScoreMode = evolvePolicy.data?.settings?.min_si_score_mode ?? 'auto';
+  const minSiScoreEvidence = evolvePolicy.data?.min_si_score_evidence;
+  const minSiScoreEvidenceLabel = minSiScoreEvidence?.status === 'calibrating'
+    ? `${minSiScoreEvidence.message} · ${minSiScoreEvidence.caseCount}/${minSiScoreEvidence.requiredCaseCount} CASES`
+    : minSiScoreEvidence
+      ? `WINDOW ${minSiScoreEvidence.caseCount} · KEEP ${minSiScoreEvidence.retention == null ? '—' : `${(minSiScoreEvidence.retention * 100).toFixed(1)}%`} · EXPECTANCY ${minSiScoreEvidence.filteredExpectancyR == null ? '—' : `${minSiScoreEvidence.filteredExpectancyR.toFixed(2)}R`}`
+      : 'AUTO EVIDENCE UNAVAILABLE';
   const activeDataset = dataset.data?.symbol === selectedSymbol ? dataset.data : undefined;
   const [knownInstrumentReviews, setKnownInstrumentReviews] = useState<InstrumentReviewInfo[]>([]);
   const incomingInstrumentReviews = dataset.data?.instrumentReviews;
@@ -1451,9 +1459,15 @@ export function Home() {
   }, [minSiScore, evolvePolicy.data?.version]);
   const saveMinSiScore = () => {
     const value = Number(minSiScoreDraft);
-    if (!Number.isFinite(value) || value < 0 || value > 1) return;
+    if (!Number.isFinite(value) || value < 0 || value > 0.8) return;
     setMinSiScoreMutation.mutate(
       { data: { min_si_score: value } },
+      { onSuccess: () => { void evolvePolicy.refetch(); } },
+    );
+  };
+  const resetMinSiScoreToAuto = () => {
+    setMinSiScoreMutation.mutate(
+      { data: { min_si_score: null } },
       { onSuccess: () => { void evolvePolicy.refetch(); } },
     );
   };
@@ -2535,27 +2549,43 @@ export function Home() {
             onToggle={() => setAiFilterEnabled(value => !value)}
           />
           {selectedSymbol === 'XAUUSD' && <>
-            <label className="si-score-threshold" title="Saved as an owner-controlled policy version; applies to the next replay.">
-              <span>SI MIN</span>
+            <label className="si-score-threshold" title="AUTO recalibrates from scored XAUUSD cases. Saving the slider creates an owner override for the next replay.">
+              <span>SI MIN · {minSiScoreMode === 'override' ? 'OWNER OVERRIDE' : 'AUTO'}</span>
               <strong data-testid="si-score-threshold-value">{Number(minSiScoreDraft).toFixed(2)}</strong>
               <input
                 type="range"
                 min="0"
-                max="1"
-                step="0.05"
+                max="0.8"
+                step="0.01"
                 value={minSiScoreDraft}
                 aria-label="Minimum System Intelligence score"
                 data-testid="si-score-threshold"
                 onChange={event => setMinSiScoreDraft(event.target.value)}
               />
+              <small
+                className={minSiScoreEvidence?.status === 'calibrating' ? 'is-warning' : ''}
+                data-testid="si-score-auto-evidence"
+              >
+                AUTO {minSiScoreAuto.toFixed(2)} · {minSiScoreEvidenceLabel}
+              </small>
             </label>
             <button
               type="button"
               className="si-threshold-save"
               onClick={saveMinSiScore}
-              disabled={setMinSiScoreMutation.isPending || Math.abs(Number(minSiScoreDraft) - minSiScore) < 1e-9}
+              disabled={setMinSiScoreMutation.isPending || (
+                minSiScoreMode === 'override'
+                && Math.abs(Number(minSiScoreDraft) - minSiScore) < 1e-9
+              )}
               data-testid="save-si-score-threshold"
-            >{setMinSiScoreMutation.isPending ? 'SAVING…' : 'SAVE SI MIN'}</button>
+            >{setMinSiScoreMutation.isPending ? 'SAVING…' : 'SET OWNER OVERRIDE'}</button>
+            {minSiScoreMode === 'override' && <button
+              type="button"
+              className="si-threshold-reset"
+              onClick={resetMinSiScoreToAuto}
+              disabled={setMinSiScoreMutation.isPending}
+              data-testid="reset-si-score-auto"
+            >RESET TO AUTO</button>}
             {setMinSiScoreMutation.isError && <span role="alert" className="si-threshold-error">SAVE FAILED</span>}
           </>}
         </div>

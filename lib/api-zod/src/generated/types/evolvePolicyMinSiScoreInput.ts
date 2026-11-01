@@ -9,7 +9,8 @@
 export interface EvolvePolicyMinSiScoreInput {
   /**
      * @minimum 0
-     * @maximum 1
+     * @maximum 0.8
+     * @nullable
      */
-  min_si_score: number;
+  min_si_score: number | null;
 }

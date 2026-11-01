@@ -518,7 +518,7 @@ class ControlRoomServiceTests(unittest.TestCase):
             sha256=self.service.source_sha256,
         )
 
-        with self.assertRaisesRegex(RequestError, "more than 100,000 candles"):
+        with self.assertRaisesRegex(RequestError, "more than 25,000 candles"):
             self.service.backtest_window("M1", "2025-01-01", "2026-01-01")
 
     def test_pending_spotcheck_blocks_replay_and_simulation(self):

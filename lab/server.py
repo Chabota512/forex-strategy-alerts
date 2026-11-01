@@ -18,11 +18,12 @@ from bisect import bisect_left, bisect_right
 from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from . import backtest
 from . import llm_client
 from .alert_policy import (
+    freeze_effective_policy_for_replay,
     list_policy_versions,
     load_policy,
     restore_policy_version,
@@ -74,6 +75,7 @@ from .replay import (
 from .si_cases import SICaseStore
 from .si_cases import build_formation_fingerprint, cases_from_snapshot
 from .si_rule_proposals import build_proposal_prompt, parse_candidate
+from .si_threshold import calibrate_min_si_score
 from .shadow_detectors import compute_shadow_states
 from .resample import INTERVALS, _read_m1_file
 from .simulation import SimulationFilters, SimulationSettings, simulate_batch
@@ -160,6 +162,72 @@ TRADE_COMMENT_SNAPSHOT_FIELDS = (
     "sim_net_pnl",
 )
 logger = logging.getLogger("forex_strategy_lab")
+
+
+def _proposal_cluster_evidence(
+    candidate: Mapping[str, Any], aggregates: Mapping[str, Any]
+) -> dict[str, Any]:
+    condition = candidate.get("condition")
+    if not isinstance(condition, Mapping):
+        condition = {}
+    clusters = aggregates.get("clusters")
+    if not isinstance(clusters, list):
+        clusters = []
+    matched: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for group_name in ("all", "any"):
+        clauses = condition.get(group_name)
+        if not isinstance(clauses, list):
+            continue
+        for clause in clauses:
+            if not isinstance(clause, Mapping):
+                continue
+            field = clause.get("field")
+            operator = clause.get("op")
+            expected = clause.get("value")
+            for cluster in clusters:
+                if not isinstance(cluster, Mapping):
+                    continue
+                cluster_condition = cluster.get("condition")
+                cluster_clauses = (
+                    cluster_condition.get("all")
+                    if isinstance(cluster_condition, Mapping)
+                    else None
+                )
+                if not isinstance(cluster_clauses, list) or not cluster_clauses:
+                    continue
+                aggregate_clause = cluster_clauses[0]
+                if not isinstance(aggregate_clause, Mapping) or aggregate_clause.get("field") != field:
+                    continue
+                observed = aggregate_clause.get("value")
+                matches = (
+                    operator == "eq" and observed == expected
+                    or operator == "neq" and observed != expected
+                    or operator == "in" and isinstance(expected, list) and observed in expected
+                )
+                if not matches:
+                    continue
+                signature = (str(field), json.dumps(observed, sort_keys=True), group_name)
+                if signature in seen:
+                    continue
+                seen.add(signature)
+                matched.append(
+                    {
+                        **_json_safe(dict(cluster)),
+                        "matchedGroup": group_name,
+                        "matchedClause": _json_safe(dict(clause)),
+                    }
+                )
+    return {
+        "resolvedCaseCount": int(aggregates.get("resolvedCaseCount", 0)),
+        "minimumClusterSize": int(aggregates.get("minimumClusterSize", 0)),
+        "overallHitRate": aggregates.get("hitRate"),
+        "overallExpectancyR": aggregates.get("expectancyR"),
+        "clusters": matched,
+        "interpretation": (
+            "Single-feature cluster aggregates; not a joint rule backtest."
+        ),
+    }
 
 
 def _normalise_trade_comment(value: str) -> str | None:
@@ -923,7 +991,23 @@ class LabService:
         }
 
     def current_policy(self) -> dict[str, Any]:
-        return load_policy(self.policy_path)
+        policy = load_policy(self.policy_path)
+        auto_evidence = calibrate_min_si_score(
+            self.si_case_store.scored_case_history()
+        )
+        settings = dict(policy["settings"])
+        effective_score = (
+            settings["min_si_score_override"]
+            if settings["min_si_score_mode"] == "override"
+            else auto_evidence["threshold"]
+        )
+        settings["min_si_score"] = float(effective_score or 0.0)
+        return {
+            **policy,
+            "settings": settings,
+            "min_si_score_auto": auto_evidence["threshold"],
+            "min_si_score_evidence": auto_evidence,
+        }
 
     def policy_versions(self) -> dict[str, Any]:
         return {
@@ -934,18 +1018,20 @@ class LabService:
         }
 
     def restore_policy_version(self, version: int) -> dict[str, Any]:
-        return restore_policy_version(
+        restore_policy_version(
             current_path=self.policy_path,
             versions_dir=self.policy_versions_dir,
             version=version,
         )
+        return self.current_policy()
 
-    def set_min_si_score(self, min_si_score: float) -> dict[str, Any]:
-        return set_policy_min_si_score(
+    def set_min_si_score(self, min_si_score: float | None) -> dict[str, Any]:
+        set_policy_min_si_score(
             current_path=self.policy_path,
             min_si_score=min_si_score,
             versions_dir=self.policy_versions_dir,
         )
+        return self.current_policy()
 
     def propose_system_intelligence_rule(self) -> dict[str, Any]:
         try:
@@ -998,6 +1084,9 @@ class LabService:
         result = self.si_case_store.complete_proposal_attempt(
             attempt_id,
             candidate=candidate,
+            evidence=_proposal_cluster_evidence(
+                candidate, attempt_context["aggregates"]
+            ),
             usage=response.usage,
             provider=response.provider,
             key_index=response.key_index,
@@ -1262,6 +1351,10 @@ class LabService:
             if si_belief_snapshot is not None
             else None
         )
+        replay_policy = freeze_effective_policy_for_replay(
+            self.current_policy(),
+            symbol=symbol,
+        )
         session = ReplaySession(
             session_id=uuid.uuid4().hex,
             run_id=run_id,
@@ -1275,7 +1368,7 @@ class LabService:
             settings_fingerprint=settings_fingerprint,
             simulation_settings=simulation_settings,
             swing_direction_version=swing_direction_version,
-            alert_policy=self.current_policy(),
+            alert_policy=replay_policy,
             mtf_records=mtf_records,
             snapshot_path=self.output_dir / "snapshots.jsonl",
             si_case_sink=self.si_case_store.ingest_cases,
@@ -2531,14 +2624,17 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
                         raise RequestError(
                             400, "Only min_si_score is accepted."
                         )
-                    if isinstance(min_si_score, bool) or not isinstance(
-                        min_si_score, (int, float)
+                    if min_si_score is not None and (
+                        isinstance(min_si_score, bool)
+                        or not isinstance(min_si_score, (int, float))
                     ):
                         raise RequestError(
-                            400, "min_si_score must be a number from 0 through 1."
+                            400, "min_si_score must be null or a number from 0 through 0.8."
                         )
                     try:
-                        policy = service.set_min_si_score(float(min_si_score))
+                        policy = service.set_min_si_score(
+                            None if min_si_score is None else float(min_si_score)
+                        )
                     except ValueError as exc:
                         raise RequestError(400, str(exc)) from exc
                     self._send_json(200, policy)

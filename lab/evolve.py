@@ -2033,7 +2033,12 @@ def _promote_candidate(
     policy_settings = {
         key: candidate_options[key]
         for key in POLICY_SETTING_KEYS
-        if key != "min_si_score"
+        if key
+        not in {
+            "min_si_score",
+            "min_si_score_mode",
+            "min_si_score_override",
+        }
     }
     write_promoted_policy(
         current_path=policy_current_path,
