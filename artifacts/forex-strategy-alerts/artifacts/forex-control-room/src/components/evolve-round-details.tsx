@@ -236,18 +236,47 @@ function validationChecks(
   comparison: DetailRecord | null,
   candidateValidation: DetailRecord | null,
   monthCoverage: DetailRecord | null,
+  objective: string,
 ): Check[] {
   const checks: Check[] = [];
   const expectancy = numberField(candidateValidation, 'expectancy_after_costs');
-  const positiveExpectancy = comparison?.expectancy_positive;
+  const filterObjective = objective === 'develop_better_filter';
+  const positiveExpectancy = filterObjective
+    ? comparison?.filtered_expectancy_positive
+    : comparison?.expectancy_positive;
   if (typeof positiveExpectancy === 'boolean' || expectancy !== null) {
     checks.push({
-      label: 'Positive expectancy after costs',
+      label: filterObjective
+        ? 'Positive filtered expectancy after costs'
+        : 'Positive expectancy after costs',
       detail: `${formatR(expectancy)}; must be above 0 R`,
       passed: typeof positiveExpectancy === 'boolean'
         ? positiveExpectancy
         : (expectancy ?? 0) > 0,
     });
+  }
+
+  if (filterObjective) {
+    const retention = numberField(comparison, 'candidate_filter_retention')
+      ?? numberField(candidateValidation, 'filter_retention');
+    const retentionPassed = comparison?.filter_retention_passed;
+    if (retention !== null || typeof retentionPassed === 'boolean') {
+      checks.push({
+        label: 'Signal retention',
+        detail: `${retention === null ? 'Not recorded' : `${(retention * 100).toFixed(1)}%`}; at least 40% required`,
+        passed: typeof retentionPassed === 'boolean'
+          ? retentionPassed
+          : (retention ?? 0) >= 0.4,
+      });
+    }
+    const objectiveScore = numberField(comparison, 'candidate_filter_objective_score');
+    if (objectiveScore !== null || typeof comparison?.filter_objective_improved === 'boolean') {
+      checks.push({
+        label: 'Filter objective improved',
+        detail: `${formatR(objectiveScore)}; must exceed champion`,
+        passed: comparison?.filter_objective_improved === true,
+      });
+    }
   }
 
   const floors = recordField(comparison, 'validation_trade_floors');
@@ -285,9 +314,11 @@ export default function EvolveRoundDetails({ round }: { round: EvolveArchivedRou
   const candidateTraining = recordField(detail, 'candidate_training');
   const championValidation = recordField(detail, 'champion_validation');
   const candidateValidation = recordField(detail, 'candidate_validation');
+  const missionConfig = recordField(detail, 'mission_config');
+  const objective = stringField(detail, 'objective') ?? 'maximize_profit';
   const coverage = recordField(comparison, 'annual_signal_month_coverage')
     ?? recordField(detail, 'candidate_month_coverage');
-  const checks = validationChecks(comparison, candidateValidation, coverage);
+  const checks = validationChecks(comparison, candidateValidation, coverage, objective);
   const decision = stringField(detail, 'decision') ?? round.decision;
   const title = decisionTitle(decision, round.eligible);
   const reason = resultReason(detail, decision, round.eligible, candidateValidation);
@@ -315,6 +346,22 @@ export default function EvolveRoundDetails({ round }: { round: EvolveArchivedRou
       <h3>{title}</h3>
       <p>{reason}</p>
     </section>
+
+    {missionConfig && <section className="evolve-history-section" data-testid="evolve-history-mission-config">
+      <h4>Mission configuration</h4>
+      <ul className="evolve-history-changes">
+        {[
+          ['Symbol', missionConfig.symbol],
+          ['Training years', missionConfig.training_years ?? missionConfig.trainingYears],
+          ['Validation years', missionConfig.validation_years ?? missionConfig.validationYears],
+          ['Exit model', missionConfig.exit_model ?? missionConfig.exitModel],
+          ['Direction', missionConfig.direction_mode ?? missionConfig.directionMode],
+          ['Swing version', missionConfig.swing_version ?? missionConfig.swingVersion],
+          ['Providers', missionConfig.providers],
+          ['Objective', missionConfig.objective],
+        ].map(([label, value]) => <li key={String(label)}>{String(label)}: {simpleValue(value)}</li>)}
+      </ul>
+    </section>}
 
     <section className="evolve-history-section">
       <h4>What changed</h4>

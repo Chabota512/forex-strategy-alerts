@@ -2343,7 +2343,11 @@ export function Home() {
       }}
       sessionActive={Boolean(matchingSession)}
     />
-    <EvolveControl symbol={selectedSymbol} symbolApproved={Boolean(activeDataset?.ownerApproved)} swingVersion={swingDirectionVersion} />
+    <EvolveControl
+      approvedSymbols={instrumentReviews
+        .filter(review => review.ownerApproved)
+        .map(review => review.symbol as InstrumentSymbol)}
+    />
     <footer className="disclaimer" data-testid="persistent-disclaimer">{DISCLAIMER}</footer>
   </main>;
 }

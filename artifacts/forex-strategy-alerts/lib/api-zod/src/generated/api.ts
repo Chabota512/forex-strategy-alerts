@@ -2181,12 +2181,28 @@ export const GetAlertCommentResponse = zod.object({
 /**
  * @summary Start one background evolution round
  */
+
+
+
 export const runEvolveRoundBodySwingVersionDefault = `V2`;
 
 export const RunEvolveRoundBody = zod.object({
+  "missionConfig": zod.object({
+  "symbol": zod.enum(['XAUUSD']),
+  "trainingYears": zod.array(zod.union([zod.literal(2023),zod.literal(2024),zod.literal(2025)])).min(1),
+  "validationYears": zod.array(zod.union([zod.literal(2023),zod.literal(2024),zod.literal(2025)])).min(1),
+  "exitModel": zod.enum(['swept_level_atr', 'candle_geometry']),
+  "directionMode": zod.enum(['normal', 'inverted', 'adaptive']),
+  "swingVersion": zod.enum(['V1', 'V2']),
+  "providers": zod.array(zod.enum(['GEMINI', 'GROQ'])).min(1),
+  "objective": zod.enum(['maximize_profit', 'develop_better_filter'])
+}).optional(),
   "symbol": zod.enum(['XAUUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDJPY']).optional(),
   "swingVersion": zod.enum(['V1', 'V2']).default(runEvolveRoundBodySwingVersionDefault)
 })
+
+
+
 
 export const runEvolveRoundResponseResultOneProviderAttemptsItemKeyIndexMax = 3;
 
@@ -2198,6 +2214,16 @@ export const RunEvolveRoundResponse = zod.object({
   "job_id": zod.string().uuid(),
   "symbol": zod.enum(['XAUUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDJPY']),
   "swing_version": zod.enum(['V1', 'V2']),
+  "mission_config": zod.object({
+  "symbol": zod.enum(['XAUUSD']),
+  "trainingYears": zod.array(zod.union([zod.literal(2023),zod.literal(2024),zod.literal(2025)])).min(1),
+  "validationYears": zod.array(zod.union([zod.literal(2023),zod.literal(2024),zod.literal(2025)])).min(1),
+  "exitModel": zod.enum(['swept_level_atr', 'candle_geometry']),
+  "directionMode": zod.enum(['normal', 'inverted', 'adaptive']),
+  "swingVersion": zod.enum(['V1', 'V2']),
+  "providers": zod.array(zod.enum(['GEMINI', 'GROQ'])).min(1),
+  "objective": zod.enum(['maximize_profit', 'develop_better_filter'])
+}),
   "phase": zod.enum(['training', 'awaiting-proposal', 'simulating', 'awaiting-owner-decision', 'cancelling', 'cancelled', 'complete', 'failed']),
   "logs": zod.array(zod.object({
   "at": zod.coerce.date(),
@@ -2261,6 +2287,9 @@ export const CancelEvolveJobBody = zod.object({
   "job_id": zod.string().uuid()
 })
 
+
+
+
 export const cancelEvolveJobResponseResultOneProviderAttemptsItemKeyIndexMax = 3;
 
 export const cancelEvolveJobResponseResultOneRequestErrorDetailOneAttemptsItemKeyIndexMax = 3;
@@ -2271,6 +2300,16 @@ export const CancelEvolveJobResponse = zod.object({
   "job_id": zod.string().uuid(),
   "symbol": zod.enum(['XAUUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDJPY']),
   "swing_version": zod.enum(['V1', 'V2']),
+  "mission_config": zod.object({
+  "symbol": zod.enum(['XAUUSD']),
+  "trainingYears": zod.array(zod.union([zod.literal(2023),zod.literal(2024),zod.literal(2025)])).min(1),
+  "validationYears": zod.array(zod.union([zod.literal(2023),zod.literal(2024),zod.literal(2025)])).min(1),
+  "exitModel": zod.enum(['swept_level_atr', 'candle_geometry']),
+  "directionMode": zod.enum(['normal', 'inverted', 'adaptive']),
+  "swingVersion": zod.enum(['V1', 'V2']),
+  "providers": zod.array(zod.enum(['GEMINI', 'GROQ'])).min(1),
+  "objective": zod.enum(['maximize_profit', 'develop_better_filter'])
+}),
   "phase": zod.enum(['training', 'awaiting-proposal', 'simulating', 'awaiting-owner-decision', 'cancelling', 'cancelled', 'complete', 'failed']),
   "logs": zod.array(zod.object({
   "at": zod.coerce.date(),
@@ -2381,6 +2420,9 @@ export const GetEvolveStatusParams = zod.object({
   "job_id": zod.coerce.string().uuid()
 })
 
+
+
+
 export const getEvolveStatusResponseResultOneProviderAttemptsItemKeyIndexMax = 3;
 
 export const getEvolveStatusResponseResultOneRequestErrorDetailOneAttemptsItemKeyIndexMax = 3;
@@ -2391,6 +2433,16 @@ export const GetEvolveStatusResponse = zod.object({
   "job_id": zod.string().uuid(),
   "symbol": zod.enum(['XAUUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDJPY']),
   "swing_version": zod.enum(['V1', 'V2']),
+  "mission_config": zod.object({
+  "symbol": zod.enum(['XAUUSD']),
+  "trainingYears": zod.array(zod.union([zod.literal(2023),zod.literal(2024),zod.literal(2025)])).min(1),
+  "validationYears": zod.array(zod.union([zod.literal(2023),zod.literal(2024),zod.literal(2025)])).min(1),
+  "exitModel": zod.enum(['swept_level_atr', 'candle_geometry']),
+  "directionMode": zod.enum(['normal', 'inverted', 'adaptive']),
+  "swingVersion": zod.enum(['V1', 'V2']),
+  "providers": zod.array(zod.enum(['GEMINI', 'GROQ'])).min(1),
+  "objective": zod.enum(['maximize_profit', 'develop_better_filter'])
+}),
   "phase": zod.enum(['training', 'awaiting-proposal', 'simulating', 'awaiting-owner-decision', 'cancelling', 'cancelled', 'complete', 'failed']),
   "logs": zod.array(zod.object({
   "at": zod.coerce.date(),
@@ -2455,6 +2507,9 @@ export const DecideEvolveJobBody = zod.object({
   "promote": zod.boolean()
 })
 
+
+
+
 export const decideEvolveJobResponseResultOneProviderAttemptsItemKeyIndexMax = 3;
 
 export const decideEvolveJobResponseResultOneRequestErrorDetailOneAttemptsItemKeyIndexMax = 3;
@@ -2465,6 +2520,16 @@ export const DecideEvolveJobResponse = zod.object({
   "job_id": zod.string().uuid(),
   "symbol": zod.enum(['XAUUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDJPY']),
   "swing_version": zod.enum(['V1', 'V2']),
+  "mission_config": zod.object({
+  "symbol": zod.enum(['XAUUSD']),
+  "trainingYears": zod.array(zod.union([zod.literal(2023),zod.literal(2024),zod.literal(2025)])).min(1),
+  "validationYears": zod.array(zod.union([zod.literal(2023),zod.literal(2024),zod.literal(2025)])).min(1),
+  "exitModel": zod.enum(['swept_level_atr', 'candle_geometry']),
+  "directionMode": zod.enum(['normal', 'inverted', 'adaptive']),
+  "swingVersion": zod.enum(['V1', 'V2']),
+  "providers": zod.array(zod.enum(['GEMINI', 'GROQ'])).min(1),
+  "objective": zod.enum(['maximize_profit', 'develop_better_filter'])
+}),
   "phase": zod.enum(['training', 'awaiting-proposal', 'simulating', 'awaiting-owner-decision', 'cancelling', 'cancelled', 'complete', 'failed']),
   "logs": zod.array(zod.object({
   "at": zod.coerce.date(),

@@ -10,6 +10,11 @@ const api = vi.hoisted(() => ({
   history: vi.fn(),
 }));
 
+function confirmPreflightRound() {
+  fireEvent.click(screen.getByTestId('button-run-evolve-round'));
+  fireEvent.click(screen.getByTestId('button-confirm-evolve-round'));
+}
+
 vi.mock('@workspace/api-client-react', () => ({
   getGetEvolveStatusQueryKey: (jobId: string) => ['evolve-status', jobId],
   useRunEvolveRound: () => ({
@@ -173,10 +178,10 @@ describe('evolution round controls', () => {
     api.start.mockImplementation((_request, callbacks) => {
       callbacks.onSuccess(completeStatus());
     });
-    render(<EvolveControl symbol={'XAUUSD' as InstrumentSymbol} symbolApproved swingVersion="V2" />);
+    render(<EvolveControl approvedSymbols={['XAUUSD' as InstrumentSymbol]} />);
 
     const runButton = screen.getByTestId('button-run-evolve-round') as HTMLButtonElement;
-    fireEvent.click(runButton);
+    confirmPreflightRound();
 
     expect(await screen.findByTestId('evolve-result')).not.toBeNull();
     expect(screen.getByText('not_eligible')).not.toBeNull();
@@ -184,9 +189,9 @@ describe('evolution round controls', () => {
   });
 
   it('re-enables Run immediately after FAILED without dismissing the failure panel', async () => {
-    render(<EvolveControl symbol={'XAUUSD' as InstrumentSymbol} symbolApproved swingVersion="V2" />);
+    render(<EvolveControl approvedSymbols={['XAUUSD' as InstrumentSymbol]} />);
     const runButton = screen.getByTestId('button-run-evolve-round') as HTMLButtonElement;
-    fireEvent.click(runButton);
+    confirmPreflightRound();
 
     expect(await screen.findByTestId('evolve-failed-state')).not.toBeNull();
     expect(runButton.disabled).toBe(false);
@@ -197,10 +202,10 @@ describe('evolution round controls', () => {
     api.start.mockImplementation((_request, callbacks) => {
       callbacks.onSuccess(runningStatus());
     });
-    render(<EvolveControl symbol={'XAUUSD' as InstrumentSymbol} symbolApproved swingVersion="V2" />);
+    render(<EvolveControl approvedSymbols={['XAUUSD' as InstrumentSymbol]} />);
 
     const runButton = screen.getByTestId('button-run-evolve-round') as HTMLButtonElement;
-    fireEvent.click(runButton);
+    confirmPreflightRound();
 
     expect(await screen.findByTestId('evolve-polling-indicator')).not.toBeNull();
     expect(runButton.disabled).toBe(true);
@@ -218,7 +223,7 @@ describe('evolution round controls', () => {
       error: { status: 404 },
       refetch: vi.fn(),
     });
-    render(<EvolveControl symbol={'XAUUSD' as InstrumentSymbol} symbolApproved swingVersion="V2" />);
+    render(<EvolveControl approvedSymbols={['XAUUSD' as InstrumentSymbol]} />);
 
     expect((screen.getByTestId('button-run-evolve-round') as HTMLButtonElement).disabled)
       .toBe(false);
@@ -235,6 +240,52 @@ describe('evolution round controls', () => {
       .toBe(false);
   });
 
+  it('requires a valid pre-flight mission and submits its pinned configuration', async () => {
+    api.start.mockImplementation((request, callbacks) => {
+      expect(request.data.missionConfig).toEqual({
+        symbol: 'XAUUSD',
+        trainingYears: [2023, 2024],
+        validationYears: [2025],
+        exitModel: 'swept_level_atr',
+        directionMode: 'normal',
+        swingVersion: 'V2',
+        providers: ['GEMINI', 'GROQ'],
+        objective: 'maximize_profit',
+      });
+      callbacks.onSuccess(failedStatus());
+    });
+    render(<EvolveControl approvedSymbols={['XAUUSD' as InstrumentSymbol]} />);
+
+    fireEvent.click(screen.getByTestId('button-run-evolve-round'));
+    expect(screen.getByTestId('dialog-evolve-preflight')).not.toBeNull();
+
+    fireEvent.click(screen.getByTestId('validation-year-2023'));
+    expect(screen.getByTestId('evolve-config-error').textContent)
+      .toContain('Validation years must be later');
+    expect((screen.getByTestId('button-confirm-evolve-round') as HTMLButtonElement).disabled)
+      .toBe(true);
+
+    fireEvent.click(screen.getByTestId('button-evolve-defaults'));
+    expect((screen.getByTestId('training-year-2024') as HTMLInputElement).checked)
+      .toBe(true);
+    expect((screen.getByTestId('button-confirm-evolve-round') as HTMLButtonElement).disabled)
+      .toBe(false);
+    expect(JSON.parse(window.localStorage.getItem('forex-lab-evolve-mission-config') || '{}'))
+      .toMatchObject({ trainingYears: [2023, 2024], validationYears: [2025] });
+
+    fireEvent.click(screen.getByTestId('provider-gemini'));
+    fireEvent.click(screen.getByTestId('provider-groq'));
+    expect(screen.getByTestId('evolve-config-error').textContent)
+      .toContain('Select at least one model provider');
+    expect((screen.getByTestId('button-confirm-evolve-round') as HTMLButtonElement).disabled)
+      .toBe(true);
+
+    fireEvent.click(screen.getByTestId('button-evolve-defaults'));
+    fireEvent.click(screen.getByTestId('button-confirm-evolve-round'));
+    expect(await screen.findByTestId('evolve-failed-state')).not.toBeNull();
+    expect(api.start).toHaveBeenCalledTimes(1);
+  });
+
   it('renders archived results in plain language and keeps raw data optional', async () => {
     const fixture = archivedRound();
     api.history.mockReturnValue({
@@ -244,7 +295,7 @@ describe('evolution round controls', () => {
       error: null,
       refetch: vi.fn(),
     });
-    render(<EvolveControl symbol={'XAUUSD' as InstrumentSymbol} symbolApproved swingVersion="V2" />);
+    render(<EvolveControl approvedSymbols={['XAUUSD' as InstrumentSymbol]} />);
 
     fireEvent.click(screen.getByTestId('evolve-history-toggle'));
 

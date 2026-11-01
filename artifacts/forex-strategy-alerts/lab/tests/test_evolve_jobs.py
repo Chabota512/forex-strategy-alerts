@@ -416,6 +416,87 @@ class EvolveJobApiTests(unittest.TestCase):
             self.assertEqual(proposal_archive["provider_attempts"], expected_attempts)
             self.assertEqual(result_archive["provider_attempts"], expected_attempts)
 
+    def test_mission_config_limits_provider_chain_and_is_archived(self) -> None:
+        mission_config = {
+            "symbol": "XAUUSD",
+            "trainingYears": [2023],
+            "validationYears": [2025],
+            "exitModel": "candle_geometry",
+            "directionMode": "adaptive",
+            "swingVersion": "V2",
+            "providers": ["GROQ"],
+            "objective": "develop_better_filter",
+        }
+        invalid_config = {
+            **mission_config,
+            "validationYears": [2023],
+        }
+        invalid_status, invalid_response = self.request_json(
+            "/api/evolve/run",
+            method="POST",
+            payload={"missionConfig": invalid_config},
+        )
+        self.assertEqual(invalid_status, 400)
+        self.assertIn("Validation years must be later", invalid_response["error"])
+        self.assertEqual(self.runner_calls, 0)
+
+        groq_payload = {
+            "choices": [{"message": {"content": '{"no_change":true}'}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 3, "total_tokens": 13},
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            self.manager._run_rounds = self._real_round_runner(Path(temporary))
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        "LLM_PROVIDER": "auto",
+                        "GEMINI_API_KEY": "unchecked-gemini-key",
+                        "GROQ_API_KEY": "selected-groq-key",
+                    },
+                    clear=True,
+                ),
+                patch(
+                    "lab.llm_client.urllib.request.urlopen",
+                    return_value=_FakeProviderResponse(groq_payload),
+                ) as urlopen,
+            ):
+                response_status, started = self.request_json(
+                    "/api/evolve/run",
+                    method="POST",
+                    payload={"missionConfig": mission_config},
+                )
+                self.assertEqual(response_status, 202)
+                self.assertEqual(started["mission_config"]["providers"], ["GROQ"])
+                completed = self.wait_for_phase(started["job_id"], "complete")
+
+        self.assertEqual(urlopen.call_count, 1)
+        self.assertEqual(
+            urlopen.call_args.args[0].full_url,
+            llm_client.GROQ_CHAT_COMPLETIONS_URL,
+        )
+        self.assertEqual(completed["result"]["decision"], "no_change")
+        self.assertEqual(
+            completed["result"]["mission_config"],
+            {
+                "symbol": "XAUUSD",
+                "training_years": [2023],
+                "validation_years": [2025],
+                "exit_model": "candle_geometry",
+                "direction_mode": "adaptive",
+                "swing_version": "V2",
+                "providers": ["GROQ"],
+                "objective": "develop_better_filter",
+            },
+        )
+        result_archive = json.loads(
+            Path(completed["result"]["result_file"]).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            result_archive["mission_config"],
+            completed["result"]["mission_config"],
+        )
+
     def test_ui_job_does_not_fallback_after_malformed_model_output(self) -> None:
         malformed_payload = {
             "candidates": [{"content": {"parts": [{"text": "{malformed"}]}}],

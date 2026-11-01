@@ -1094,7 +1094,88 @@ export const EvolveRunInputSwingVersion = {
   V2: 'V2',
 } as const;
 
+export type EvolveMissionConfigSymbol = typeof EvolveMissionConfigSymbol[keyof typeof EvolveMissionConfigSymbol];
+
+
+export const EvolveMissionConfigSymbol = {
+  XAUUSD: 'XAUUSD',
+} as const;
+
+export type EvolveMissionConfigTrainingYearsItem = typeof EvolveMissionConfigTrainingYearsItem[keyof typeof EvolveMissionConfigTrainingYearsItem];
+
+
+export const EvolveMissionConfigTrainingYearsItem = {
+  NUMBER_2023: 2023,
+  NUMBER_2024: 2024,
+  NUMBER_2025: 2025,
+} as const;
+
+export type EvolveMissionConfigValidationYearsItem = typeof EvolveMissionConfigValidationYearsItem[keyof typeof EvolveMissionConfigValidationYearsItem];
+
+
+export const EvolveMissionConfigValidationYearsItem = {
+  NUMBER_2023: 2023,
+  NUMBER_2024: 2024,
+  NUMBER_2025: 2025,
+} as const;
+
+export type EvolveMissionConfigExitModel = typeof EvolveMissionConfigExitModel[keyof typeof EvolveMissionConfigExitModel];
+
+
+export const EvolveMissionConfigExitModel = {
+  swept_level_atr: 'swept_level_atr',
+  candle_geometry: 'candle_geometry',
+} as const;
+
+export type EvolveMissionConfigDirectionMode = typeof EvolveMissionConfigDirectionMode[keyof typeof EvolveMissionConfigDirectionMode];
+
+
+export const EvolveMissionConfigDirectionMode = {
+  normal: 'normal',
+  inverted: 'inverted',
+  adaptive: 'adaptive',
+} as const;
+
+export type EvolveMissionConfigSwingVersion = typeof EvolveMissionConfigSwingVersion[keyof typeof EvolveMissionConfigSwingVersion];
+
+
+export const EvolveMissionConfigSwingVersion = {
+  V1: 'V1',
+  V2: 'V2',
+} as const;
+
+export type EvolveMissionConfigProvidersItem = typeof EvolveMissionConfigProvidersItem[keyof typeof EvolveMissionConfigProvidersItem];
+
+
+export const EvolveMissionConfigProvidersItem = {
+  GEMINI: 'GEMINI',
+  GROQ: 'GROQ',
+} as const;
+
+export type EvolveMissionConfigObjective = typeof EvolveMissionConfigObjective[keyof typeof EvolveMissionConfigObjective];
+
+
+export const EvolveMissionConfigObjective = {
+  maximize_profit: 'maximize_profit',
+  develop_better_filter: 'develop_better_filter',
+} as const;
+
+export interface EvolveMissionConfig {
+  symbol: EvolveMissionConfigSymbol;
+  /** @minItems 1 */
+  trainingYears: EvolveMissionConfigTrainingYearsItem[];
+  /** @minItems 1 */
+  validationYears: EvolveMissionConfigValidationYearsItem[];
+  exitModel: EvolveMissionConfigExitModel;
+  directionMode: EvolveMissionConfigDirectionMode;
+  swingVersion: EvolveMissionConfigSwingVersion;
+  /** @minItems 1 */
+  providers: EvolveMissionConfigProvidersItem[];
+  objective: EvolveMissionConfigObjective;
+}
+
 export interface EvolveRunInput {
+  missionConfig?: EvolveMissionConfig;
   symbol?: InstrumentSymbol;
   swingVersion?: EvolveRunInputSwingVersion;
 }
@@ -1284,6 +1365,7 @@ export interface EvolveJobStatus {
   job_id: string;
   symbol: InstrumentSymbol;
   swing_version: EvolveJobStatusSwingVersion;
+  mission_config: EvolveMissionConfig;
   phase: EvolveJobPhase;
   logs: EvolveLogLine[];
   result: EvolveRoundResult | null;

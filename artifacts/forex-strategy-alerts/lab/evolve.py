@@ -60,6 +60,7 @@ if __package__:
         redact_secrets,
         sanitize_error_message,
     )
+    from .instruments import INSTRUMENT_REGISTRY
     from .replay import StreamingWickPressure, build_mtf_context
     from .shadow_detectors import compute_shadow_states
     from .simulation import (
@@ -114,6 +115,7 @@ else:
         redact_secrets,
         sanitize_error_message,
     )
+    from instruments import INSTRUMENT_REGISTRY
     from replay import StreamingWickPressure, build_mtf_context
     from shadow_detectors import compute_shadow_states
     from simulation import (
@@ -146,6 +148,17 @@ MIN_COVERED_MONTHS = 8
 STARTING_BALANCE = Decimal("10000")
 PROMOTION_MARGIN = Decimal("0.10")
 MAX_DIFF_ITEMS = 15
+MISSION_YEARS = (2023, 2024, 2025)
+MISSION_DEFAULTS: dict[str, Any] = {
+    "symbol": "XAUUSD",
+    "training_years": [2023, 2024],
+    "validation_years": [2025],
+    "exit_model": "swept_level_atr",
+    "direction_mode": "normal",
+    "swing_version": "V2",
+    "providers": ["GEMINI", "GROQ"],
+    "objective": "maximize_profit",
+}
 DEFAULT_STRENGTH_WEIGHTS = {
     feature: float(weight)
     for feature, weight in ENGINE_DEFAULT_STRENGTH_WEIGHTS.items()
@@ -218,11 +231,25 @@ class LoopWindow:
 
     @property
     def training_label(self) -> str:
-        return f"{self.training_months[0]} through {self.training_months[-1]}"
+        return _month_period_label(self.training_months)
 
     @property
     def validation_label(self) -> str:
-        return f"{self.validation_months[0]} through {self.validation_months[-1]}"
+        return _month_period_label(self.validation_months)
+
+
+def _month_period_label(months: tuple[str, ...]) -> str:
+    if not months:
+        return "No months selected"
+    groups: list[list[str]] = [[months[0]]]
+    for month in months[1:]:
+        if _month_ordinal(month) == _month_ordinal(groups[-1][-1]) + 1:
+            groups[-1].append(month)
+        else:
+            groups.append([month])
+    return " + ".join(
+        f"{group[0]} through {group[-1]}" for group in groups
+    )
 
 
 def _month_ordinal(month: str) -> int:
@@ -247,6 +274,148 @@ def _months_between(start: str, end: str) -> tuple[str, ...]:
         year, month_index = divmod(ordinal, 12)
         months.append(f"{year:04d}-{month_index + 1:02d}")
     return tuple(months)
+
+
+def normalize_mission_config(value: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Validate and canonicalize one pre-flight mission configuration."""
+    if value is None:
+        value = MISSION_DEFAULTS
+    if not isinstance(value, Mapping):
+        raise EvolutionError("missionConfig must be an object.")
+    aliases = {
+        "trainingYears": "training_years",
+        "validationYears": "validation_years",
+        "exitModel": "exit_model",
+        "directionMode": "direction_mode",
+        "swingVersion": "swing_version",
+    }
+    normalized_input = {
+        aliases.get(str(key), str(key)): item for key, item in value.items()
+    }
+    allowed = set(MISSION_DEFAULTS)
+    extra = sorted(set(normalized_input) - allowed)
+    if extra:
+        raise EvolutionError(f"Unsupported mission config fields: {', '.join(extra)}.")
+    config = copy.deepcopy(MISSION_DEFAULTS)
+    config.update(normalized_input)
+    symbol = str(config["symbol"]).strip().upper()
+    if symbol not in INSTRUMENT_REGISTRY:
+        raise EvolutionError("symbol must be a registered instrument.")
+    config["symbol"] = symbol
+
+    def normalize_years(field: str) -> list[int]:
+        years = config[field]
+        if (
+            not isinstance(years, (list, tuple))
+            or not years
+            or any(
+                isinstance(year, bool)
+                or not isinstance(year, int)
+                or year not in MISSION_YEARS
+                for year in years
+            )
+        ):
+            raise EvolutionError(
+                f"{field} must include at least one year from 2023, 2024, or 2025."
+            )
+        if len(set(years)) != len(years):
+            raise EvolutionError(f"{field} cannot contain duplicate years.")
+        return sorted(years)
+
+    config["training_years"] = normalize_years("training_years")
+    config["validation_years"] = normalize_years("validation_years")
+    if min(config["validation_years"]) <= max(config["training_years"]):
+        raise EvolutionError(
+            "Validation years must be later than every selected training year."
+        )
+    if not isinstance(config["exit_model"], str) or config["exit_model"] not in {
+        "swept_level_atr",
+        "candle_geometry",
+    }:
+        raise EvolutionError(
+            "exitModel must be swept_level_atr or candle_geometry."
+        )
+    if not isinstance(config["direction_mode"], str) or config[
+        "direction_mode"
+    ] not in {"normal", "inverted", "adaptive"}:
+        raise EvolutionError(
+            "directionMode must be normal, inverted, or adaptive."
+        )
+    if not isinstance(config["swing_version"], str) or config[
+        "swing_version"
+    ] not in {"V1", "V2"}:
+        raise EvolutionError("swingVersion must be V1 or V2.")
+    if config["swing_version"] == "V2" and config["symbol"] != "XAUUSD":
+        raise EvolutionError("Swing Direction V2 is available for XAUUSD only.")
+    if config["symbol"] != "XAUUSD" and config["direction_mode"] != "normal":
+        raise EvolutionError("Directional inversion modes are available for XAUUSD only.")
+    if not isinstance(config["objective"], str) or config["objective"] not in {
+        "maximize_profit",
+        "develop_better_filter",
+    }:
+        raise EvolutionError(
+            "objective must be maximize_profit or develop_better_filter."
+        )
+    providers = config["providers"]
+    if (
+        not isinstance(providers, (list, tuple))
+        or not providers
+        or any(
+            not isinstance(provider, str)
+            or provider.upper() not in {"GEMINI", "GROQ"}
+            for provider in providers
+        )
+    ):
+        raise EvolutionError("providers must include GEMINI, GROQ, or both.")
+    if len({provider.upper() for provider in providers}) != len(providers):
+        raise EvolutionError("providers cannot contain duplicates.")
+    config["providers"] = [
+        provider
+        for provider in ("GEMINI", "GROQ")
+        if provider in {item.upper() for item in providers}
+    ]
+    return config
+
+
+def loop_window_from_mission_config(
+    mission_config: Mapping[str, Any],
+) -> LoopWindow:
+    config = normalize_mission_config(mission_config)
+    training = tuple(
+        month
+        for year in config["training_years"]
+        for month in _months_between(f"{year}-01", f"{year}-12")
+    )
+    validation = tuple(
+        month
+        for year in config["validation_years"]
+        for month in _months_between(f"{year}-01", f"{year}-12")
+    )
+    profile = (
+        "mission_"
+        + "_".join(map(str, config["training_years"]))
+        + "_to_"
+        + "_".join(map(str, config["validation_years"]))
+    )
+    return LoopWindow(profile, training, validation)
+
+
+def mission_config_for_api(
+    config: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    if config is None:
+        return None
+    normalized = normalize_mission_config(config)
+    return {
+        "symbol": normalized["symbol"],
+        "trainingYears": list(normalized["training_years"]),
+        "validationYears": list(normalized["validation_years"]),
+        "exitModel": normalized["exit_model"],
+        "directionMode": normalized["direction_mode"],
+        "swingVersion": normalized["swing_version"],
+        "providers": list(normalized["providers"]),
+        "objective": normalized["objective"],
+    }
 
 
 def load_loop_window(
@@ -787,14 +956,36 @@ def build_prompt(
     discredited: list[dict[str, Any]],
     *,
     swing_version: str = "V2",
+    objective: str = "maximize_profit",
+    training_period: str = "configured training window",
+    training_filter_metrics: Mapping[str, Any] | None = None,
 ) -> str:
+    if objective == "develop_better_filter":
+        objective_instructions = (
+            "The objective is to maximize raw_expectancy_after_costs minus "
+            "filtered_expectancy_after_costs. Validation retention must be at least "
+            "40% of raw signals and filtered validation expectancy must be positive. "
+            "Use only the training filter metrics below to propose filter changes. "
+            "Validation data and validation results are withheld and must not be inferred or requested."
+        )
+    else:
+        objective_instructions = (
+            "The promotion objective is validation expectancy_after_costs: mean R per "
+            "closed trade after costs. Total net P&L is archived for context and never "
+            "decides promotion. Use training metrics only. Validation data and "
+            "validation results are withheld and must not be inferred or requested."
+        )
+    filter_metrics_section = ""
+    if objective == "develop_better_filter":
+        filter_metrics_section = (
+            "\n\nCHAMPION TRAINING FILTER METRICS:\n"
+            f"{json.dumps(dict(training_filter_metrics or {}), sort_keys=True, indent=2)}"
+        )
     return (
         "Propose at most one coherent change to the Forex Strategy Lab optimizer "
         "settings. Return strict JSON only. Do not write code or claim profitability.\n\n"
-        "The frozen v1.5.0 seed is immutable. The only promotion objective is validation "
-        "expectancy_after_costs: mean R per closed trade after costs. Total net P&L is "
-        "archived for context and never decides promotion. Use training metrics only. "
-        "Validation data and validation results are withheld and must not be inferred or requested.\n\n"
+        "The frozen v1.5.0 seed is immutable. "
+        f"{objective_instructions}\n\n"
         f"Swing-direction version for this run is fixed at {swing_version}; it is not a candidate setting.\n\n"
         "Allowed diff paths and bounds:\n"
         "- timeframes: a non-empty subset of [M5, M15, H1, H4, D1]\n"
@@ -840,8 +1031,9 @@ def build_prompt(
         "Use them only to avoid repeating recorded mistakes.\n"
         f"{_format_recent_rejections(discredited)}\n"
         "END UNTRUSTED DISCREDITED HISTORY.\n\n"
-        "CHAMPION TRAINING DIGEST (January–September 2025 only):\n"
+        f"CHAMPION TRAINING DIGEST ({training_period} only):\n"
         f"{json.dumps(training_digest, sort_keys=True, indent=2)}\n\n"
+        f"{filter_metrics_section}"
     )
 
 
@@ -851,9 +1043,10 @@ def load_approved_market_data(
     symbol: str = "XAUUSD",
     loop_config_path: Path = DEFAULT_LOOP_CONFIG,
     loop_profile: str | None = None,
+    loop_window: LoopWindow | None = None,
 ) -> MarketData:
     symbol = symbol.strip().upper()
-    loop_window = load_loop_window(loop_config_path, loop_profile)
+    loop_window = loop_window or load_loop_window(loop_config_path, loop_profile)
     monthly_root = data_root
     if data_root.is_dir() and data_root.name.upper() == "M1":
         if data_root.parent.name.upper() == symbol:
@@ -934,19 +1127,27 @@ def load_approved_market_data(
                 raise EvolutionError(
                     f"Could not load approved {symbol} {timeframe} data: {exc}"
                 ) from exc
-        year_records = [
+        selected_records = [
             record
             for record in records
             if str(record["time"])[:7] in loop_window.all_months
         ]
-        months = {str(record["time"])[:7] for record in year_records}
+        months = {str(record["time"])[:7] for record in selected_records}
         missing = sorted(set(loop_window.all_months) - months)
         if missing:
             raise EvolutionError(
                 f"{symbol} {timeframe} data for loop profile {loop_window.profile} "
                 f"is missing calendar months: {', '.join(missing)}."
             )
-        records_by_timeframe[timeframe] = year_records
+        first_ordinal = _month_ordinal(loop_window.all_months[0])
+        last_ordinal = _month_ordinal(loop_window.all_months[-1])
+        records_by_timeframe[timeframe] = [
+            record
+            for record in records
+            if first_ordinal
+            <= _month_ordinal(str(record["time"])[:7])
+            <= last_ordinal
+        ]
     return MarketData(
         source=source,
         source_sha256=source_sha256,
@@ -1203,7 +1404,7 @@ def _period_indexes(
     return indexes[0], indexes[-1]
 
 
-def simulate_period(
+def _simulate_period_chunk(
     records: list[dict[str, Any]],
     alerts_by_index: Mapping[int, list[dict[str, Any]]],
     *,
@@ -1338,6 +1539,68 @@ def simulate_period(
     return result
 
 
+def _contiguous_month_groups(months: tuple[str, ...]) -> tuple[tuple[str, ...], ...]:
+    ordered = tuple(sorted(set(months), key=_month_ordinal))
+    if not ordered:
+        raise EvolutionError("A simulation period must include at least one month.")
+    groups: list[list[str]] = [[ordered[0]]]
+    for month in ordered[1:]:
+        if _month_ordinal(month) == _month_ordinal(groups[-1][-1]) + 1:
+            groups[-1].append(month)
+        else:
+            groups.append([month])
+    return tuple(tuple(group) for group in groups)
+
+
+def simulate_period(
+    records: list[dict[str, Any]],
+    alerts_by_index: Mapping[int, list[dict[str, Any]]],
+    *,
+    months: tuple[str, ...],
+    options: Mapping[str, Any],
+    include_snapshots: bool = False,
+    symbol: str = "XAUUSD",
+    swing_version: str = "V2",
+) -> dict[str, Any]:
+    """Simulate each contiguous selected span independently, then aggregate."""
+    chunks = [
+        _simulate_period_chunk(
+            records,
+            alerts_by_index,
+            months=period_months,
+            options=options,
+            include_snapshots=include_snapshots,
+            symbol=symbol,
+            swing_version=swing_version,
+        )
+        for period_months in _contiguous_month_groups(months)
+    ]
+    trade_count = sum(int(chunk["closed_trade_count"]) for chunk in chunks)
+    total_net_pnl = sum(float(chunk["net_pnl_after_costs"]) for chunk in chunks)
+    total_net_r = sum(float(chunk["total_net_r_after_costs"]) for chunk in chunks)
+    first = chunks[0]
+    result = {
+        "exit_model": first["exit_model"],
+        "geometry_weights": first["geometry_weights"],
+        "direction_mode": first["direction_mode"],
+        "invert_threshold": first["invert_threshold"],
+        "swing_version": first["swing_version"],
+        "closed_trade_count": trade_count,
+        "net_pnl_after_costs": total_net_pnl,
+        "expectancy_after_costs": total_net_r / trade_count if trade_count else 0.0,
+        "total_net_r_after_costs": total_net_r,
+        "wins": sum(int(chunk["wins"]) for chunk in chunks),
+        "losses": sum(int(chunk["losses"]) for chunk in chunks),
+    }
+    if include_snapshots:
+        result["snapshots"] = [
+            snapshot
+            for chunk in chunks
+            for snapshot in chunk.get("snapshots", [])
+        ]
+    return result
+
+
 def _aggregate_window(by_timeframe: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     trade_count = sum(
         int(result["closed_trade_count"]) for result in by_timeframe.values()
@@ -1388,23 +1651,16 @@ def _aggregate_window(by_timeframe: Mapping[str, Mapping[str, Any]]) -> dict[str
     }
 
 
-def evaluate_strategy(
+def _generate_alerts_by_timeframe(
     spec: Mapping[str, Any],
     options: Mapping[str, Any],
     market_data: MarketData,
     *,
-    swing_version: str = "V2",
-) -> dict[str, Any]:
-    loop_window = market_data.loop_window
-    active_timeframes = _validate_option(
-        "timeframes", options.get("timeframes", list(TIMEFRAMES))
-    )
+    active_timeframes: list[str],
+    swing_version: str,
+) -> tuple[dict[str, dict[int, list[dict[str, Any]]]], Counter[str]]:
     per_timeframe: dict[str, dict[int, list[dict[str, Any]]]] = {}
     signals_by_month: Counter[str] = Counter()
-    training_by_timeframe: dict[str, dict[str, Any]] = {}
-    validation_by_timeframe: dict[str, dict[str, Any]] = {}
-    training_snapshots: list[dict[str, Any]] = []
-
     m15_records = market_data.records_by_timeframe.get("M15")
     m15_alerts: dict[int, list[dict[str, Any]]] | None = None
     if "M5" in active_timeframes or "M15" in active_timeframes:
@@ -1467,7 +1723,94 @@ def evaluate_strategy(
         )
         per_timeframe[timeframe] = alerts
         signals_by_month.update(monthly)
+    return per_timeframe, signals_by_month
 
+
+def _attach_filter_objective_metrics(
+    filtered: dict[str, Any],
+    raw: Mapping[str, Any],
+    *,
+    filtered_signal_count: int,
+    raw_signal_count: int,
+) -> None:
+    raw_expectancy = float(raw["expectancy_after_costs"])
+    filtered_expectancy = float(filtered["expectancy_after_costs"])
+    filtered.update(
+        {
+            "raw_expectancy_after_costs": raw_expectancy,
+            "filtered_expectancy_after_costs": filtered_expectancy,
+            "filter_objective_score": raw_expectancy - filtered_expectancy,
+            "filter_retention": (
+                filtered_signal_count / raw_signal_count if raw_signal_count else 0.0
+            ),
+            "raw_signal_count": raw_signal_count,
+            "filtered_signal_count": filtered_signal_count,
+            "raw_by_timeframe": raw["by_timeframe"],
+        }
+    )
+
+
+def evaluate_strategy(
+    spec: Mapping[str, Any],
+    options: Mapping[str, Any],
+    market_data: MarketData,
+    *,
+    swing_version: str = "V2",
+    objective: str = "maximize_profit",
+) -> dict[str, Any]:
+    if objective not in {"maximize_profit", "develop_better_filter"}:
+        raise EvolutionError("Unknown evolution objective.")
+    loop_window = market_data.loop_window
+    active_timeframes = _validate_option(
+        "timeframes", options.get("timeframes", list(TIMEFRAMES))
+    )
+    per_timeframe, signals_by_month = _generate_alerts_by_timeframe(
+        spec,
+        options,
+        market_data,
+        active_timeframes=active_timeframes,
+        swing_version=swing_version,
+    )
+    selected_months = set(loop_window.all_months)
+    signals_by_month = Counter(
+        {
+            month: count
+            for month, count in signals_by_month.items()
+            if month in selected_months
+        }
+    )
+
+    raw_per_timeframe: dict[str, dict[int, list[dict[str, Any]]]] = {}
+    raw_signals_by_month: Counter[str] = Counter()
+    if objective == "develop_better_filter":
+        raw_options = {
+            **options,
+            "require_wp_agree": False,
+            "require_mtf_agree": False,
+            "require_engulf": False,
+            "min_strength": "NONE",
+            "cooldown_candles": 0,
+        }
+        raw_per_timeframe, raw_signals_by_month = _generate_alerts_by_timeframe(
+            spec,
+            raw_options,
+            market_data,
+            active_timeframes=active_timeframes,
+            swing_version=swing_version,
+        )
+        raw_signals_by_month = Counter(
+            {
+                month: count
+                for month, count in raw_signals_by_month.items()
+                if month in selected_months
+            }
+        )
+
+    training_by_timeframe: dict[str, dict[str, Any]] = {}
+    validation_by_timeframe: dict[str, dict[str, Any]] = {}
+    raw_training_by_timeframe: dict[str, dict[str, Any]] = {}
+    raw_validation_by_timeframe: dict[str, dict[str, Any]] = {}
+    training_snapshots: list[dict[str, Any]] = []
     for timeframe in active_timeframes:
         records = market_data.records_by_timeframe[timeframe]
         training_result = simulate_period(
@@ -1481,6 +1824,15 @@ def evaluate_strategy(
         )
         training_snapshots.extend(training_result.pop("snapshots", []))
         training_by_timeframe[timeframe] = training_result
+        if objective == "develop_better_filter":
+            raw_training_by_timeframe[timeframe] = simulate_period(
+                records,
+                raw_per_timeframe[timeframe],
+                months=loop_window.training_months,
+                options=raw_options,
+                symbol=market_data.symbol,
+                swing_version=swing_version,
+            )
     for timeframe in active_timeframes:
         records = market_data.records_by_timeframe[timeframe]
         validation_by_timeframe[timeframe] = simulate_period(
@@ -1491,6 +1843,15 @@ def evaluate_strategy(
             symbol=market_data.symbol,
             swing_version=swing_version,
         )
+        if objective == "develop_better_filter":
+            raw_validation_by_timeframe[timeframe] = simulate_period(
+                records,
+                raw_per_timeframe[timeframe],
+                months=loop_window.validation_months,
+                options=raw_options,
+                symbol=market_data.symbol,
+                swing_version=swing_version,
+            )
 
     covered_months = sorted(month for month, count in signals_by_month.items() if count)
     training_digest = build_digest(
@@ -1499,9 +1860,49 @@ def evaluate_strategy(
         period_label=loop_window.training_label,
     )
     training_digest["active_timeframes"] = list(active_timeframes)
+    training_summary = _aggregate_window(training_by_timeframe)
+    validation_summary = _aggregate_window(validation_by_timeframe)
+    if objective == "develop_better_filter":
+        raw_training_summary = _aggregate_window(raw_training_by_timeframe)
+        raw_validation_summary = _aggregate_window(raw_validation_by_timeframe)
+
+        def selected_signal_count(
+            monthly_signals: Counter[str], months: tuple[str, ...]
+        ) -> int:
+            return sum(monthly_signals.get(month, 0) for month in months)
+
+        _attach_filter_objective_metrics(
+            training_summary,
+            raw_training_summary,
+            filtered_signal_count=selected_signal_count(
+                signals_by_month, loop_window.training_months
+            ),
+            raw_signal_count=selected_signal_count(
+                raw_signals_by_month, loop_window.training_months
+            ),
+        )
+        _attach_filter_objective_metrics(
+            validation_summary,
+            raw_validation_summary,
+            filtered_signal_count=selected_signal_count(
+                signals_by_month, loop_window.validation_months
+            ),
+            raw_signal_count=selected_signal_count(
+                raw_signals_by_month, loop_window.validation_months
+            ),
+        )
+
+    objective_definition = (
+        "maximize validation expectancy_after_costs (mean R per closed validation trade after costs)"
+        if objective == "maximize_profit"
+        else (
+            "maximize raw_expectancy_after_costs minus filtered_expectancy_after_costs; "
+            "validation filter retention must be at least 40% and filtered expectancy must be positive"
+        )
+    )
     return {
-        "objective": "validation expectancy_after_costs",
-        "objective_definition": "mean R per closed validation trade after costs",
+        "objective": objective,
+        "objective_definition": objective_definition,
         "active_timeframes": list(active_timeframes),
         "risk_percent_note": (
             "risk_percent changes dollar P&L scale but is cosmetic to expectancy "
@@ -1512,7 +1913,7 @@ def evaluate_strategy(
         "symbol": market_data.symbol,
         "training": {
             "period": loop_window.training_label,
-            **_aggregate_window(training_by_timeframe),
+            **training_summary,
             "digest": training_digest,
             "signals_by_month": {
                 month: signals_by_month.get(month, 0)
@@ -1521,7 +1922,7 @@ def evaluate_strategy(
         },
         "validation": {
             "period": loop_window.validation_label,
-            **_aggregate_window(validation_by_timeframe),
+            **validation_summary,
         },
         "annual_signal_month_coverage": {
             "months": covered_months,
@@ -1535,7 +1936,12 @@ def evaluate_strategy(
 def assess_promotion(
     candidate_scores: Mapping[str, Any],
     champion_scores: Mapping[str, Any],
+    *,
+    objective: str | None = None,
 ) -> tuple[bool, list[str], dict[str, Any]]:
+    objective = objective or str(candidate_scores.get("objective", "maximize_profit"))
+    if objective not in {"maximize_profit", "develop_better_filter"}:
+        raise EvolutionError("Unknown evolution objective.")
     candidate_validation = candidate_scores["validation"]
     champion_validation = champion_scores["validation"]
     candidate_by_tf = candidate_validation["by_timeframe"]
@@ -1575,67 +1981,135 @@ def assess_promotion(
         champion_validation["expectancy_after_costs"],
         "champion validation expectancy",
     )
-    required_expectancy = champion_expectancy * (Decimal("1") + PROMOTION_MARGIN)
-    expectancy_margin_passed = candidate_expectancy >= required_expectancy
     expectancy_positive = candidate_expectancy > 0
     expectancy_worsened = candidate_expectancy < champion_expectancy
-    if expectancy_worsened:
-        reasons.append("expectancy_worsened")
-    if not expectancy_margin_passed:
-        reasons.append("validation_expectancy_margin")
-    if not expectancy_positive:
-        reasons.append("non_positive_validation_expectancy")
-
-    def r_text(value: Decimal) -> str:
-        return f"{value:+.4f}R".replace("-", "−")
-
-    if expectancy_worsened:
-        expectancy_reason = (
-            "Validation expectancy worsened: candidate "
-            f"{r_text(candidate_expectancy)} vs champion "
-            f"{r_text(champion_expectancy)}."
+    comparison: dict[str, Any]
+    if objective == "develop_better_filter":
+        candidate_raw = _as_decimal(
+            candidate_validation.get("raw_expectancy_after_costs"),
+            "candidate raw validation expectancy",
         )
-    elif not expectancy_positive:
-        expectancy_reason = (
-            "Candidate validation expectancy must be positive; it is "
-            f"{r_text(candidate_expectancy)}."
+        champion_raw = _as_decimal(
+            champion_validation.get("raw_expectancy_after_costs"),
+            "champion raw validation expectancy",
         )
-    elif not expectancy_margin_passed:
-        expectancy_reason = (
-            f"Candidate validation expectancy {r_text(candidate_expectancy)} is below "
-            f"the required {r_text(required_expectancy)}."
+        candidate_score = _as_decimal(
+            candidate_validation.get(
+                "filter_objective_score",
+                candidate_raw - candidate_expectancy,
+            ),
+            "candidate filter objective score",
         )
+        champion_score = _as_decimal(
+            champion_validation.get(
+                "filter_objective_score",
+                champion_raw - champion_expectancy,
+            ),
+            "champion filter objective score",
+        )
+        candidate_retention = _as_decimal(
+            candidate_validation.get("filter_retention"),
+            "candidate filter retention",
+        )
+        retention_passed = candidate_retention >= Decimal("0.40")
+        score_improved = candidate_score > champion_score
+        if not retention_passed:
+            reasons.append("filter_retention_below_40_percent")
+        if not expectancy_positive:
+            reasons.append("non_positive_filtered_expectancy")
+        if not score_improved:
+            reasons.append("filter_objective_not_improved")
+        expectancy_reason = (
+            "Filter objective improved: candidate "
+            f"{candidate_score:+.4f}R vs champion {champion_score:+.4f}R."
+            if score_improved
+            else (
+                "Filter objective did not improve: candidate "
+                f"{candidate_score:+.4f}R vs champion {champion_score:+.4f}R."
+            )
+        )
+        comparison = {
+            "promotion_metric": "validation.raw_expectancy_after_costs - validation.expectancy_after_costs",
+            "objective": objective,
+            "champion_filter_objective_score": float(champion_score),
+            "candidate_filter_objective_score": float(candidate_score),
+            "filter_objective_improved": score_improved,
+            "candidate_filter_retention": float(candidate_retention),
+            "required_filter_retention": 0.4,
+            "filter_retention_passed": retention_passed,
+            "filtered_expectancy_positive": expectancy_positive,
+            "candidate_validation_raw_expectancy_after_costs": float(candidate_raw),
+            "candidate_validation_filtered_expectancy_after_costs": float(
+                candidate_expectancy
+            ),
+            "expectancy_reason": expectancy_reason,
+        }
     else:
-        expectancy_reason = (
-            "Validation expectancy passes: candidate "
-            f"{r_text(candidate_expectancy)} vs champion "
-            f"{r_text(champion_expectancy)}."
-        )
-    comparison = {
-        "promotion_metric": "validation.expectancy_after_costs",
-        "active_timeframes": list(active_timeframes),
-        "champion_validation_expectancy_after_costs": float(champion_expectancy),
-        "candidate_validation_expectancy_after_costs": float(candidate_expectancy),
-        "required_validation_expectancy_after_costs": float(required_expectancy),
-        "expectancy_margin_passed": expectancy_margin_passed,
-        "expectancy_positive": expectancy_positive,
-        "expectancy_worsened": expectancy_worsened,
-        "expectancy_reason": expectancy_reason,
-        "champion_validation_net_pnl_after_costs": float(champion_pnl),
-        "candidate_validation_net_pnl_after_costs": float(candidate_pnl),
-        "absolute_uplift": float(delta),
-        "improvement_percent": (
-            float(delta / abs(champion_pnl) * Decimal("100"))
-            if champion_pnl != 0
-            else None
-        ),
-        "pnl_is_deciding": False,
-        "risk_percent_note": (
-            "risk_percent changes dollar P&L scale but is cosmetic to expectancy measured in R."
-        ),
-        "validation_trade_floors": floor_results,
-        "annual_signal_month_coverage": dict(coverage),
-    }
+        required_expectancy = champion_expectancy * (Decimal("1") + PROMOTION_MARGIN)
+        expectancy_margin_passed = candidate_expectancy >= required_expectancy
+        if expectancy_worsened:
+            reasons.append("expectancy_worsened")
+        if not expectancy_margin_passed:
+            reasons.append("validation_expectancy_margin")
+        if not expectancy_positive:
+            reasons.append("non_positive_validation_expectancy")
+
+        def r_text(value: Decimal) -> str:
+            return f"{value:+.4f}R".replace("-", "−")
+
+        if expectancy_worsened:
+            expectancy_reason = (
+                "Validation expectancy worsened: candidate "
+                f"{r_text(candidate_expectancy)} vs champion "
+                f"{r_text(champion_expectancy)}."
+            )
+        elif not expectancy_positive:
+            expectancy_reason = (
+                "Candidate validation expectancy must be positive; it is "
+                f"{r_text(candidate_expectancy)}."
+            )
+        elif not expectancy_margin_passed:
+            expectancy_reason = (
+                f"Candidate validation expectancy {r_text(candidate_expectancy)} is below "
+                f"the required {r_text(required_expectancy)}."
+            )
+        else:
+            expectancy_reason = (
+                "Validation expectancy passes: candidate "
+                f"{r_text(candidate_expectancy)} vs champion "
+                f"{r_text(champion_expectancy)}."
+            )
+        comparison = {
+            "promotion_metric": "validation.expectancy_after_costs",
+            "objective": objective,
+            "champion_validation_expectancy_after_costs": float(champion_expectancy),
+            "candidate_validation_expectancy_after_costs": float(candidate_expectancy),
+            "required_validation_expectancy_after_costs": float(required_expectancy),
+            "expectancy_margin_passed": expectancy_margin_passed,
+            "expectancy_positive": expectancy_positive,
+            "expectancy_worsened": expectancy_worsened,
+            "expectancy_reason": expectancy_reason,
+        }
+
+    comparison.update(
+        {
+            "active_timeframes": list(active_timeframes),
+            "champion_validation_net_pnl_after_costs": float(champion_pnl),
+            "candidate_validation_net_pnl_after_costs": float(candidate_pnl),
+            "absolute_uplift": float(delta),
+            "improvement_percent": (
+                float(delta / abs(champion_pnl) * Decimal("100"))
+                if champion_pnl != 0
+                else None
+            ),
+            "pnl_is_deciding": False,
+            "risk_percent_note": (
+                "risk_percent changes dollar P&L scale but is cosmetic to expectancy measured in R."
+            ),
+            "validation_trade_floors": floor_results,
+            "annual_signal_month_coverage": dict(coverage),
+        }
+    )
     return not reasons, reasons, comparison
 
 
@@ -1709,6 +2183,8 @@ def _load_cached_champion_scores(
     seed_sha256: str,
     market_data: MarketData,
     swing_version: str,
+    objective: str,
+    mission_config: Mapping[str, Any] | None,
 ) -> dict[str, Any] | None:
     window = market_data.loop_window
     for result_path in sorted(
@@ -1725,6 +2201,8 @@ def _load_cached_champion_scores(
             or result.get("seed_sha256") != seed_sha256
             or result.get("swing_version", "unknown") != swing_version
             or result.get("market_source_sha256") != market_data.source_sha256
+            or result.get("objective") != objective
+            or result.get("mission_config") != mission_config_for_api(mission_config)
             or (
                 result.get("market_source") is not None
                 and result.get("market_source") != market_data.source
@@ -1739,6 +2217,12 @@ def _load_cached_champion_scores(
             continue
         if "expectancy_after_costs" not in validation:
             continue
+        if objective == "develop_better_filter" and not {
+            "raw_expectancy_after_costs",
+            "filter_retention",
+            "filter_objective_score",
+        }.issubset(validation):
+            continue
         if window is not None and (
             training.get("period") != window.training_label
             or validation.get("period") != window.validation_label
@@ -1748,6 +2232,7 @@ def _load_cached_champion_scores(
             "training": dict(training),
             "validation": dict(validation),
             "active_timeframes": list(baseline_options.get("timeframes", TIMEFRAMES)),
+            "objective": objective,
         }
     return None
 
@@ -1979,6 +2464,7 @@ def run_rounds(
     data_root: Path = DEFAULT_DATA_ROOT,
     symbol: str = "XAUUSD",
     swing_version: str = "V2",
+    mission_config: Mapping[str, Any] | None = None,
     loop_config_path: Path = DEFAULT_LOOP_CONFIG,
     loop_profile: str | None = None,
     proposals_dir: Path = DEFAULT_PROPOSALS_DIR,
@@ -2012,6 +2498,24 @@ def run_rounds(
     )
     seed_hash_before = sha256_file(seed_path)
     seed_bytes_before = seed_path.read_bytes()
+    normalized_mission = (
+        normalize_mission_config(mission_config)
+        if mission_config is not None
+        else None
+    )
+    loop_window = (
+        loop_window_from_mission_config(normalized_mission)
+        if normalized_mission is not None
+        else None
+    )
+    objective = (
+        str(normalized_mission["objective"])
+        if normalized_mission is not None
+        else "maximize_profit"
+    )
+    if normalized_mission is not None:
+        symbol = str(normalized_mission["symbol"])
+        swing_version = str(normalized_mission["swing_version"])
     symbol = symbol.strip().upper()
     if market_data is None:
         market_data = load_approved_market_data(
@@ -2019,15 +2523,38 @@ def run_rounds(
             symbol=symbol,
             loop_config_path=loop_config_path,
             loop_profile=loop_profile,
+            loop_window=loop_window,
         )
     else:
         symbol = market_data.symbol
+        if normalized_mission is not None and market_data.symbol != normalized_mission["symbol"]:
+            raise EvolutionError(
+                "The approved market data symbol does not match the mission config."
+            )
+        if loop_window is not None:
+            market_data = MarketData(
+                source=market_data.source,
+                source_sha256=market_data.source_sha256,
+                records_by_timeframe=market_data.records_by_timeframe,
+                loop_window=loop_window,
+                symbol=market_data.symbol,
+            )
     swing_version = swing_version.upper()
     if swing_version not in {"V1", "V2"}:
         raise EvolutionError("swing_version must be V1 or V2.")
     if swing_version == "V2" and symbol != "XAUUSD":
         raise EvolutionError("Swing Direction V2 is available for XAUUSD only.")
-    active_request = request_fn or propose_llm
+    if request_fn is not None:
+        active_request = request_fn
+    elif normalized_mission is not None:
+        allowed_providers = [
+            provider.lower() for provider in normalized_mission["providers"]
+        ]
+        active_request = lambda prompt: propose_llm(
+            prompt, allowed_providers=allowed_providers
+        )
+    else:
+        active_request = propose_llm
     active_evaluator = evaluator or evaluate_strategy
     def evaluate_with_swing(
         spec_value: Mapping[str, Any], options_value: Mapping[str, Any]
@@ -2039,6 +2566,7 @@ def run_rounds(
             options_value,
             market_data,
             swing_version=swing_version,
+            objective=objective,
         )
 
     def simulation_label(options_value: Mapping[str, Any]) -> str:
@@ -2077,6 +2605,12 @@ def run_rounds(
             phase_callback("training", "Evaluating the frozen champion on the configured windows.")
         timestamp = utc_stamp()
         baseline, baseline_options = load_frozen_baseline(champion_path, seed_path)
+        if normalized_mission is not None:
+            baseline_options = {
+                **baseline_options,
+                "exit_model": normalized_mission["exit_model"],
+                "direction_mode": normalized_mission["direction_mode"],
+            }
         cached_champion_scores = _load_cached_champion_scores(
             proposals_dir,
             baseline=baseline,
@@ -2084,6 +2618,8 @@ def run_rounds(
             seed_sha256=seed_hash_before,
             market_data=market_data,
             swing_version=swing_version,
+            objective=objective,
+            mission_config=normalized_mission,
         )
         champion_scores = cached_champion_scores or evaluate_with_swing(
             baseline, baseline_options
@@ -2097,6 +2633,22 @@ def run_rounds(
             training_digest,
             discredited_history,
             swing_version=swing_version,
+            objective=objective,
+            training_period=market_data.loop_window.training_label
+            if market_data.loop_window is not None
+            else "configured training window",
+            training_filter_metrics={
+                key: training_metrics.get(key)
+                for key in (
+                    "raw_expectancy_after_costs",
+                    "filtered_expectancy_after_costs",
+                    "filter_objective_score",
+                    "filter_retention",
+                    "raw_signal_count",
+                    "filtered_signal_count",
+                )
+                if key in training_metrics
+            },
         )
         response: LLMProposalResponse | None = None
         request_error: str | None = None
@@ -2134,6 +2686,14 @@ def run_rounds(
             "round": round_number,
             "timestamp_utc": utc_iso(),
             "baseline_version": str(baseline["version"]),
+            "objective": objective,
+            "mission_config": mission_config_for_api(normalized_mission),
+            "training_period": market_data.loop_window.training_label
+            if market_data.loop_window is not None
+            else None,
+            "validation_period": market_data.loop_window.validation_label
+            if market_data.loop_window is not None
+            else None,
             "swing_version": swing_version,
             "champion_swing_version": swing_version,
             "champion_simulation_label": simulation_label(baseline_options),
@@ -2344,7 +2904,7 @@ def run_rounds(
                 continue
 
         eligible, reason_codes, comparison = assess_promotion(
-            candidate_scores, promotion_champion_scores
+            candidate_scores, promotion_champion_scores, objective=objective
         )
         result["candidate_training"] = candidate_scores["training"]
         result["candidate_validation"] = candidate_scores["validation"]
@@ -2371,12 +2931,22 @@ def run_rounds(
                 "expectancy_worsened",
                 "validation_expectancy_margin",
                 "non_positive_validation_expectancy",
+                "filter_retention_below_40_percent",
+                "non_positive_filtered_expectancy",
+                "filter_objective_not_improved",
             }
-            result["reason"] = (
-                comparison["expectancy_reason"]
-                if expectancy_failure_codes.intersection(reason_codes)
-                else "Promotion criteria were not met."
-            )
+            if objective == "develop_better_filter":
+                result["reason"] = (
+                    "Filter promotion requires at least 40% signal retention, positive "
+                    "filtered expectancy, and an improved objective score. "
+                    f"{comparison['expectancy_reason']}"
+                )
+            else:
+                result["reason"] = (
+                    comparison["expectancy_reason"]
+                    if expectancy_failure_codes.intersection(reason_codes)
+                    else "Promotion criteria were not met."
+                )
             _update_candidate_review(
                 candidate_path,
                 decision="not_eligible",

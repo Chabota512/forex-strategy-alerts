@@ -8,6 +8,7 @@
 import type { EvolveJobPhase } from './evolveJobPhase';
 import type { EvolveJobStatusSwingVersion } from './evolveJobStatusSwingVersion';
 import type { EvolveLogLine } from './evolveLogLine';
+import type { EvolveMissionConfig } from './evolveMissionConfig';
 import type { EvolveRoundResult } from './evolveRoundResult';
 import type { InstrumentSymbol } from './instrumentSymbol';
 
@@ -15,6 +16,7 @@ export interface EvolveJobStatus {
   job_id: string;
   symbol: InstrumentSymbol;
   swing_version: EvolveJobStatusSwingVersion;
+  mission_config: EvolveMissionConfig;
   phase: EvolveJobPhase;
   logs: EvolveLogLine[];
   result: EvolveRoundResult | null;

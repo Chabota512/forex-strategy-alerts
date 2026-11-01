@@ -325,6 +325,35 @@ class EvolutionLoopTests(unittest.TestCase):
         self.assertEqual(legacy_window.training_months, evolve.TRAIN_MONTHS)
         self.assertEqual(legacy_window.validation_months, evolve.VALIDATION_MONTHS)
 
+    def test_mission_years_require_a_nonempty_chronological_split(self) -> None:
+        config = evolve.normalize_mission_config()
+        self.assertEqual(config["training_years"], [2023, 2024])
+        self.assertEqual(config["validation_years"], [2025])
+        self.assertEqual(config["symbol"], "XAUUSD")
+
+        split_with_gap = evolve.normalize_mission_config(
+            {
+                **config,
+                "trainingYears": [2023],
+                "validationYears": [2025],
+            }
+        )
+        window = evolve.loop_window_from_mission_config(split_with_gap)
+        self.assertEqual(window.training_months[0], "2023-01")
+        self.assertEqual(window.training_months[-1], "2023-12")
+        self.assertEqual(window.validation_months[0], "2025-01")
+        self.assertNotIn("+", window.training_label)
+
+        invalid_configs = [
+            {**config, "training_years": []},
+            {**config, "validation_years": []},
+            {**config, "training_years": [2025], "validation_years": [2025]},
+            {**config, "training_years": [2022]},
+        ]
+        for invalid in invalid_configs:
+            with self.subTest(invalid=invalid), self.assertRaises(evolve.EvolutionError):
+                evolve.normalize_mission_config(invalid)
+
     def test_prompt_uses_only_training_digest_and_marks_history_untrusted(self) -> None:
         spec = _seed_spec()
         options = evolve.options_for_spec(spec)
@@ -900,9 +929,7 @@ class EvolutionLoopTests(unittest.TestCase):
                     loop_window=evolve.LEGACY_XAUUSD_LOOP_WINDOW,
                 ),
             )
-        self.assertEqual(
-            annual_scores["objective"], "validation expectancy_after_costs"
-        )
+        self.assertEqual(annual_scores["objective"], "maximize_profit")
         self.assertEqual(annual_scores["active_timeframes"], list(evolve.TIMEFRAMES))
         self.assertIn("cosmetic to expectancy", annual_scores["risk_percent_note"])
         self.assertEqual(
@@ -980,6 +1007,56 @@ class EvolutionLoopTests(unittest.TestCase):
         self.assertIn("validation_trade_floor_m15", reasons)
         self.assertIn("annual_signal_month_coverage", reasons)
         self.assertEqual(comparison["annual_signal_month_coverage"]["covered_count"], 7)
+
+    def test_filter_objective_uses_raw_minus_filtered_and_requires_retention(self) -> None:
+        filtered = {
+            "expectancy_after_costs": 0.25,
+            "by_timeframe": {"M5": {}},
+        }
+        raw = {
+            "expectancy_after_costs": 0.10,
+            "by_timeframe": {"M5": {}},
+        }
+        evolve._attach_filter_objective_metrics(
+            filtered,
+            raw,
+            filtered_signal_count=40,
+            raw_signal_count=100,
+        )
+        self.assertAlmostEqual(filtered["filter_objective_score"], -0.15)
+        self.assertEqual(filtered["filter_retention"], 0.4)
+
+        champion = _scores(100, expectancy=0.20, covered_months=12)
+        candidate = _scores(120, expectancy=0.25, covered_months=12)
+        champion["objective"] = "develop_better_filter"
+        candidate["objective"] = "develop_better_filter"
+        champion["validation"].update({
+            "raw_expectancy_after_costs": 0.10,
+            "filter_objective_score": -0.10,
+            "filter_retention": 0.50,
+        })
+        candidate["validation"].update({
+            "raw_expectancy_after_costs": 0.20,
+            "filter_objective_score": -0.05,
+            "filter_retention": 0.40,
+        })
+        eligible, reasons, comparison = evolve.assess_promotion(candidate, champion)
+        self.assertTrue(eligible)
+        self.assertEqual(reasons, [])
+        self.assertTrue(comparison["filter_retention_passed"])
+        self.assertTrue(comparison["filter_objective_improved"])
+
+        candidate["validation"]["filter_retention"] = 0.39
+        eligible, reasons, comparison = evolve.assess_promotion(candidate, champion)
+        self.assertFalse(eligible)
+        self.assertIn("filter_retention_below_40_percent", reasons)
+        self.assertFalse(comparison["filter_retention_passed"])
+
+        candidate["validation"]["filter_retention"] = 0.5
+        candidate["validation"]["expectancy_after_costs"] = 0
+        eligible, reasons, _comparison = evolve.assess_promotion(candidate, champion)
+        self.assertFalse(eligible)
+        self.assertIn("non_positive_filtered_expectancy", reasons)
 
     def test_promotion_uses_expectancy_margin_and_positive_gate(self) -> None:
         champion = _scores(100, expectancy=0.25)

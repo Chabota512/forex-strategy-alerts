@@ -1685,12 +1685,62 @@ components:
     EvolveRunInput:
       type: object
       properties:
+        missionConfig:
+          $ref: "#/components/schemas/EvolveMissionConfig"
         symbol:
           $ref: "#/components/schemas/InstrumentSymbol"
         swingVersion:
           type: string
           enum: [V1, V2]
           default: V2
+      additionalProperties: false
+    EvolveMissionConfig:
+      type: object
+      properties:
+        symbol:
+          $ref: "#/components/schemas/InstrumentSymbol"
+        trainingYears:
+          type: array
+          items:
+            type: integer
+            enum: [2023, 2024, 2025]
+          minItems: 1
+          uniqueItems: true
+        validationYears:
+          type: array
+          items:
+            type: integer
+            enum: [2023, 2024, 2025]
+          minItems: 1
+          uniqueItems: true
+        exitModel:
+          type: string
+          enum: [swept_level_atr, candle_geometry]
+        directionMode:
+          type: string
+          enum: [normal, inverted, adaptive]
+        swingVersion:
+          type: string
+          enum: [V1, V2]
+        providers:
+          type: array
+          items:
+            type: string
+            enum: [GEMINI, GROQ]
+          minItems: 1
+          uniqueItems: true
+        objective:
+          type: string
+          enum: [maximize_profit, develop_better_filter]
+      required:
+        - symbol
+        - trainingYears
+        - validationYears
+        - exitModel
+        - directionMode
+        - swingVersion
+        - providers
+        - objective
       additionalProperties: false
     EvolveDecisionInput:
       type: object
@@ -1837,6 +1887,17 @@ components:
         timestamp_utc:
           type: string
           format: date-time
+        objective:
+          type: string
+          enum: [maximize_profit, develop_better_filter]
+        mission_config:
+          anyOf:
+            - $ref: "#/components/schemas/EvolveMissionConfig"
+            - type: "null"
+        training_period:
+          type: ["string", "null"]
+        validation_period:
+          type: ["string", "null"]
         baseline_version:
           type: string
         decision:
@@ -1904,6 +1965,8 @@ components:
         swing_version:
           type: string
           enum: [V1, V2]
+        mission_config:
+          $ref: "#/components/schemas/EvolveMissionConfig"
         phase:
           $ref: "#/components/schemas/EvolveJobPhase"
         logs:
@@ -1922,5 +1985,5 @@ components:
         updated_at:
           type: string
           format: date-time
-      required: [job_id, symbol, swing_version, phase, logs, result, error, created_at, updated_at]
+      required: [job_id, symbol, swing_version, mission_config, phase, logs, result, error, created_at, updated_at]
 

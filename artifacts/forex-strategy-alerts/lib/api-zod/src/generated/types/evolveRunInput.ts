@@ -5,10 +5,12 @@
  * Forex Strategy Lab read-only data and unscored review operations
  * OpenAPI spec version: 0.1.0
  */
+import type { EvolveMissionConfig } from './evolveMissionConfig';
 import type { EvolveRunInputSwingVersion } from './evolveRunInputSwingVersion';
 import type { InstrumentSymbol } from './instrumentSymbol';
 
 export interface EvolveRunInput {
+  missionConfig?: EvolveMissionConfig;
   symbol?: InstrumentSymbol;
   swingVersion?: EvolveRunInputSwingVersion;
 }

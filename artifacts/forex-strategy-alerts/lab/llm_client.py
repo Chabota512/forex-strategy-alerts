@@ -11,7 +11,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 LOGGER = logging.getLogger("forex_strategy_lab.llm")
 
@@ -320,9 +320,15 @@ def _rationale_from_response(text: str) -> str:
     return ""
 
 
-def _credential_plan(mode: str) -> list[_Credential]:
+def _credential_plan(
+    mode: str,
+    allowed_providers: Sequence[str] | None = None,
+) -> list[_Credential]:
     credentials: list[_Credential] = []
     provider_order = ("groq", "gemini") if mode == "groq" else ("gemini", "groq")
+    if allowed_providers is not None:
+        allowed = {provider.strip().lower() for provider in allowed_providers}
+        provider_order = tuple(provider for provider in provider_order if provider in allowed)
     keys_by_provider = {"gemini": _GEMINI_KEYS, "groq": _GROQ_KEYS}
     for provider in provider_order:
         credentials.extend(
@@ -333,7 +339,11 @@ def _credential_plan(mode: str) -> list[_Credential]:
     return credentials[:_MAX_ATTEMPTS]
 
 
-def propose(prompt: str) -> LLMProposalResponse:
+def propose(
+    prompt: str,
+    *,
+    allowed_providers: Sequence[str] | None = None,
+) -> LLMProposalResponse:
     """Request one proposal, falling back across credentials on provider errors."""
     mode = os.environ.get("LLM_PROVIDER", "auto").strip().lower() or "auto"
     if mode not in {"auto", "gemini", "groq"}:
@@ -343,10 +353,19 @@ def propose(prompt: str) -> LLMProposalResponse:
             attempts=[],
         )
 
-    plan = _credential_plan(mode)
+    if allowed_providers is not None:
+        normalized_allowed = {provider.strip().lower() for provider in allowed_providers}
+        if not normalized_allowed or not normalized_allowed.issubset({"gemini", "groq"}):
+            raise LLMRequestError(
+                "allowed_providers must contain GEMINI, GROQ, or both.",
+                category="unknown",
+                attempts=[],
+            )
+    plan = _credential_plan(mode, allowed_providers)
     if not plan:
         raise LLMRequestError(
-            f"No configured credential is available for LLM_PROVIDER={mode}; "
+            f"No configured credential is available for the selected providers "
+            f"with LLM_PROVIDER={mode}; "
             "configure GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3, "
             "GROQ_API_KEY, or GROQ_API_KEY_2.",
             category="auth",

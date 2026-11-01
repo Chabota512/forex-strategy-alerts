@@ -11,7 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from .evolve import run_rounds
+from .evolve import (
+    MISSION_DEFAULTS,
+    mission_config_for_api,
+    normalize_mission_config,
+    run_rounds,
+)
 from .llm_client import propose as propose_llm
 
 logger = logging.getLogger("forex_strategy_lab.evolve.jobs")
@@ -45,6 +50,7 @@ class _Job:
     job_id: str
     symbol: str
     swing_version: str
+    mission_config: dict[str, Any]
     phase: str
     created_at: str
     updated_at: str
@@ -74,13 +80,26 @@ class EvolveJobManager:
         *,
         data_root: Path | None = None,
         swing_version: str = "V2",
+        mission_config: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        symbol = symbol.strip().upper()
-        swing_version = swing_version.upper() if isinstance(swing_version, str) else ""
-        if swing_version not in {"V1", "V2"}:
-            raise EvolveJobError(400, "swingVersion must be V1 or V2.")
-        if swing_version == "V2" and symbol != "XAUUSD":
-            raise EvolveJobError(400, "Swing Direction V2 is available for XAUUSD only.")
+        try:
+            if mission_config is None:
+                config_input = {
+                    **MISSION_DEFAULTS,
+                    "symbol": symbol.strip().upper(),
+                    "swing_version": (
+                        swing_version.upper()
+                        if isinstance(swing_version, str)
+                        else ""
+                    ),
+                }
+            else:
+                config_input = mission_config
+            normalized_config = normalize_mission_config(config_input)
+        except (AttributeError, ValueError) as exc:
+            raise EvolveJobError(400, str(exc)) from exc
+        symbol = normalized_config["symbol"]
+        swing_version = normalized_config["swing_version"]
         with self._lock:
             active = self._jobs.get(self._active_job_id or "")
             if active is not None and active.phase not in TERMINAL_PHASES:
@@ -91,6 +110,7 @@ class EvolveJobManager:
                 job_id=str(uuid.uuid4()),
                 symbol=symbol,
                 swing_version=swing_version,
+                mission_config=normalized_config,
                 phase="training",
                 created_at=now,
                 updated_at=now,
@@ -153,8 +173,15 @@ class EvolveJobManager:
                 "rounds": 1,
                 "symbol": job.symbol,
                 "swing_version": job.swing_version,
+                "mission_config": copy.deepcopy(job.mission_config),
                 "interactive": False,
-                "request_fn": propose_llm,
+                "request_fn": lambda prompt: propose_llm(
+                    prompt,
+                    allowed_providers=[
+                        provider.lower()
+                        for provider in job.mission_config["providers"]
+                    ],
+                ),
                 "owner_gate": lambda result: self._await_owner_decision(job, result),
                 "phase_callback": lambda phase, message: self._publish_phase(
                     job, phase, message
@@ -258,6 +285,7 @@ class EvolveJobManager:
             "job_id": job.job_id,
             "symbol": job.symbol,
             "swing_version": job.swing_version,
+            "mission_config": mission_config_for_api(job.mission_config),
             "phase": job.phase,
             "logs": copy.deepcopy(job.logs),
             "result": copy.deepcopy(job.result),

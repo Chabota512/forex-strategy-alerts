@@ -2081,19 +2081,31 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
             try:
                 payload = self._read_json()
                 if parsed.path == "/api/evolve/run":
-                    if set(payload) - {"symbol", "swingVersion"}:
+                    if set(payload) - {"symbol", "swingVersion", "missionConfig"}:
                         raise RequestError(
-                            400, "Only the selected symbol and swing version are accepted."
+                            400, "Only missionConfig, symbol, and swingVersion are accepted."
                         )
-                    symbol = _registered_symbol(payload.get("symbol", "XAUUSD"))
-                    swing_version = payload.get(
-                        "swingVersion", "V2" if symbol == "XAUUSD" else "V1"
-                    )
-                    if not isinstance(swing_version, str) or swing_version.upper() not in {
-                        "V1",
-                        "V2",
-                    }:
-                        raise RequestError(400, "swingVersion must be V1 or V2.")
+                    mission_config = payload.get("missionConfig")
+                    if mission_config is not None:
+                        if not isinstance(mission_config, dict):
+                            raise RequestError(400, "missionConfig must be an object.")
+                        if "symbol" in payload or "swingVersion" in payload:
+                            raise RequestError(
+                                400,
+                                "Use missionConfig instead of combining it with legacy fields.",
+                            )
+                        symbol = "XAUUSD"
+                        swing_version = "V2"
+                    else:
+                        symbol = _registered_symbol(payload.get("symbol", "XAUUSD"))
+                        swing_version = payload.get(
+                            "swingVersion", "V2" if symbol == "XAUUSD" else "V1"
+                        )
+                        if not isinstance(swing_version, str) or swing_version.upper() not in {
+                            "V1",
+                            "V2",
+                        }:
+                            raise RequestError(400, "swingVersion must be V1 or V2.")
                     data_dir = getattr(service, "data_dir", DATA_ROOT)
                     self._send_json(
                         202,
@@ -2101,6 +2113,7 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
                             symbol,
                             data_root=data_dir,
                             swing_version=swing_version.upper(),
+                            mission_config=mission_config,
                         ),
                     )
                     return
