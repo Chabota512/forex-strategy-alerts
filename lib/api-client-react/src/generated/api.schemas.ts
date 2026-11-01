@@ -1265,6 +1265,80 @@ export interface EvolveRoundHistory {
   rounds: EvolveArchivedRound[];
 }
 
+export type SystemIntelligenceSymbol = typeof SystemIntelligenceSymbol[keyof typeof SystemIntelligenceSymbol];
+
+
+export const SystemIntelligenceSymbol = {
+  XAUUSD: 'XAUUSD',
+} as const;
+
+export interface SystemIntelligenceOverall {
+  hits: number;
+  misses: number;
+  /** @nullable */
+  hitRate: number | null;
+  /** @nullable */
+  expectancy: number | null;
+}
+
+export interface SystemIntelligenceRule {
+  id: string;
+  name: string;
+  description: string;
+  samples: number;
+  hits: number;
+  misses: number;
+  /** @nullable */
+  hitRate: number | null;
+  /** @nullable */
+  expectancy: number | null;
+  /** @nullable */
+  baselineHitRate: number | null;
+  weight: number;
+  flagged: boolean;
+}
+
+export interface SystemIntelligenceHistoryPoint {
+  at: string;
+  caseCount: number;
+  hitRate: number;
+  expectancy: number;
+}
+
+export type SystemIntelligenceLessonEvidence = { [key: string]: unknown };
+
+export interface SystemIntelligenceLesson {
+  id: string;
+  ruleId: string;
+  ruleName: string;
+  action: string;
+  evidence: SystemIntelligenceLessonEvidence;
+  createdAtUtc: string;
+}
+
+export type SystemIntelligenceTunablesStrengthWeights = {[key: string]: number};
+
+export type SystemIntelligenceTunablesStrengthThresholds = {[key: string]: number};
+
+export type SystemIntelligenceTunablesInvertWeights = {[key: string]: number};
+
+export interface SystemIntelligenceTunables {
+  strengthWeights: SystemIntelligenceTunablesStrengthWeights;
+  strengthThresholds: SystemIntelligenceTunablesStrengthThresholds;
+  invertWeights: SystemIntelligenceTunablesInvertWeights;
+}
+
+export interface SystemIntelligence {
+  symbol: SystemIntelligenceSymbol;
+  informationalOnly: boolean;
+  caseCount: number;
+  overall: SystemIntelligenceOverall;
+  rules: SystemIntelligenceRule[];
+  hitRateOverTime: SystemIntelligenceHistoryPoint[];
+  lessons: SystemIntelligenceLesson[];
+  tunables: SystemIntelligenceTunables;
+}
+
 export type EvolveJobPhase = typeof EvolveJobPhase[keyof typeof EvolveJobPhase];
 
 

@@ -2375,6 +2375,54 @@ export const GetEvolvePolicyResponse = zod.object({
 
 
 /**
+ * @summary Read the XAUUSD case-learning dashboard
+ */
+export const GetSystemIntelligenceResponse = zod.object({
+  "symbol": zod.enum(['XAUUSD']),
+  "informationalOnly": zod.boolean(),
+  "caseCount": zod.number().int(),
+  "overall": zod.object({
+  "hits": zod.number().int(),
+  "misses": zod.number().int(),
+  "hitRate": zod.number().nullable(),
+  "expectancy": zod.number().nullable()
+}),
+  "rules": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "samples": zod.number().int(),
+  "hits": zod.number().int(),
+  "misses": zod.number().int(),
+  "hitRate": zod.number().nullable(),
+  "expectancy": zod.number().nullable(),
+  "baselineHitRate": zod.number().nullable(),
+  "weight": zod.number(),
+  "flagged": zod.boolean()
+})),
+  "hitRateOverTime": zod.array(zod.object({
+  "at": zod.string(),
+  "caseCount": zod.number().int(),
+  "hitRate": zod.number(),
+  "expectancy": zod.number()
+})),
+  "lessons": zod.array(zod.object({
+  "id": zod.string(),
+  "ruleId": zod.string(),
+  "ruleName": zod.string(),
+  "action": zod.string(),
+  "evidence": zod.record(zod.string(), zod.unknown()),
+  "createdAtUtc": zod.string()
+})),
+  "tunables": zod.object({
+  "strengthWeights": zod.record(zod.string(), zod.number()),
+  "strengthThresholds": zod.record(zod.string(), zod.number()),
+  "invertWeights": zod.record(zod.string(), zod.number())
+})
+})
+
+
+/**
  * @summary List immutable SYSTEM INTELLIGENCE policy versions
  */
 

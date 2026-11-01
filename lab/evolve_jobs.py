@@ -66,11 +66,25 @@ class EvolveJobManager:
         self,
         *,
         run_rounds_fn: Callable[..., dict[str, Any]] | None = None,
+        si_case_sink: Callable[..., Any] | None = None,
     ) -> None:
         self._run_rounds = run_rounds_fn or run_rounds
+        self._si_case_sink = si_case_sink
         self._lock = threading.RLock()
         self._jobs: dict[str, _Job] = {}
         self._active_job_id: str | None = None
+
+    def set_system_intelligence_sink(
+        self, sink: Callable[..., Any] | None
+    ) -> None:
+        with self._lock:
+            if self._active_job_id is not None:
+                active = self._jobs.get(self._active_job_id)
+                if active is not None and active.phase not in TERMINAL_PHASES:
+                    raise EvolveJobError(
+                        409, "Cannot change the case sink during an active evolution job."
+                    )
+            self._si_case_sink = sink
 
     def start(
         self,
@@ -178,6 +192,8 @@ class EvolveJobManager:
                     job, phase, message
                 ),
             }
+            if self._si_case_sink is not None:
+                run_options["si_case_sink"] = self._si_case_sink
             if job.round_timestamp is not None:
                 run_options["round_timestamp"] = job.round_timestamp
             if data_root is not None:

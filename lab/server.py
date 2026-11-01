@@ -28,7 +28,7 @@ from .alert_policy import (
     restore_policy_version,
 )
 from .autoevolve import AutoevolveManager
-from .alert_snapshots import append_batch_snapshots
+from .alert_snapshots import append_batch_snapshots, build_alert_snapshot
 from .candle_data import (
     CandleFileData,
     LAB_DIR,
@@ -67,6 +67,8 @@ from .replay import (
     StreamingWickPressure,
     compute_confirmed_swing_events,
 )
+from .si_cases import SICaseStore
+from .si_cases import build_formation_fingerprint, cases_from_snapshot
 from .shadow_detectors import compute_shadow_states
 from .resample import INTERVALS, _read_m1_file
 from .simulation import SimulationFilters, SimulationSettings, simulate_batch
@@ -473,7 +475,13 @@ class LabService:
         self.output_dir = output_dir
         self.policy_path = policy_path
         self.policy_versions_dir = policy_versions_dir or policy_path.parent
-        self.evolve_jobs = evolve_jobs or EvolveJobManager()
+        self.si_case_store = SICaseStore(
+            output_dir / "system-intelligence" / "cases.jsonl",
+            output_dir / "system-intelligence" / "beliefs.json",
+        )
+        self.evolve_jobs = evolve_jobs or EvolveJobManager(
+            si_case_sink=self.si_case_store.ingest_cases
+        )
         self.evolve_proposals_dir = EVOLVE_PROPOSALS_DIR
         self.autoevolve_manager = autoevolve_manager or AutoevolveManager(
             self.evolve_jobs,
@@ -482,6 +490,15 @@ class LabService:
             state_path=output_dir / "autoevolve" / "status.json",
             active_round_path=output_dir / "autoevolve" / "active-round.json",
         )
+        for job_manager in (
+            self.evolve_jobs,
+            getattr(self.autoevolve_manager, "evolve_jobs", None),
+        ):
+            set_case_sink = getattr(
+                job_manager, "set_system_intelligence_sink", None
+            )
+            if callable(set_case_sink):
+                set_case_sink(self.si_case_store.ingest_cases)
         self.monthly_mode = (
             data_path.name == "M1" and data_path.parent.name == "XAUUSD"
         )
@@ -1175,6 +1192,7 @@ class LabService:
             alert_policy=self.current_policy(),
             mtf_records=mtf_records,
             snapshot_path=self.output_dir / "snapshots.jsonl",
+            si_case_sink=self.si_case_store.ingest_cases,
         )
         with self._replay_sessions_lock:
             self._prune_replay_sessions()
@@ -1696,6 +1714,82 @@ class LabService:
             mirror_trades=simulation_result["mirrorTrades"],
             simulation_settings=active_settings.to_dict(),
         )
+        if symbol == "XAUUSD":
+            trades_by_alert = {
+                str(trade.get("alertId", "")): trade
+                for trade in simulation_result["trades"]
+            }
+            fade_trades_by_alert = {
+                str(trade.get("alertId", "")): trade
+                for trade in simulation_result["mirrorTrades"]
+            }
+            formation_swing_events = compute_confirmed_swing_events(
+                candles, {**self.spec, "instruments": ["XAUUSD"]}
+            )
+            batch_cases: list[dict[str, Any]] = []
+            for raw in smoke["alerts"]:
+                alert_id = str(raw["alert_id"])
+                index = candle_indexes.get(str(raw["time"]))
+                if index is None:
+                    continue
+                state_history = []
+                for state_index in range(max(0, index + 1 - 20), index + 1):
+                    state_candle_time = str(candles[state_index]["time"])
+                    state = trend_states.get(state_candle_time, {})
+                    state_history.append(
+                        {
+                            "index": state_index,
+                            "cct": state.get("cct", state.get("cctState")),
+                            "cst": state.get("cst", state.get("cstState")),
+                            "cst_v2_state": state.get(
+                                "cst_v2_state", state.get("cstV2State")
+                            ),
+                            "wp_state": wick_pressure_by_time.get(
+                                state_candle_time, "undefined"
+                            ),
+                            "mtf_cst": state.get("mtf_cst", state.get("mtfCst")),
+                            "mtf_cct": state.get("mtf_cct", state.get("mtfCct")),
+                            "mtf_wick_pressure": state.get(
+                                "mtf_wick_pressure", state.get("mtfWickPressure")
+                            ),
+                        }
+                    )
+                snapshot = build_alert_snapshot(
+                    raw,
+                    atr14=simulation_result["atr14_by_alert_id"].get(alert_id),
+                    wp_state=wick_pressure_by_time.get(str(raw["time"])),
+                    trade=trades_by_alert.get(alert_id),
+                    fade_trade=fade_trades_by_alert.get(alert_id),
+                    simulation_settings=active_settings.to_dict(),
+                )
+                snapshot["formation_fingerprint"] = build_formation_fingerprint(
+                    state_history,
+                    formation_swing_events,
+                    entry_index=index + 1,
+                    window=20,
+                )
+                resolved_trades = [
+                    trade
+                    for trade in (
+                        trades_by_alert.get(alert_id),
+                        fade_trades_by_alert.get(alert_id),
+                    )
+                    if trade is not None
+                    and str(trade.get("outcome", "")).upper() in {"WIN", "LOSS"}
+                ]
+                batch_cases.extend(
+                    cases_from_snapshot(
+                        snapshot,
+                        resolved_trades,
+                        source="batch-backtest",
+                        source_id="batch-backtest",
+                    )
+                )
+                if len(batch_cases) >= 200:
+                    self.si_case_store.ingest_cases(batch_cases)
+                    batch_cases.clear()
+            if batch_cases:
+                self.si_case_store.ingest_cases(batch_cases)
         counts = {
             "buy": sum(alert["direction"] == "BUY" for alert in alerts),
             "sell": sum(alert["direction"] == "SELL" for alert in alerts),
@@ -2036,6 +2130,11 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
                     return
                 if parsed.path == "/api/evolve/autoevolve/status":
                     self._send_json(200, service.autoevolve_manager.status())
+                    return
+                if parsed.path == "/api/evolve/system-intelligence":
+                    self._send_json(
+                        200, service.si_case_store.dashboard_snapshot()
+                    )
                     return
                 if parsed.path == "/api/evolve/policy":
                     self._send_json(200, service.current_policy())

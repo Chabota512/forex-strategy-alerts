@@ -14,7 +14,7 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Callable, Literal, Mapping, Sequence
 
 from . import backtest
 from .alert_policy import (
@@ -54,6 +54,7 @@ from .engine import (
     smaller_body_note,
 )
 from .simulation import SimulationSession
+from .si_cases import build_formation_fingerprint, cases_from_snapshot
 from .shadow_detectors import (
     StreamingDirectionalChange,
     StreamingHierarchicalSwings,
@@ -607,6 +608,7 @@ class ReplaySession:
         mtf_records: list[dict[str, Any]] | None = None,
         snapshot_path: Path | None = None,
         swing_direction_version: str = "V2",
+        si_case_sink: Callable[[Sequence[Mapping[str, Any]]], Any] | None = None,
     ):
         if not records:
             raise ValueError("A replay session requires at least one candle.")
@@ -628,6 +630,8 @@ class ReplaySession:
         self.swing_direction_version = swing_direction_version
         self.settings_fingerprint = settings_fingerprint
         self.snapshot_path = Path(snapshot_path) if snapshot_path is not None else None
+        self.si_case_sink = si_case_sink
+        self._si_recorded_trade_ids: set[str] = set()
         simulation_settings = dict(simulation_settings or {})
         simulation_settings["swingVersion"] = swing_direction_version
         self.mtf_context = build_mtf_context(
@@ -815,7 +819,11 @@ class ReplaySession:
             for trade in newly_opened:
                 self._apply_snapshot_trade(trade, resolved=False)
             for trade in newly_resolved:
+                self._record_si_case(trade)
                 self._apply_snapshot_trade(trade, resolved=True)
+            for trade in self.simulation.mirror_trades_at(self.computed_through):
+                if str(trade.get("outcome", "")).upper() != "OPEN":
+                    self._record_si_case(trade)
             self._refresh_pending_fade_snapshots(self.computed_through)
             if self.computed_through >= self.total_candles - 1:
                 self.flush_snapshots()
@@ -971,6 +979,7 @@ class ReplaySession:
             mtf = self.mtf_context[index]
             self.states.append(
                 {
+                    "index": index,
                     "cct": str(cct),
                     "cst": str(cst),
                     "cst_v1_state": str(cst_v1),
@@ -995,6 +1004,7 @@ class ReplaySession:
                     "hierPromotions": hier_promotions,
                     "mtfCst": mtf["mtf_cst"],
                     "mtfCct": mtf["mtf_cct"],
+                    "wickPressure": str(wick_pressure),
                     "mtfWickPressure": mtf["mtf_wick_pressure"],
                     "mtfClosedAt": mtf["mtf_closed_at"],
                 }
@@ -1163,19 +1173,45 @@ class ReplaySession:
                         alert,
                         simulation_filters,
                     )
-                    if self.snapshot_path is not None:
+                    if self.snapshot_path is not None or self.si_case_sink is not None:
                         snapshot = build_alert_snapshot(
                             alert,
                             atr14=self.simulation.atr_at(index),
                             wp_state=wick_pressure,
                             simulation_settings=self.simulation.settings.to_dict(),
                         )
+                        snapshot["formation_fingerprint"] = build_formation_fingerprint(
+                            self.states[max(0, index + 1 - 20) : index + 1],
+                            self.swing_events,
+                            entry_index=index + 1,
+                            window=20,
+                        )
                         alert_id = str(alert["alert_id"])
                         if queued:
                             self._pending_snapshots[alert_id] = snapshot
-                        else:
+                        elif self.snapshot_path is not None:
                             append_snapshot(self.snapshot_path, snapshot)
             self.computed_through = index
+
+    def _record_si_case(self, trade: Mapping[str, Any]) -> None:
+        if self.si_case_sink is None:
+            return
+        trade_id = str(trade.get("tradeId", trade.get("trade_id", "")))
+        if not trade_id or trade_id in self._si_recorded_trade_ids:
+            return
+        alert_id = str(trade.get("alertId", trade.get("alert_id", "")))
+        snapshot = self._pending_snapshots.get(alert_id)
+        if snapshot is None:
+            return
+        cases = cases_from_snapshot(
+            snapshot,
+            [trade],
+            source="replay",
+            source_id=self.run_id,
+        )
+        if cases:
+            self.si_case_sink(cases)
+            self._si_recorded_trade_ids.add(trade_id)
 
     def _apply_snapshot_trade(
         self,
@@ -1192,7 +1228,10 @@ class ReplaySession:
             self._persist_snapshot(alert_id)
 
     def _refresh_pending_fade_snapshots(self, index: int) -> None:
-        if self.snapshot_path is None or not self._pending_snapshots:
+        if (
+            (self.snapshot_path is None and self.si_case_sink is None)
+            or not self._pending_snapshots
+        ):
             return
         mirror_trades_by_alert_id = {
             str(trade.get("alertId", trade.get("alert_id", ""))): trade

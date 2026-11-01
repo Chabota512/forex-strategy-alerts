@@ -315,6 +315,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EvolvePolicy"
+  /evolve/system-intelligence:
+    get:
+      operationId: getSystemIntelligence
+      tags: [evolve]
+      summary: Read the XAUUSD case-learning dashboard
+      responses:
+        "200":
+          description: Informational case history, seeded beliefs, and bounded tunables
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemIntelligence"
   /evolve/policy/history:
     get:
       operationId: getEvolvePolicyHistory
@@ -1961,6 +1973,135 @@ components:
           items:
             $ref: "#/components/schemas/EvolveArchivedRound"
       required: [rounds]
+    SystemIntelligence:
+      type: object
+      properties:
+        symbol:
+          type: string
+          enum: [XAUUSD]
+        informationalOnly:
+          type: boolean
+        caseCount:
+          type: integer
+        overall:
+          $ref: "#/components/schemas/SystemIntelligenceOverall"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/SystemIntelligenceRule"
+        hitRateOverTime:
+          type: array
+          items:
+            $ref: "#/components/schemas/SystemIntelligenceHistoryPoint"
+        lessons:
+          type: array
+          items:
+            $ref: "#/components/schemas/SystemIntelligenceLesson"
+        tunables:
+          $ref: "#/components/schemas/SystemIntelligenceTunables"
+      required:
+        - symbol
+        - informationalOnly
+        - caseCount
+        - overall
+        - rules
+        - hitRateOverTime
+        - lessons
+        - tunables
+    SystemIntelligenceOverall:
+      type: object
+      properties:
+        hits:
+          type: integer
+        misses:
+          type: integer
+        hitRate:
+          type: ["number", "null"]
+        expectancy:
+          type: ["number", "null"]
+      required: [hits, misses, hitRate, expectancy]
+    SystemIntelligenceRule:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        samples:
+          type: integer
+        hits:
+          type: integer
+        misses:
+          type: integer
+        hitRate:
+          type: ["number", "null"]
+        expectancy:
+          type: ["number", "null"]
+        baselineHitRate:
+          type: ["number", "null"]
+        weight:
+          type: number
+        flagged:
+          type: boolean
+      required:
+        - id
+        - name
+        - description
+        - samples
+        - hits
+        - misses
+        - hitRate
+        - expectancy
+        - baselineHitRate
+        - weight
+        - flagged
+    SystemIntelligenceHistoryPoint:
+      type: object
+      properties:
+        at:
+          type: string
+        caseCount:
+          type: integer
+        hitRate:
+          type: number
+        expectancy:
+          type: number
+      required: [at, caseCount, hitRate, expectancy]
+    SystemIntelligenceLesson:
+      type: object
+      properties:
+        id:
+          type: string
+        ruleId:
+          type: string
+        ruleName:
+          type: string
+        action:
+          type: string
+        evidence:
+          type: object
+          additionalProperties: true
+        createdAtUtc:
+          type: string
+      required: [id, ruleId, ruleName, action, evidence, createdAtUtc]
+    SystemIntelligenceTunables:
+      type: object
+      properties:
+        strengthWeights:
+          type: object
+          additionalProperties:
+            type: number
+        strengthThresholds:
+          type: object
+          additionalProperties:
+            type: number
+        invertWeights:
+          type: object
+          additionalProperties:
+            type: number
+      required: [strengthWeights, strengthThresholds, invertWeights]
     EvolveArchivedRound:
       type: object
       additionalProperties: false

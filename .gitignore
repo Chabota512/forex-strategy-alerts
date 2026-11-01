@@ -29,3 +29,6 @@ Thumbs.db
 .upm/
 .replit.local
 
+# Persistent research output generated at runtime
+/lab/output/system-intelligence/
+

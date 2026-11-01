@@ -60,7 +60,12 @@ if __package__:
         redact_secrets,
         sanitize_error_message,
     )
-    from .replay import StreamingWickPressure, build_mtf_context
+    from .replay import (
+        StreamingWickPressure,
+        build_mtf_context,
+        compute_confirmed_swing_events,
+    )
+    from .si_cases import build_formation_fingerprint, cases_from_snapshot
     from .shadow_detectors import compute_shadow_states
     from .simulation import (
         ATR_PERIOD,
@@ -114,7 +119,12 @@ else:
         redact_secrets,
         sanitize_error_message,
     )
-    from replay import StreamingWickPressure, build_mtf_context
+    from replay import (
+        StreamingWickPressure,
+        build_mtf_context,
+        compute_confirmed_swing_events,
+    )
+    from si_cases import build_formation_fingerprint, cases_from_snapshot
     from shadow_detectors import compute_shadow_states
     from simulation import (
         ATR_PERIOD,
@@ -966,6 +976,7 @@ def generate_candidate_alerts(
     symbol: str = "XAUUSD",
     mtf_context: list[Mapping[str, Any]] | None = None,
     swing_version: str | None = None,
+    include_si_fingerprints: bool = False,
 ) -> tuple[dict[int, list[dict[str, Any]]], Counter[str]]:
     candles = [
         Candle.from_values(
@@ -1029,6 +1040,19 @@ def generate_candidate_alerts(
     last_signal_index: int | None = None
     note_ratio = Decimal(str(options["note_body_ratio"]))
     cct_neighbors = int(cct_settings["swing_neighbors"])
+    formation_swing_events: list[dict[str, Any]] = []
+    if include_si_fingerprints:
+        fingerprint_spec = copy.deepcopy(dict(spec))
+        fingerprint_spec["instruments"] = [symbol]
+        optimizer = dict(fingerprint_spec.get("optimizer_settings", {}))
+        optimizer["k_fast"] = options.get("k_fast", optimizer.get("k_fast", 1.0))
+        optimizer["k_struct"] = options.get(
+            "k_struct", optimizer.get("k_struct", 2.5)
+        )
+        fingerprint_spec["optimizer_settings"] = optimizer
+        formation_swing_events = compute_confirmed_swing_events(
+            records, fingerprint_spec
+        )
 
     for index in range(1, len(candles)):
         previous = candles[index - 1]
@@ -1182,6 +1206,38 @@ def generate_candidate_alerts(
                 "candle": records[index],
                 "previous_candle": records[index - 1],
             }
+            if include_si_fingerprints:
+                state_history: list[dict[str, Any]] = []
+                for state_index in range(max(0, index + 1 - 20), index + 1):
+                    mtf_state = (
+                        mtf_context[state_index]
+                        if mtf_context is not None and state_index < len(mtf_context)
+                        else {}
+                    )
+                    state_history.append(
+                        {
+                            "index": state_index,
+                            "cct": str(cct_states[state_index]),
+                            "cst": str(cst_states[state_index]),
+                            "cst_v2_state": (
+                                str(cst_v2_states[state_index])
+                                if cst_v2_states[state_index] is not None
+                                else "undefined"
+                            ),
+                            "wp_state": str(pressure_states[state_index]),
+                            "mtf_cst": mtf_state.get("mtf_cst"),
+                            "mtf_cct": mtf_state.get("mtf_cct"),
+                            "mtf_wick_pressure": mtf_state.get(
+                                "mtf_wick_pressure"
+                            ),
+                        }
+                    )
+                alert["formation_fingerprint"] = build_formation_fingerprint(
+                    state_history,
+                    formation_swing_events,
+                    entry_index=index + 1,
+                    window=20,
+                )
             alerts_by_index.setdefault(index, []).append(alert)
             monthly_signals[str(current.time)[:7]] += 1
             last_signal_index = index
@@ -1212,6 +1268,8 @@ def simulate_period(
     include_snapshots: bool = False,
     symbol: str = "XAUUSD",
     swing_version: str = "V2",
+    si_case_sink: Callable[..., Any] | None = None,
+    si_source_id: str = "evolve-training",
 ) -> dict[str, Any]:
     period_start, period_end = _period_indexes(records, months)
     context_start = max(0, period_start - ATR_PERIOD)
@@ -1319,22 +1377,51 @@ def simulate_period(
             for trade in simulation.mirror_trades_at(final_index)
         }
         snapshots = []
+        learned_cases: list[dict[str, Any]] = []
+        learned_case_count = 0
         for global_index in range(period_start, period_end):
             local_index = global_index - context_start
             for alert in alerts_by_index.get(global_index, []):
-                snapshots.append(
-                    build_alert_snapshot(
-                        alert,
-                        atr14=simulation.atr_at(local_index),
-                        wp_state=alert.get("wick_pressure"),
-                        trade=trades_by_alert.get(str(alert.get("alert_id", ""))),
-                        fade_trade=fade_trades_by_alert.get(
-                            str(alert.get("alert_id", ""))
-                        ),
-                        simulation_settings=simulation.settings.to_dict(),
-                    )
+                alert_id = str(alert.get("alert_id", ""))
+                snapshot = build_alert_snapshot(
+                    alert,
+                    atr14=simulation.atr_at(local_index),
+                    wp_state=alert.get("wick_pressure"),
+                    trade=trades_by_alert.get(alert_id),
+                    fade_trade=fade_trades_by_alert.get(alert_id),
+                    simulation_settings=simulation.settings.to_dict(),
                 )
+                fingerprint = alert.get("formation_fingerprint")
+                if isinstance(fingerprint, Mapping):
+                    snapshot["formation_fingerprint"] = fingerprint
+                snapshots.append(snapshot)
+                if si_case_sink is not None:
+                    resolved_trades = [
+                        trade
+                        for trade in (
+                            trades_by_alert.get(alert_id),
+                            fade_trades_by_alert.get(alert_id),
+                        )
+                        if trade is not None
+                        and str(trade.get("outcome", "")).upper() in {"WIN", "LOSS"}
+                    ]
+                    learned_cases.extend(
+                        cases_from_snapshot(
+                            snapshot,
+                            resolved_trades,
+                            source="autoevolve-training",
+                            source_id=si_source_id,
+                        )
+                    )
+                    if len(learned_cases) >= 200:
+                        learned_case_count += len(learned_cases)
+                        si_case_sink(learned_cases)
+                        learned_cases.clear()
         result["snapshots"] = snapshots
+        if learned_cases and si_case_sink is not None:
+            learned_case_count += len(learned_cases)
+            si_case_sink(learned_cases)
+        result["system_intelligence_cases_added"] = learned_case_count
     return result
 
 
@@ -1394,6 +1481,7 @@ def evaluate_strategy(
     market_data: MarketData,
     *,
     swing_version: str = "V2",
+    si_case_sink: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
     loop_window = market_data.loop_window
     active_timeframes = _validate_option(
@@ -1418,6 +1506,7 @@ def evaluate_strategy(
             source_sha256=market_data.source_sha256,
             symbol=market_data.symbol,
             swing_version=swing_version,
+            include_si_fingerprints=si_case_sink is not None,
         )
         if "M15" in active_timeframes:
             per_timeframe["M15"] = m15_alerts
@@ -1444,6 +1533,7 @@ def evaluate_strategy(
             symbol=market_data.symbol,
             mtf_context=mtf_context,
             swing_version=swing_version,
+            include_si_fingerprints=si_case_sink is not None,
         )
         per_timeframe["M5"] = m5_alerts
         signals_by_month.update(m5_monthly)
@@ -1464,6 +1554,7 @@ def evaluate_strategy(
             source_sha256=market_data.source_sha256,
             symbol=market_data.symbol,
             swing_version=swing_version,
+            include_si_fingerprints=si_case_sink is not None,
         )
         per_timeframe[timeframe] = alerts
         signals_by_month.update(monthly)
@@ -1478,6 +1569,8 @@ def evaluate_strategy(
             include_snapshots=True,
             symbol=market_data.symbol,
             swing_version=swing_version,
+            si_case_sink=si_case_sink,
+            si_source_id="evolve-training",
         )
         training_snapshots.extend(training_result.pop("snapshots", []))
         training_by_timeframe[timeframe] = training_result
@@ -1999,6 +2092,7 @@ def run_rounds(
     owner_gate: Callable[[Mapping[str, Any]], bool] | None = None,
     phase_callback: Callable[[str, str], None] | None = None,
     interactive: bool | None = None,
+    si_case_sink: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
     if isinstance(rounds, bool) or rounds < 1:
         raise EvolutionError("--rounds must be at least 1.")
@@ -2047,6 +2141,7 @@ def run_rounds(
             options_value,
             market_data,
             swing_version=swing_version,
+            si_case_sink=si_case_sink,
         )
 
     def simulation_label(options_value: Mapping[str, Any]) -> str:

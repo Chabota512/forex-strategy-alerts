@@ -50,6 +50,7 @@ import type {
   ReplayAdvanceResult,
   ReplaySessionStartInput,
   ReplaySessionStartResult,
+  SystemIntelligence,
   TradeCommentInput,
   TradeCommentResult
 } from './api.schemas';
@@ -1206,6 +1207,107 @@ export function useGetEvolvePolicy<TData = Awaited<ReturnType<typeof getEvolvePo
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetEvolvePolicyQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSystemIntelligenceUrl = () => {
+
+
+
+
+  return `/api/evolve/system-intelligence`
+}
+
+/**
+ * @summary Read the XAUUSD case-learning dashboard
+ */
+export const getSystemIntelligence = async ( options?: Parameters<typeof customFetch>[1]): Promise<SystemIntelligence> => {
+
+  return customFetch<SystemIntelligence>(getGetSystemIntelligenceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSystemIntelligenceQueryKey = () => {
+    return [
+    `/api/evolve/system-intelligence`
+    ] as const;
+    }
+
+
+export const getGetSystemIntelligenceQueryOptions = <TData = Awaited<ReturnType<typeof getSystemIntelligence>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemIntelligence>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSystemIntelligenceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSystemIntelligence>>> = ({ signal }) => getSystemIntelligence({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSystemIntelligence>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetSystemIntelligenceQueryResult = NonNullable<Awaited<ReturnType<typeof getSystemIntelligence>>>
+export type GetSystemIntelligenceQueryError = ErrorType<unknown>
+
+
+export function useGetSystemIntelligence<TData = Awaited<ReturnType<typeof getSystemIntelligence>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemIntelligence>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSystemIntelligence>>,
+          TError,
+          Awaited<ReturnType<typeof getSystemIntelligence>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetSystemIntelligence<TData = Awaited<ReturnType<typeof getSystemIntelligence>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemIntelligence>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSystemIntelligence>>,
+          TError,
+          Awaited<ReturnType<typeof getSystemIntelligence>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetSystemIntelligence<TData = Awaited<ReturnType<typeof getSystemIntelligence>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemIntelligence>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read the XAUUSD case-learning dashboard
+ */
+
+export function useGetSystemIntelligence<TData = Awaited<ReturnType<typeof getSystemIntelligence>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemIntelligence>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetSystemIntelligenceQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

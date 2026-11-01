@@ -21,6 +21,7 @@ import { DrawingLayer, DrawingToolbar, requestClearSelectedDrawings } from '@/co
 import { TradeJournal } from '@/components/trade-journal';
 import EvolveControl from '@/components/evolve-control';
 import AutoevolveControl from '@/components/autoevolve-control';
+import SystemIntelligence from '@/components/system-intelligence';
 import { AiFilterHiddenSummary, AiFilterToggle } from '@/components/ai-filter-controls';
 import { SwingConnectorLayer } from '@/components/swing-connector-layer';
 import { SwingDirectionSwitch } from '@/components/swing-direction-switch';
@@ -2346,6 +2347,7 @@ export function Home() {
     />
     <EvolveControl symbol={selectedSymbol} symbolApproved={Boolean(activeDataset?.ownerApproved)} swingVersion={swingDirectionVersion} />
     <AutoevolveControl/>
+    {selectedSymbol === 'XAUUSD' && <SystemIntelligence/>}
     <footer className="disclaimer" data-testid="persistent-disclaimer">{DISCLAIMER}</footer>
   </main>;
 }
