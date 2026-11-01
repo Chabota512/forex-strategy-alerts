@@ -8,9 +8,6 @@ deploymentTarget = "autoscale"
 args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
-[workflows]
-runButton = "Project"
-
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
@@ -20,4 +17,6 @@ path = "scripts/post-merge.sh"
 timeoutMs = 20000
 
 [nix]
-packages = ["rsync"]
+channel = "stable-25_05"
+
+[workflows]

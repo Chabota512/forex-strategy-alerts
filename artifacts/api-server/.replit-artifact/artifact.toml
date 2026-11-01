@@ -10,7 +10,7 @@ name = "API Server"
 paths = ["/api"]
 
 [services.development]
-run = "cd ../forex-strategy-alerts && uv run python -m lab.server"
+run = "cd ../..; uv run python -m lab.server"
 
 [services.production]
 
