@@ -54,6 +54,13 @@ from .engine import (
     smaller_body_note,
 )
 from .simulation import SimulationSession
+from .si_cases import (
+    DEFAULT_CASES_PATH,
+    DEFAULT_OWNER_DECISIONS_PATH,
+    record_manual_decision,
+    record_manual_outcome,
+)
+from .si_owner_model import load_owner_model, selected_score
 from .shadow_detectors import (
     StreamingDirectionalChange,
     StreamingHierarchicalSwings,
@@ -607,6 +614,11 @@ class ReplaySession:
         mtf_records: list[dict[str, Any]] | None = None,
         snapshot_path: Path | None = None,
         swing_direction_version: str = "V2",
+        manual_mode: bool = False,
+        si_model: str = "evidence",
+        si_blend_weight: float = 0.5,
+        si_cases_path: Path = DEFAULT_CASES_PATH,
+        owner_decisions_path: Path = DEFAULT_OWNER_DECISIONS_PATH,
     ):
         if not records:
             raise ValueError("A replay session requires at least one candle.")
@@ -626,6 +638,25 @@ class ReplaySession:
         if swing_direction_version == "V2" and self.symbol != "XAUUSD":
             raise ValueError("Swing Direction V2 is available for XAUUSD only.")
         self.swing_direction_version = swing_direction_version
+        if not isinstance(manual_mode, bool):
+            raise ValueError("manual_mode must be a boolean.")
+        if manual_mode and self.symbol != "XAUUSD":
+            raise ValueError("Manual replay is available for XAUUSD only.")
+        if si_model not in {"evidence", "owner", "blend"}:
+            raise ValueError("SI model must be evidence, owner, or blend.")
+        if not 0 <= float(si_blend_weight) <= 1:
+            raise ValueError("SI blend weight must be between 0 and 1.")
+        self.manual_mode = manual_mode
+        self.si_model = si_model
+        self.si_blend_weight = float(si_blend_weight)
+        self.si_cases_path = Path(si_cases_path)
+        self.owner_decisions_path = Path(owner_decisions_path)
+        self.owner_model = load_owner_model(
+            self.owner_decisions_path, self.si_cases_path
+        )
+        self.manual_decisions: list[dict[str, Any]] = []
+        self._manual_decisions_by_alert: dict[str, dict[str, Any]] = {}
+        self._manual_case_ids_by_alert: dict[str, str] = {}
         self.settings_fingerprint = settings_fingerprint
         self.snapshot_path = Path(snapshot_path) if snapshot_path is not None else None
         simulation_settings = dict(simulation_settings or {})
@@ -725,6 +756,10 @@ class ReplaySession:
             self.last_access = time.monotonic()
             return {
                 "sessionId": self.session_id,
+                "manualMode": self.manual_mode,
+                "siModel": self.si_model,
+                "siBlendWeight": self.si_blend_weight,
+                "ownerModel": dict(self.owner_model),
                 "runId": self.run_id,
                 "timeframe": self.timeframe,
                 "swingDirectionVersion": self.swing_direction_version,
@@ -816,6 +851,15 @@ class ReplaySession:
                 self._apply_snapshot_trade(trade, resolved=False)
             for trade in newly_resolved:
                 self._apply_snapshot_trade(trade, resolved=True)
+                if trade.get("manual"):
+                    alert_id = str(trade.get("alertId", ""))
+                    case_id = self._manual_case_ids_by_alert.get(alert_id)
+                    if case_id:
+                        record_manual_outcome(
+                            case_id=case_id,
+                            trade=trade,
+                            cases_path=self.si_cases_path,
+                        )
             self._refresh_pending_fade_snapshots(self.computed_through)
             if self.computed_through >= self.total_candles - 1:
                 self.flush_snapshots()
@@ -861,7 +905,106 @@ class ReplaySession:
                 "simulation": self.simulation.snapshot(
                     min(to_index, self.computed_through)
                 ),
+                "manualMode": self.manual_mode,
+                "manualDecisions": list(self.manual_decisions),
+                "siModel": self.si_model,
+                "siBlendWeight": self.si_blend_weight,
             }
+
+    def decide_manually(
+        self,
+        *,
+        candle_index: int,
+        action: str,
+        alert_id: str | None = None,
+        direction: str | None = None,
+        comment: str | None = None,
+    ) -> dict[str, Any]:
+        with self.lock:
+            if not self.manual_mode:
+                raise ValueError("Enable manual mode when starting this replay.")
+            if candle_index < 0 or candle_index > self.computed_through:
+                raise ValueError("Manual decisions must target the current replay candle.")
+            action = action.lower()
+            if action == "finalize":
+                new_decisions = []
+                for index, alert in self.alerts:
+                    current_alert_id = str(alert.get("alert_id", ""))
+                    if (
+                        index == candle_index
+                        and current_alert_id not in self._manual_decisions_by_alert
+                    ):
+                        new_decisions.append(
+                            self._record_manual_choice(
+                                candle_index, alert, "skip", None
+                            )
+                        )
+                return {
+                    "manualMode": True,
+                    "manualDecisions": new_decisions,
+                    "allManualDecisions": list(self.manual_decisions),
+                    "simulation": self.simulation.snapshot(candle_index),
+                }
+            if action not in {"take", "skip"}:
+                raise ValueError("Manual action must be take, skip, or finalize.")
+            match = next(
+                (
+                    alert
+                    for index, alert in self.alerts
+                    if index == candle_index
+                    and (
+                        alert_id is None
+                        or str(alert.get("alert_id", "")) == alert_id
+                    )
+                ),
+                None,
+            )
+            if match is None:
+                raise ValueError("No revealed alert matches this manual decision.")
+            current_alert_id = str(match.get("alert_id", ""))
+            if current_alert_id in self._manual_decisions_by_alert:
+                raise ValueError("This alert already has a manual decision.")
+            if action == "take":
+                if direction is not None and direction.upper() != str(match["direction"]):
+                    raise ValueError("Manual BUY/SELL actions must match the alert direction.")
+                if candle_index >= len(self.records) - 1:
+                    raise ValueError("The last candle has no next candle for entry.")
+                self.simulation.queue_manual_alert(
+                    candle_index, match, comment=comment
+                )
+            decision = self._record_manual_choice(
+                candle_index, match, action, comment
+            )
+            return {
+                "manualMode": True,
+                "manualDecisions": [decision],
+                "allManualDecisions": list(self.manual_decisions),
+                "simulation": self.simulation.snapshot(candle_index),
+            }
+
+    def _record_manual_choice(
+        self,
+        candle_index: int,
+        alert: Mapping[str, Any],
+        action: str,
+        comment: str | None,
+    ) -> dict[str, Any]:
+        record = record_manual_decision(
+            session_id=self.session_id,
+            candle_index=candle_index,
+            alert=alert,
+            decision=action,
+            comment=comment,
+            score_model=self.si_model,
+            blend_weight=self.si_blend_weight,
+            cases_path=self.si_cases_path,
+            owner_decisions_path=self.owner_decisions_path,
+        )
+        alert_id = str(record["alertId"])
+        self._manual_decisions_by_alert[alert_id] = record
+        self._manual_case_ids_by_alert[alert_id] = str(record["caseId"])
+        self.manual_decisions.append(record)
+        return record
 
     def _state_at(self, index: int) -> dict[str, Any]:
         state = self.states[index]
@@ -1129,6 +1272,15 @@ class ReplaySession:
                         "previous_candle": self.records[index - 1],
                         "scored": False,
                     }
+                    score, evidence_score, owner_score = selected_score(
+                        alert,
+                        model_name=self.si_model,
+                        owner_model=self.owner_model,
+                        blend_weight=self.si_blend_weight,
+                    )
+                    alert["si_score"] = score
+                    alert["si_evidence_score"] = evidence_score
+                    alert["si_owner_score"] = owner_score
                     self.alerts.append((index, alert))
                     engulfing = body_engulfs_previous(
                         previous, candle, alert_direction  # type: ignore[arg-type]
@@ -1158,10 +1310,14 @@ class ReplaySession:
                             policy_alert,
                             simulation_filters,
                         )
-                    queued = self.simulation.queue_alert(
-                        index,
-                        alert,
-                        simulation_filters,
+                    queued = (
+                        False
+                        if self.manual_mode
+                        else self.simulation.queue_alert(
+                            index,
+                            alert,
+                            simulation_filters,
+                        )
                     )
                     if self.snapshot_path is not None:
                         snapshot = build_alert_snapshot(

@@ -30,10 +30,15 @@ export async function streamCandleWindow(input: {
     localOffset: number,
     response: { chunkOffset: number; candles: Candle[] },
   ) => void;
-  onProgress: (loaded: number) => void;
+  onProgress: (loaded: number, chunkIndex: number, chunkCount: number) => void;
 }): Promise<CandleStreamResult> {
   const target = Math.min(input.totalCandles, input.softCap);
   let loaded = Math.min(target, Math.max(0, input.initialLoaded));
+  const chunkCount = input.chunks.reduce(
+    (count, chunk) => count + Math.ceil(chunk.count / input.chunkSize),
+    0,
+  );
+  let chunkIndex = 0;
   for (const chunk of input.chunks) {
     for (
       let localOffset = 0;
@@ -47,7 +52,11 @@ export async function streamCandleWindow(input: {
           cancelled: true,
         };
       }
-      if (input.isCached(chunk.month, localOffset)) continue;
+      chunkIndex += 1;
+      if (input.isCached(chunk.month, localOffset)) {
+        input.onProgress(loaded, chunkIndex, chunkCount);
+        continue;
+      }
       const limit = Math.min(
         input.chunkSize,
         chunk.count - localOffset,
@@ -68,7 +77,7 @@ export async function streamCandleWindow(input: {
       }
       input.onChunk(chunk.month, localOffset, response);
       loaded = Math.min(target, loaded + response.candles.length);
-      input.onProgress(loaded);
+      input.onProgress(loaded, chunkIndex, chunkCount);
     }
   }
   return {

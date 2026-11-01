@@ -203,6 +203,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /lab/replay/sessions/{sessionId}/manual-decision:
+    post:
+      operationId: submitLabReplayManualDecision
+      tags: [lab]
+      summary: Record a take, skip, or finalize decision in manual replay
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplayManualDecisionInput"
+      responses:
+        "200":
+          description: Updated manual decision ledger and simulation snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplayManualDecisionResult"
+        "400":
+          description: Invalid manual decision or replay state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Replay session not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /lab/trades/comment:
     post:
       operationId: getTradeComment
@@ -1117,6 +1154,18 @@ components:
           type: string
           enum: [V1, V2]
           default: V2
+        manualMode:
+          type: boolean
+          default: false
+        siModel:
+          type: string
+          enum: [evidence, owner, blend]
+          default: evidence
+        siBlendWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.5
       required: [timeframe, from, to]
     SimulationSettings:
       type: object
@@ -1275,6 +1324,10 @@ components:
           type: string
           enum: [ALL, BUY, SELL]
           default: ALL
+        tradeDirection:
+          type: string
+          enum: [both, buy_only, sell_only]
+          default: both
         strength:
           type: string
           enum: [ALL, STRONG, NEUTRAL, WEAK]
@@ -1440,6 +1493,17 @@ components:
             $ref: "#/components/schemas/SimulatedTrade"
         currentCandle:
           $ref: "#/components/schemas/Candle"
+        manualMode:
+          type: boolean
+        siModel:
+          type: string
+          enum: [evidence, owner, blend]
+        siBlendWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+        ownerModel:
+          $ref: "#/components/schemas/SiOwnerModelSummary"
       required:
         - sessionId
         - symbol
@@ -1474,6 +1538,97 @@ components:
         simulationFilters:
           $ref: "#/components/schemas/SimulationFilters"
       required: [toIndex, viewStart, viewEnd]
+    ReplayManualDecisionInput:
+      type: object
+      properties:
+        candleIndex:
+          type: integer
+          minimum: 0
+        action:
+          type: string
+          enum: [take, skip, finalize]
+        alertId:
+          type: string
+        direction:
+          type: string
+          enum: [BUY, SELL]
+        comment:
+          type: string
+          maxLength: 500
+      required: [candleIndex, action]
+    ManualDecision:
+      type: object
+      properties:
+        eventType:
+          type: string
+          enum: [manual_decision]
+        caseId:
+          type: string
+        sessionId:
+          type: string
+        alertId:
+          type: string
+        candleIndex:
+          type: integer
+        source:
+          type: string
+          enum: [manual]
+        decision:
+          type: string
+          enum: [take, skip]
+        comment:
+          type: [string, "null"]
+        formationFingerprint:
+          type: string
+        featureContext:
+          type: object
+          additionalProperties: true
+        scoreModel:
+          type: string
+          enum: [evidence, owner, blend]
+        blendWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+      required:
+        - eventType
+        - caseId
+        - sessionId
+        - alertId
+        - candleIndex
+        - source
+        - decision
+        - comment
+        - formationFingerprint
+        - featureContext
+        - scoreModel
+        - blendWeight
+    SiOwnerModelSummary:
+      type: object
+      properties:
+        trained:
+          type: boolean
+        caseCount:
+          type: integer
+        requiredCaseCount:
+          type: integer
+      required: [trained, caseCount, requiredCaseCount]
+    ReplayManualDecisionResult:
+      type: object
+      properties:
+        manualMode:
+          type: boolean
+        manualDecisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManualDecision"
+        allManualDecisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManualDecision"
+        simulation:
+          $ref: "#/components/schemas/SimulationSnapshot"
+      required: [manualMode, manualDecisions, allManualDecisions, simulation]
     ReplayAlert:
       type: object
       properties:
@@ -1573,6 +1728,19 @@ components:
           $ref: "#/components/schemas/Candle"
         expiresInSeconds:
           type: integer
+        manualMode:
+          type: boolean
+        manualDecisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManualDecision"
+        siModel:
+          type: string
+          enum: [evidence, owner, blend]
+        siBlendWeight:
+          type: number
+          minimum: 0
+          maximum: 1
       required:
         - sessionId
         - runId
@@ -1628,6 +1796,10 @@ components:
             - type: "null"
         inverted:
           type: boolean
+        manual:
+          type: boolean
+        comment:
+          type: [string, "null"]
         alertType:
           type: string
           enum: [BUY-A, SELL-A, BUY-B, SELL-B]
@@ -1884,6 +2056,14 @@ components:
           minimum: 0
           maximum: 1
         siScore:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        siEvidenceScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        siOwnerScore:
           type: [number, "null"]
           minimum: 0
           maximum: 1

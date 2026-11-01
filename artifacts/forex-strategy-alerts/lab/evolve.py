@@ -71,6 +71,7 @@ if __package__:
         normalize_invert_weights,
     )
     from .versioning import archive_spec, atomic_write_json, next_patch_version
+    from .knowledge import admitted_knowledge, knowledge_summary
 else:
     from alert_policy import (
         POLICY_SETTING_KEYS,
@@ -126,6 +127,7 @@ else:
         normalize_invert_weights,
     )
     from versioning import archive_spec, atomic_write_json, next_patch_version
+    from knowledge import admitted_knowledge, knowledge_summary
 
 
 LOGGER = logging.getLogger("forex_strategy_lab.evolve")
@@ -155,6 +157,7 @@ MISSION_DEFAULTS: dict[str, Any] = {
     "validation_years": [2025],
     "exit_model": "swept_level_atr",
     "direction_mode": "normal",
+    "trade_direction": "both",
     "swing_version": "V2",
     "providers": ["GEMINI", "GROQ"],
     "objective": "maximize_profit",
@@ -182,6 +185,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
         "range_multiplier": 3.0,
     },
     "direction_mode": "normal",
+    "trade_direction": "both",
     "invert_weights": {
         feature: float(DEFAULT_INVERT_WEIGHTS[feature])
         for feature in INVERT_FEATURES
@@ -597,6 +601,12 @@ def _validate_option(path: str, value: Any) -> Any:
                 "direction_mode must be normal, inverted, or adaptive."
             )
         return value
+    if path == "trade_direction":
+        if value not in {"both", "buy_only", "sell_only"}:
+            raise EvolutionError(
+                "trade_direction must be both, buy_only, or sell_only."
+            )
+        return value
     if path in {"cooldown_candles", "cct.window"}:
         if isinstance(value, bool) or not isinstance(value, int):
             raise EvolutionError(f"{path} must be an integer.")
@@ -996,6 +1006,7 @@ def build_prompt(
         "- min_strength: NONE, NEUTRAL, or STRONG\n"
         "- exit_model: swept_level_atr or candle_geometry\n"
         "- direction_mode: normal, inverted, or adaptive; directional modes are XAUUSD-only\n"
+        "- trade_direction: both, buy_only, or sell_only (default both)\n"
         "- invert_weights: direction, variant, cct_state, cct_alignment, cst_state, "
         "cst_alignment, wp_state, mtf_trend_agree, mtf_wp_agree, engulf, "
         "dual_tf_alert, and strength_score; each weight is -1 through 1 and "
@@ -1033,6 +1044,8 @@ def build_prompt(
         "END UNTRUSTED DISCREDITED HISTORY.\n\n"
         f"CHAMPION TRAINING DIGEST ({training_period} only):\n"
         f"{json.dumps(training_digest, sort_keys=True, indent=2)}\n\n"
+        "ADMITTED KNOWLEDGE COMMONS (read-only evidence, provenance retained):\n"
+        f"{json.dumps(admitted_knowledge(), sort_keys=True, indent=2)}\n\n"
         f"{filter_metrics_section}"
     )
 
@@ -1429,6 +1442,10 @@ def _simulate_period_chunk(
         "direction_mode",
         options.get("direction_mode", DEFAULT_OPTIONS["direction_mode"]),
     )
+    trade_direction = _validate_option(
+        "trade_direction",
+        options.get("trade_direction", DEFAULT_OPTIONS["trade_direction"]),
+    )
     if symbol != "XAUUSD" and direction_mode != "normal":
         raise EvolutionError("Directional inversion modes are available for XAUUSD only.")
     invert_weights = _validate_option(
@@ -1447,6 +1464,7 @@ def _simulate_period_chunk(
         "exitModel": exit_model,
         "swingVersion": swing_version,
         "directionMode": direction_mode,
+        "tradeDirection": trade_direction,
         "invertWeights": invert_weights,
         "invertThreshold": invert_threshold,
     }
@@ -1484,6 +1502,7 @@ def _simulate_period_chunk(
         "exit_model": exit_model,
         "geometry_weights": geometry_weights,
         "direction_mode": direction_mode,
+        "trade_direction": trade_direction,
         "invert_threshold": float(invert_threshold),
         "swing_version": swing_version,
         "closed_trade_count": len(closed_trades),

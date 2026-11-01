@@ -25,6 +25,7 @@ CANDLE_GEOMETRY_STOP_BODY_WEIGHT = Decimal("1")
 CANDLE_GEOMETRY_SWEEP_WICK_MULTIPLIER = Decimal("2")
 CANDLE_GEOMETRY_TARGET_RANGE_MULTIPLIER = Decimal("3")
 DIRECTION_MODES = frozenset({"normal", "inverted", "adaptive"})
+TRADE_DIRECTIONS = frozenset({"both", "buy_only", "sell_only"})
 INVERT_FEATURES = (
     "direction",
     "variant",
@@ -114,6 +115,7 @@ class SimulationSettings:
     stop_wick_multiplier: Decimal = CANDLE_GEOMETRY_SWEEP_WICK_MULTIPLIER
     target_range_multiplier: Decimal = CANDLE_GEOMETRY_TARGET_RANGE_MULTIPLIER
     direction_mode: str = "normal"
+    trade_direction: str = "both"
     invert_weights: Mapping[str, Decimal] = field(
         default_factory=lambda: dict(DEFAULT_INVERT_WEIGHTS)
     )
@@ -194,6 +196,9 @@ class SimulationSettings:
             raise ValueError("Direction mode must be normal, inverted, or adaptive.")
         if normalized_symbol != "XAUUSD" and direction_mode != "normal":
             raise ValueError("Directional inversion modes are available for XAUUSD only.")
+        trade_direction = value.get("tradeDirection", "both")
+        if not isinstance(trade_direction, str) or trade_direction not in TRADE_DIRECTIONS:
+            raise ValueError("Trade direction must be both, buy_only, or sell_only.")
         invert_weights_value = value.get("invertWeights")
         if invert_weights_value is None:
             invert_weights_value = value.get("invert_weights")
@@ -239,6 +244,7 @@ class SimulationSettings:
             stop_wick_multiplier=stop_wick_multiplier,
             target_range_multiplier=target_range_multiplier,
             direction_mode=direction_mode,
+            trade_direction=trade_direction,
             invert_weights=invert_weights,
             invert_threshold=invert_threshold,
         )
@@ -257,6 +263,7 @@ class SimulationSettings:
             "stopWickMultiplier": float(self.stop_wick_multiplier),
             "targetRangeMultiplier": float(self.target_range_multiplier),
             "directionMode": self.direction_mode,
+            "tradeDirection": self.trade_direction,
             "invertWeights": {
                 INVERT_WEIGHT_CAMEL_KEYS[feature]: float(self.invert_weights[feature])
                 for feature in INVERT_FEATURES
@@ -437,6 +444,7 @@ class SimulationFilters:
     variant: str = "ALL"
     wick_pressure: str = "ALL"
     mtf_agreement_only: bool = False
+    trade_direction: str = "both"
 
     @classmethod
     def from_payload(
@@ -452,6 +460,7 @@ class SimulationFilters:
         variant = value.get("variant", "ALL")
         wick_pressure = value.get("wickPressure", "ALL")
         mtf_agreement_only = value.get("mtfAgreementOnly", False)
+        trade_direction = value.get("tradeDirection", "both")
         if not isinstance(direction, str) or direction not in {"ALL", "BUY", "SELL"}:
             raise ValueError("Simulation direction filter must be ALL, BUY, or SELL.")
         if not isinstance(strength, str) or strength not in {
@@ -479,6 +488,8 @@ class SimulationFilters:
             )
         if not isinstance(mtf_agreement_only, bool):
             raise ValueError("Simulation mtfAgreementOnly must be a boolean.")
+        if not isinstance(trade_direction, str) or trade_direction not in TRADE_DIRECTIONS:
+            raise ValueError("Simulation tradeDirection must be both, buy_only, or sell_only.")
         return cls(
             direction,
             strength,
@@ -486,6 +497,7 @@ class SimulationFilters:
             variant,
             wick_pressure,
             mtf_agreement_only,
+            trade_direction,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -496,6 +508,7 @@ class SimulationFilters:
             "variant": self.variant,
             "wickPressure": self.wick_pressure,
             "mtfAgreementOnly": self.mtf_agreement_only,
+            "tradeDirection": self.trade_direction,
         }
 
 
@@ -524,6 +537,8 @@ class _Trade:
     direction_mode: str
     invert_score: Decimal | None
     is_inverted: bool
+    manual: bool = False
+    comment: str | None = None
     geometry_weights: dict[str, Decimal] | None = None
     exit_index: int | None = None
     exit_time: str | None = None
@@ -552,6 +567,8 @@ class _Trade:
                 None if self.invert_score is None else float(self.invert_score)
             ),
             "inverted": self.is_inverted,
+            "manual": self.manual,
+            "comment": self.comment,
             "alertType": self.alert_type,
             "entryIndex": self.entry_index,
             "entryTime": self.entry_time,
@@ -637,6 +654,31 @@ class SimulationSession:
         if not self._matches_filters(alert, active_filters):
             return False
         self._pending_alerts.append((candle_index, alert))
+        return True
+
+    def queue_manual_alert(
+        self,
+        candle_index: int,
+        alert: Mapping[str, Any],
+        *,
+        comment: str | None = None,
+    ) -> bool:
+        """Queue an owner-selected alert without the automated side/feature filters."""
+        if not self.settings.enabled:
+            raise ValueError("Enable simulation before taking a manual trade.")
+        if candle_index < 0 or candle_index >= len(self.records) - 1:
+            raise ValueError("A manual trade needs a following candle for next-open entry.")
+        direction = str(alert.get("direction", "")).upper()
+        if direction not in {"BUY", "SELL"}:
+            raise ValueError("Manual trade direction must be BUY or SELL.")
+        if self.settings.trade_direction == "buy_only" and direction != "BUY":
+            raise ValueError("The active trade-direction setting allows BUY alerts only.")
+        if self.settings.trade_direction == "sell_only" and direction != "SELL":
+            raise ValueError("The active trade-direction setting allows SELL alerts only.")
+        manual_alert = dict(alert)
+        manual_alert["_manual"] = True
+        manual_alert["_manual_comment"] = " ".join(str(comment or "").split())[:500] or None
+        self._pending_alerts.append((candle_index, manual_alert))
         return True
 
     def atr_at(self, index: int) -> Decimal | None:
@@ -754,6 +796,11 @@ class SimulationSession:
         )
         if filters.direction != "ALL" and direction != filters.direction:
             return False
+        for trade_direction in (self.settings.trade_direction, filters.trade_direction):
+            if trade_direction == "buy_only" and direction != "BUY":
+                return False
+            if trade_direction == "sell_only" and direction != "SELL":
+                return False
         if filters.strength != "ALL" and strength != filters.strength:
             return False
         if filters.variant != "ALL" and variant != filters.variant:
@@ -791,6 +838,11 @@ class SimulationSession:
         source_direction, direction, invert_score, is_inverted = (
             resolve_simulation_direction(alert, self.settings)
         )
+        manual = bool(alert.get("_manual", False))
+        if manual:
+            direction = source_direction
+            invert_score = None
+            is_inverted = False
         if source_direction not in {"BUY", "SELL"}:
             return
         alert_candle = alert.get("candle")
@@ -870,12 +922,20 @@ class SimulationSession:
             ),
             invert_score=invert_score,
             is_inverted=is_inverted,
+            manual=manual,
+            comment=(
+                str(alert.get("_manual_comment"))
+                if alert.get("_manual_comment")
+                else None
+            ),
         )
         if trade is None:
             return
         self.trades.append(trade)
         self.opened_events.append(trade.to_dict())
 
+        if manual:
+            return
         mirror_direction = "SELL" if source_direction == "BUY" else "BUY"
         mirror_trade = self._make_trade(
             alert,
@@ -909,6 +969,8 @@ class SimulationSession:
         invert_score: Decimal | None,
         is_inverted: bool,
         suffix: str = "sim",
+        manual: bool = False,
+        comment: str | None = None,
     ) -> _Trade | None:
         stop_distance = abs(entry - stop_price)
         if stop_distance <= ZERO:
@@ -951,6 +1013,8 @@ class SimulationSession:
             direction_mode=self.settings.direction_mode,
             invert_score=invert_score,
             is_inverted=is_inverted,
+            manual=manual,
+            comment=comment,
             geometry_weights=(
                 {
                     "bodyWeight": self.settings.stop_body_weight,

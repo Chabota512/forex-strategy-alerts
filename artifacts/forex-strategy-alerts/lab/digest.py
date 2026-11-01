@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from .alert_snapshots import DEFAULT_SNAPSHOT_PATH, read_snapshots
+from .knowledge import knowledge_summary
 
 MIN_CELL_SIZE = 30
 MAX_DIGEST_TOKENS = 2_000
@@ -23,6 +24,7 @@ _FEATURE_AXES = (
     "strength",
     "strength_score",
     "sim_direction_mode",
+    "sim_trade_direction",
     "sim_applied_direction",
     "sim_invert_score",
     "wp_state",
@@ -265,6 +267,7 @@ def build_digest(
         "groups": groups,
         "truncated_cells": 0,
         "estimated_tokens": 0,
+        "knowledge": knowledge_summary(),
     }
     digest["estimated_tokens"] = _token_estimate(digest)
     while digest["estimated_tokens"] > max_tokens and digest["groups"]:

@@ -46,7 +46,7 @@ export function persistSessionSymbol(symbol: InstrumentSymbol): void {
 export function InstrumentHeading({ symbol }: { symbol?: string | null }) {
   const pairLabel = instrumentLabel(symbol);
   return <div className="instrument" data-testid="instrument-heading">
-    <strong className="app-name">Forex Strategy Lab</strong>
+    <strong className="app-name">myFXtool</strong>
     {pairLabel && <span className="instrument-market" title={pairLabel} data-testid="selected-pair-label">{pairLabel}</span>}
     <span className="session-state" data-mode="historical"><i aria-hidden="true"/>HISTORICAL REPLAY</span>
   </div>;

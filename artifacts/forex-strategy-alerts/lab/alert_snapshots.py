@@ -66,6 +66,7 @@ def _trade_snapshot_fields(
         "sim_exit_model": None,
         "sim_geometry_weights": None,
         "sim_direction_mode": None,
+        "sim_trade_direction": None,
         "sim_source_direction": None,
         "sim_applied_direction": None,
         "sim_invert_score": None,
@@ -317,6 +318,7 @@ def build_alert_snapshot(
         snapshot.update(
             {
                 "sim_direction_mode": settings.direction_mode,
+                "sim_trade_direction": settings.trade_direction,
                 "sim_source_direction": source_direction,
                 "sim_applied_direction": applied_direction,
                 "sim_invert_score": _decimal_text(invert_score),

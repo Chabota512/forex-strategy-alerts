@@ -23,22 +23,29 @@ export function applyAiPolicyView<T extends PolicyAlertItem>(
   decisions: ReadonlyMap<string, PolicyDecisionView>,
   minSiScore = 0,
 ): { visible: T[]; hidden: HiddenPolicyAlert<T>[] } {
-  if (!enabled || (policyMode !== 'active' && minSiScore <= 0)) {
-    return { visible: items, hidden: [] };
-  }
+  if (!enabled) return { visible: items, hidden: [] };
 
   const visible: T[] = [];
   const hidden: HiddenPolicyAlert<T>[] = [];
   for (const item of items) {
     const decision = decisions.get(item.alert.alertId);
-    if (decision?.passed === true) {
+    const policyPassed = policyMode !== 'active' || decision?.passed === true;
+    const score = item.alert.siScore;
+    const scorePassed = minSiScore <= 0
+      || (typeof score === 'number' && Number.isFinite(score) && score >= minSiScore);
+    if (policyPassed && scorePassed) {
       visible.push(item);
     } else {
       hidden.push({
         item,
-        reasons: decision?.reasons.length
-          ? decision.reasons
-          : ['Policy decision unavailable for this alert.'],
+        reasons: [
+          ...(policyPassed ? [] : decision?.reasons.length
+            ? decision.reasons
+            : ['Policy decision unavailable for this alert.']),
+          ...(!scorePassed
+            ? [`SI score below ${minSiScore.toFixed(2)} or unavailable for the selected model.`]
+            : []),
+        ],
       });
     }
   }

@@ -136,6 +136,10 @@ const fmtPrice = (value: number | undefined, symbol: InstrumentSymbol) => {
     maximumFractionDigits: digits,
   });
 };
+const compactCandleCount = (value: number) => new Intl.NumberFormat('en', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+}).format(value);
 const fmtMoneyPerTrade = (value: number | null | undefined) =>
   value == null || !Number.isFinite(value)
     ? '—'
@@ -166,6 +170,17 @@ type MtfAlert = Alert & {
   mtfWpAgree?: boolean;
   dualTfAlert?: boolean;
   siScore?: number | null;
+  siEvidenceScore?: number;
+  siOwnerScore?: number | null;
+};
+type SiModelName = 'evidence' | 'owner' | 'blend';
+type ManualDecisionRecord = {
+  caseId: string;
+  alertId: string;
+  decision: 'take' | 'skip';
+  formationFingerprint: string;
+  featureContext: Record<string, unknown>;
+  comment: string | null;
 };
 type AlertTapeItem = {
   candleIndex: number;
@@ -1078,6 +1093,26 @@ export function Home() {
   const [mtfAgreementOnly, setMtfAgreementOnly] = useState(false);
   const [aiFilterEnabled, setAiFilterEnabled] = useState(false);
   const [minSiScoreDraft, setMinSiScoreDraft] = useState('0.00');
+  const [siModel, setSiModel] = useState<SiModelName>(() => {
+    try {
+      const stored = window.localStorage.getItem('forex-strategy-lab-si-model');
+      return stored === 'owner' || stored === 'blend' ? stored : 'evidence';
+    } catch {
+      return 'evidence';
+    }
+  });
+  const [siBlendWeight, setSiBlendWeight] = useState(() => {
+    try {
+      const stored = Number(window.localStorage.getItem('forex-strategy-lab-si-blend-weight'));
+      return Number.isFinite(stored) && stored >= 0 && stored <= 1 ? stored : 0.5;
+    } catch {
+      return 0.5;
+    }
+  });
+  const [manualMode, setManualMode] = useState(false);
+  const [manualComment, setManualComment] = useState('');
+  const [manualDecisionLog, setManualDecisionLog] = useState<ManualDecisionRecord[]>([]);
+  const [manualActionError, setManualActionError] = useState('');
   const [alertSort, setAlertSort] = useState<{ key: AlertSortKey; descending: boolean }>({
     key: 'time',
     descending: true,
@@ -1122,9 +1157,11 @@ export function Home() {
     active: boolean;
     loaded: number;
     total: number;
+    chunkIndex: number;
+    chunkCount: number;
     capped: boolean;
     error?: string;
-  }>({ active: false, loaded: 0, total: 0, capped: false });
+  }>({ active: false, loaded: 0, total: 0, chunkIndex: 0, chunkCount: 0, capped: false });
   const windowStreamAbort = useRef<AbortController | null>(null);
   const initializedMonthWindow = useRef('');
   const resumeAfterScrub = useRef(false);
@@ -1163,6 +1200,9 @@ export function Home() {
     && replaySession.symbol === selectedSymbol
     && replaySession.swingDirectionVersion === swingDirectionVersion
     && replaySession.from === from && replaySession.to === to
+    && (replaySession.manualMode ?? false) === manualMode
+    && (replaySession.siModel ?? 'evidence') === siModel
+    && Math.abs((replaySession.siBlendWeight ?? 0.5) - siBlendWeight) < 1e-9
     ? replaySession : null;
   const anticipatedChunk = storedMonthChunks.find(chunk => chunk.month === viewMonth);
   const anticipatedDisplayEnd = anticipatedChunk
@@ -1339,7 +1379,7 @@ export function Home() {
       ? `Loading ${selectedSymbol} ${timeframe} candles…`
       : null;
   const loadStatus = windowStream.active
-    ? `Streaming candle window · ${windowStream.loaded.toLocaleString()} / ${windowStream.total.toLocaleString()} candles · ${monthProgress}`
+    ? `Loading ${compactCandleCount(windowStream.loaded)}/${compactCandleCount(windowStream.total)} · chunk ${windowStream.chunkIndex}/${windowStream.chunkCount}`
     : symbolDataLoading
       ? `Loading ${selectedSymbol} market data…`
     : candlesQuery.isFetching
@@ -1363,6 +1403,11 @@ export function Home() {
       active: true,
       loaded,
       total: streamTotal,
+      chunkIndex: 0,
+      chunkCount: currentMonthChunks.reduce(
+        (count, chunk) => count + Math.ceil(chunk.count / CANDLE_STREAM_CHUNK_SIZE),
+        0,
+      ),
       capped: dataTotalCandles > CANDLE_CACHE_SOFT_CAP,
     });
     try {
@@ -1396,9 +1441,11 @@ export function Home() {
             { offset: response.chunkOffset, candles: response.candles },
           ));
         },
-        onProgress: loadedProgress => setWindowStream(current => ({
+        onProgress: (loadedProgress, chunkIndex, chunkCount) => setWindowStream(current => ({
           ...current,
           loaded: loadedProgress,
+          chunkIndex,
+          chunkCount,
         })),
       });
       if (controller.signal.aborted) return;
@@ -1425,7 +1472,14 @@ export function Home() {
   const resetMonthChunks = () => {
     windowStreamAbort.current?.abort();
     windowStreamAbort.current = null;
-    setWindowStream({ active: false, loaded: 0, total: 0, capped: false });
+      setWindowStream({
+        active: false,
+        loaded: 0,
+        total: 0,
+        chunkIndex: 0,
+        chunkCount: 0,
+        capped: false,
+      });
     initializedMonthWindow.current = '';
     setMonthChunkState(null);
     setLoadedMonthChunks(new Map());
@@ -1452,6 +1506,8 @@ export function Home() {
     setFollowLatest(true);
     setSelected(null);
     setComment(null);
+    setManualDecisionLog([]);
+    setManualActionError('');
     resetMonthChunks();
   };
   useEffect(() => {
@@ -1618,6 +1674,20 @@ export function Home() {
       // Keep the chosen theme for this session when storage is unavailable.
     }
   }, [theme]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('forex-strategy-lab-si-model', siModel);
+      window.localStorage.setItem(
+        'forex-strategy-lab-si-blend-weight',
+        String(siBlendWeight),
+      );
+    } catch {
+      // Model selection remains active for the current session if storage is unavailable.
+    }
+  }, [siModel, siBlendWeight]);
+  useEffect(() => {
+    if (selectedSymbol !== 'XAUUSD' && manualMode) setManualMode(false);
+  }, [selectedSymbol, manualMode]);
   useEffect(() => {
     chartViewSizeRef.current = chartViewSize;
   }, [chartViewSize]);
@@ -1883,6 +1953,7 @@ export function Home() {
             viewEnd: Math.max(visibleStart, visibleEnd),
             simulationFilters: {
               direction: direction as 'ALL' | 'BUY' | 'SELL',
+              tradeDirection: simulationSettings.tradeDirection,
               strength: strength as 'ALL' | 'STRONG' | 'NEUTRAL' | 'WEAK',
               engulfingOnly,
               variant: selectedSymbol === 'XAUUSD' ? variantFilter : 'ALL',
@@ -1906,6 +1977,9 @@ export function Home() {
         openedTrades.push(...response.newlyOpenedTrades);
         resolvedTrades.push(...response.newlyResolvedTrades);
         setSimulationSnapshot(response.simulation);
+        if (response.manualDecisions) {
+          mergeManualDecisionLog(response.manualDecisions as ManualDecisionRecord[]);
+        }
         setPolicySimulationSnapshot(response.policySimulation);
         setPolicySimulatedTrades(response.policyTrades);
         setComputedThrough(response.computedThrough);
@@ -1974,6 +2048,8 @@ export function Home() {
     mtfAgreementOnly,
     timeframe,
     selectedSymbol,
+    simulationSettings.tradeDirection,
+    manualMode,
     clearReplay,
     currentMonthChunks,
     displayEnd,
@@ -1983,11 +2059,77 @@ export function Home() {
     advanceToRef.current = advanceTo;
   }, [advanceTo]);
 
+  const submitManualDecision = async (
+    action: 'take' | 'skip' | 'finalize',
+    alertId?: string,
+    direction?: 'BUY' | 'SELL',
+  ): Promise<boolean> => {
+    const session = replaySessionRef.current;
+    if (!session || !manualMode) return false;
+    setManualActionError('');
+    try {
+      const response = await fetch(
+        `/api/lab/replay/sessions/${encodeURIComponent(session.sessionId)}/manual-decision`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            candleIndex: cursorRef.current,
+            action,
+            ...(alertId ? { alertId } : {}),
+            ...(direction ? { direction } : {}),
+            ...(action !== 'finalize' && manualComment.trim()
+              ? { comment: manualComment.trim() }
+              : {}),
+          }),
+        },
+      );
+      const result = await response.json() as {
+        error?: string;
+        allManualDecisions?: ManualDecisionRecord[];
+        simulation?: SimulationSnapshot;
+      };
+      if (!response.ok) throw new Error(result.error ?? `Request failed (${response.status}).`);
+      mergeManualDecisionLog(result.allManualDecisions ?? []);
+      if (result.simulation) setSimulationSnapshot(result.simulation);
+      if (action !== 'finalize') setManualComment('');
+      return true;
+    } catch (error) {
+      setManualActionError(
+        error instanceof Error ? error.message : 'Manual decision could not be saved.',
+      );
+      return false;
+    }
+  };
+  const mergeManualDecisionLog = (records: ManualDecisionRecord[]) => {
+    setManualDecisionLog(previous => {
+      const byCaseId = new Map(previous.map(record => [record.caseId, record]));
+      for (const record of records) byCaseId.set(record.caseId, record);
+      return [...byCaseId.values()];
+    });
+  };
+
+  const manualSelectedAlert = selected
+    ? revealedAlerts.find(alert => alert.alertId === selected.alertId) ?? null
+    : null;
+  const takeManualSide = (side: 'BUY' | 'SELL') => {
+    if (!manualSelectedAlert || manualSelectedAlert.direction !== side) return;
+    void submitManualDecision('take', manualSelectedAlert.alertId, side);
+  };
+  const skipManualSelection = () => {
+    if (!manualSelectedAlert) return;
+    void submitManualDecision('skip', manualSelectedAlert.alertId);
+  };
+
   const stepTo = async (index: number): Promise<boolean> => {
     if (!replayReady) return false;
     const next = Math.max(0, Math.min(totalCandles - 1, index));
     setPlaying(false);
     if (advanceInFlightRef.current) return false;
+    if (manualMode && next !== cursorRef.current) {
+      const finalized = await submitManualDecision('finalize');
+      if (!finalized) return false;
+    }
     if (next < computedThrough) {
       const restarted = await startReplay(false, true);
       if (!restarted) return false;
@@ -2005,6 +2147,9 @@ export function Home() {
   const startReplay = async (
     playAfterStart: boolean,
     forceNewSession = false,
+    manualModeOverride = manualMode,
+    siModelOverride = siModel,
+    siBlendWeightOverride = siBlendWeight,
   ): Promise<boolean> => {
     setPlaying(false);
     setSelected(null);
@@ -2017,7 +2162,9 @@ export function Home() {
       setFollowLatest(true);
       chartStartRef.current = 0;
       setChartStart(0);
-      setPlaying(playAfterStart && matchingSession.totalCandles > 1);
+      setPlaying(
+        playAfterStart && !manualModeOverride && matchingSession.totalCandles > 1,
+      );
       return true;
     }
 
@@ -2036,6 +2183,9 @@ export function Home() {
           to,
           simulationSettings,
           swingDirectionVersion,
+          manualMode: manualModeOverride,
+          siModel: siModelOverride,
+          siBlendWeight: siBlendWeightOverride,
         },
       });
       if (generation !== replayGenerationRef.current) return false;
@@ -2053,11 +2203,14 @@ export function Home() {
       setStreamWickPressure(new Map(started.wickPressureStates.map(state => [state.index, state.state])));
       setStreamAlerts([]);
       setStreamSwingEvents(started.swingEvents ?? []);
+      setManualActionError('');
       setCursor(0);
       setFollowLatest(true);
       chartStartRef.current = 0;
       setChartStart(0);
-      setPlaying(playAfterStart && started.totalCandles > 1);
+      setPlaying(
+        playAfterStart && !manualModeOverride && started.totalCandles > 1,
+      );
       return true;
     } catch {
       setPlaying(false);
@@ -2066,7 +2219,7 @@ export function Home() {
   };
 
   useEffect(() => {
-    if (!playing || !replayReady || scrubbing || advanceReplayMutation.isPending) return;
+    if (manualMode || !playing || !replayReady || scrubbing || advanceReplayMutation.isPending) return;
     if (cursor >= totalCandles - 1) {
       setPlaying(false);
       return;
@@ -2079,6 +2232,7 @@ export function Home() {
     return () => window.clearTimeout(timer);
   }, [
     playing,
+    manualMode,
     replayReady,
     scrubbing,
     advanceReplayMutation.isPending,
@@ -2107,7 +2261,43 @@ export function Home() {
       setPlaying(false);
       return;
     }
+    if (manualMode && replaySessionRef.current) {
+      void submitManualDecision('finalize').then(ok => {
+        if (ok) void startReplay(false, Boolean(matchingSession));
+      });
+      return;
+    }
     void startReplay(false, Boolean(matchingSession));
+  };
+  const changeManualMode = async (enabled: boolean) => {
+    if (manualMode && replaySession) {
+      const finalized = await submitManualDecision('finalize');
+      if (!finalized) return;
+    }
+    setManualMode(enabled);
+    if (replaySession) {
+      void startReplay(false, true, enabled, siModel, siBlendWeight);
+    }
+  };
+  const changeSiModel = async (model: SiModelName) => {
+    if (manualMode && replaySession) {
+      const finalized = await submitManualDecision('finalize');
+      if (!finalized) return;
+    }
+    setSiModel(model);
+    if (replaySession) {
+      void startReplay(false, true, manualMode, model, siBlendWeight);
+    }
+  };
+  const changeSiBlendWeight = async (weight: number) => {
+    if (manualMode && replaySession) {
+      const finalized = await submitManualDecision('finalize');
+      if (!finalized) return;
+    }
+    setSiBlendWeight(weight);
+    if (replaySession) {
+      void startReplay(false, true, manualMode, siModel, weight);
+    }
   };
   const selectAlert = (alert: Alert) => {
     const index = streamAlerts.find(item => item.alert.alertId === alert.alertId)?.candleIndex ?? 0;
@@ -2119,6 +2309,33 @@ export function Home() {
       }
     });
   };
+  useEffect(() => {
+    if (!manualMode || !replayReady) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement
+        && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+      ) return;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
+      const key = event.key.toLowerCase();
+      if (key === 'n') {
+        event.preventDefault();
+        void stepTo(cursorRef.current + 1);
+      } else if (key === 'p') {
+        event.preventDefault();
+        void stepTo(cursorRef.current - 1);
+      } else if (key === 'b') {
+        event.preventDefault();
+        takeManualSide('BUY');
+      } else if (key === 's') {
+        event.preventDefault();
+        takeManualSide('SELL');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [manualMode, replayReady, selected, revealedAlerts, manualComment, manualDecisionLog]);
   const requestNote = () => {
     if (!selected) return;
     commentHook.mutate({ data: { alert: selected } }, {
@@ -2131,7 +2348,15 @@ export function Home() {
       onError: error => notifySiFailure(getSiFailureCategory(error), aiFilterEnabled),
     });
   };
-  const resetWindow = () => { void startReplay(false, true); };
+  const resetWindow = () => {
+    if (manualMode && replaySessionRef.current) {
+      void submitManualDecision('finalize').then(ok => {
+        if (ok) void startReplay(false, true);
+      });
+      return;
+    }
+    void startReplay(false, true);
+  };
   const selectMonth = (month: string) => {
     setViewMonth(month);
     const chunk = currentMonthChunks.find(item => item.month === month);
@@ -2180,6 +2405,7 @@ export function Home() {
   const pendingReviewCount = instrumentReviews.filter(review => !review.ownerApproved).length;
   const atEnd = replayReady && cursor >= totalCandles - 1;
   const togglePlayback = () => {
+    if (manualMode) return;
     if (!replayReady) {
       void startReplay(true);
       return;
@@ -2343,7 +2569,7 @@ export function Home() {
         <button className="transport" disabled={!replayReady || cursor <= 0 || advanceReplayMutation.isPending} data-advance-busy={advanceReplayMutation.isPending && replayReady && cursor > 0 ? 'true' : undefined} onClick={() => { void stepTo(cursor - 1); }} aria-label="Previous candle" data-testid="button-previous-candle"><ChevronLeft size={17}/></button>
         <button
           className="transport play-toggle"
-          disabled={!activeDataset?.ownerApproved || !validDates || dataset.isLoading || dataset.isError || startReplayMutation.isPending || advanceReplayMutation.isPending || replayLimitExceeded || (candlesQuery.isLoading && !replayReady)}
+          disabled={manualMode || !activeDataset?.ownerApproved || !validDates || dataset.isLoading || dataset.isError || startReplayMutation.isPending || advanceReplayMutation.isPending || replayLimitExceeded || (candlesQuery.isLoading && !replayReady)}
           data-advance-busy={advanceReplayMutation.isPending && replayReady ? 'true' : undefined}
           onClick={togglePlayback}
           aria-label={playing ? 'Pause replay' : !replayReady ? 'Run replay' : atEnd ? 'Replay from start' : 'Play replay'}
@@ -2359,6 +2585,61 @@ export function Home() {
       </div>
       <div className="time-readout"><span>{fmtTime(activeCandle?.time)}</span><b>{replayReady ? `${Math.min(cursor + 1, totalCandles).toLocaleString()} / ${totalCandles.toLocaleString()}` : `— / ${totalCandles.toLocaleString()}`}</b></div>
     </section>
+    {selectedSymbol === 'XAUUSD' && <section
+      className={`manual-replay-controls${manualMode ? ' is-active' : ''}`}
+      aria-label="Manual replay controls"
+      data-testid="manual-replay-controls"
+    >
+      <label className="manual-mode-toggle">
+        <input
+          type="checkbox"
+          checked={manualMode}
+          onChange={event => changeManualMode(event.target.checked)}
+          data-testid="toggle-manual-replay"
+        />
+        <span>MANUAL MODE</span>
+      </label>
+      {manualMode ? <>
+        <p>Paused replay · N next · P previous · B/S take only the matching alert side · entries use the next candle open.</p>
+        <div className="manual-decision-actions">
+          <textarea
+            value={manualComment}
+            onChange={event => setManualComment(event.target.value.slice(0, 500))}
+            maxLength={500}
+            placeholder="Optional decision comment"
+            aria-label="Optional manual decision comment"
+            data-testid="input-manual-decision-comment"
+          />
+          <button
+            type="button"
+            disabled={!matchingSession || manualSelectedAlert?.direction !== 'BUY'}
+            onClick={() => takeManualSide('BUY')}
+            data-testid="button-manual-take-buy"
+          >TAKE BUY · B</button>
+          <button
+            type="button"
+            disabled={!matchingSession || manualSelectedAlert?.direction !== 'SELL'}
+            onClick={() => takeManualSide('SELL')}
+            data-testid="button-manual-take-sell"
+          >TAKE SELL · S</button>
+          <button
+            type="button"
+            disabled={!matchingSession || !manualSelectedAlert}
+            onClick={skipManualSelection}
+            data-testid="button-manual-skip"
+          >SKIP ALERT</button>
+        </div>
+        {manualActionError && <div role="alert" className="inline-error" data-testid="error-manual-decision">{manualActionError}</div>}
+        <div className="manual-decision-log" aria-label="Manual decision log" data-testid="manual-decision-log">
+          {manualDecisionLog.slice(-8).reverse().map(decision => <div key={decision.caseId}>
+            <strong>{decision.decision.toUpperCase()}</strong>
+            <span>{decision.alertId.slice(0, 10)} · {String(decision.featureContext.cct ?? '—')} / {String(decision.featureContext.cst ?? '—')} / {String(decision.featureContext.wick_pressure ?? '—')}</span>
+            <code>{decision.formationFingerprint.slice(0, 16)}</code>
+          </div>)}
+          {!manualDecisionLog.length && <span>No manual decisions recorded in this replay.</span>}
+        </div>
+      </> : <p>Manual replay is paused by default when enabled. Automated playback remains unchanged otherwise.</p>}
+    </section>}
 
     <div className="workbench">
       <section
@@ -2586,6 +2867,39 @@ export function Home() {
               disabled={setMinSiScoreMutation.isPending}
               data-testid="reset-si-score-auto"
             >RESET TO AUTO</button>}
+            <div className="si-model-controls" data-testid="si-score-model-controls">
+              <label>
+                <span>SI SCORE MODEL</span>
+                <select
+                  value={siModel}
+                  onChange={event => changeSiModel(event.target.value as SiModelName)}
+                  aria-label="System Intelligence score model"
+                  data-testid="select-si-score-model"
+                >
+                  <option value="evidence">EVIDENCE</option>
+                  <option value="owner">OWNER</option>
+                  <option value="blend">BLEND</option>
+                </select>
+              </label>
+              {siModel === 'blend' && <label>
+                <span>OWNER MIX · {Math.round(siBlendWeight * 100)}%</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={siBlendWeight}
+                  onChange={event => changeSiBlendWeight(Number(event.target.value))}
+                  aria-label="Owner score weight in blend"
+                  data-testid="slider-si-blend-weight"
+                />
+              </label>}
+              <small data-testid="si-owner-model-status">
+                {matchingSession?.ownerModel?.trained
+                  ? `OWNER MODEL READY · ${matchingSession.ownerModel.caseCount} CHOICES`
+                  : `OWNER MODEL NEEDS ${matchingSession?.ownerModel?.requiredCaseCount ?? 30} MANUAL CHOICES`}
+              </small>
+            </div>
             {setMinSiScoreMutation.isError && <span role="alert" className="si-threshold-error">SAVE FAILED</span>}
           </>}
         </div>

@@ -1048,6 +1048,9 @@ class LabService:
         symbol: str = "XAUUSD",
         simulation_settings: dict[str, Any] | None = None,
         swing_direction_version: str = "V2",
+        manual_mode: bool = False,
+        si_model: str = "evidence",
+        si_blend_weight: float = 0.5,
     ) -> dict[str, Any]:
         symbol = _registered_symbol(symbol)
         if not isinstance(swing_direction_version, str) or swing_direction_version not in {
@@ -1144,6 +1147,11 @@ class LabService:
             alert_policy=self.current_policy(),
             mtf_records=mtf_records,
             snapshot_path=self.output_dir / "snapshots.jsonl",
+            manual_mode=manual_mode,
+            si_model=si_model,
+            si_blend_weight=si_blend_weight,
+            si_cases_path=self.output_dir / "si_cases.jsonl",
+            owner_decisions_path=self.output_dir / "owner_decisions.jsonl",
         )
         with self._replay_sessions_lock:
             self._prune_replay_sessions()
@@ -1173,6 +1181,31 @@ class LabService:
             },
         )
         return response
+
+    def decide_manual_replay_session(
+        self,
+        session_id: str,
+        *,
+        candle_index: int,
+        action: str,
+        alert_id: str | None = None,
+        direction: str | None = None,
+        comment: str | None = None,
+    ) -> dict[str, Any]:
+        with self._replay_sessions_lock:
+            session = self._replay_sessions.get(session_id)
+        if session is None:
+            raise RequestError(404, "Replay session was not found or has expired.")
+        try:
+            return session.decide_manually(
+                candle_index=candle_index,
+                action=action,
+                alert_id=alert_id,
+                direction=direction,
+                comment=comment,
+            )
+        except ValueError as exc:
+            raise RequestError(400, str(exc)) from exc
 
     def advance_replay_session(
         self,
@@ -1242,6 +1275,9 @@ class LabService:
                     "strengthLabel": entry["alert"]["strength_label"],
                     "strengthScore": float(entry["alert"]["strength_score"]),
                     "strengthFeatures": entry["alert"]["strength_features"],
+                    "siScore": entry["alert"]["si_score"],
+                    "siEvidenceScore": entry["alert"]["si_evidence_score"],
+                    "siOwnerScore": entry["alert"]["si_owner_score"],
                     "note": entry["alert"]["note"] or None,
                     "candle": _serialize_candle(entry["alert"]["candle"]),
                     "previousCandle": _serialize_candle(
@@ -2080,6 +2116,7 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
             parsed = urllib.parse.urlsplit(self.path)
             try:
                 payload = self._read_json()
+                path_parts = parsed.path.strip("/").split("/")
                 if parsed.path == "/api/evolve/run":
                     if set(payload) - {"symbol", "swingVersion", "missionConfig"}:
                         raise RequestError(
@@ -2154,6 +2191,27 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
                         raise RequestError(
                             400, "simulationSettings must be an object."
                         )
+                    manual_mode = payload.get("manualMode", False)
+                    si_model = payload.get("siModel", "evidence")
+                    si_blend_weight = payload.get("siBlendWeight", 0.5)
+                    if not isinstance(manual_mode, bool):
+                        raise RequestError(400, "manualMode must be a boolean.")
+                    if not isinstance(si_model, str) or si_model not in {
+                        "evidence",
+                        "owner",
+                        "blend",
+                    }:
+                        raise RequestError(
+                            400, "siModel must be evidence, owner, or blend."
+                        )
+                    if (
+                        isinstance(si_blend_weight, bool)
+                        or not isinstance(si_blend_weight, (int, float))
+                        or not 0 <= si_blend_weight <= 1
+                    ):
+                        raise RequestError(
+                            400, "siBlendWeight must be a number from 0 to 1."
+                        )
                     self._send_json(
                         201,
                         service.create_replay_session(
@@ -2163,6 +2221,45 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
                             symbol=symbol,
                             simulation_settings=simulation_settings,
                             swing_direction_version=swing_direction_version,
+                            manual_mode=manual_mode,
+                            si_model=si_model,
+                            si_blend_weight=float(si_blend_weight),
+                        ),
+                    )
+                    return
+                if (
+                    len(path_parts) == 6
+                    and path_parts[:4] == ["api", "lab", "replay", "sessions"]
+                    and path_parts[5] == "manual-decision"
+                ):
+                    candle_index = payload.get("candleIndex")
+                    action = payload.get("action")
+                    alert_id = payload.get("alertId")
+                    direction = payload.get("direction")
+                    comment = payload.get("comment")
+                    if (
+                        not isinstance(candle_index, int)
+                        or isinstance(candle_index, bool)
+                        or not isinstance(action, str)
+                    ):
+                        raise RequestError(
+                            400, "candleIndex and action are required."
+                        )
+                    if alert_id is not None and not isinstance(alert_id, str):
+                        raise RequestError(400, "alertId must be a string.")
+                    if direction is not None and not isinstance(direction, str):
+                        raise RequestError(400, "direction must be a string.")
+                    if comment is not None and not isinstance(comment, str):
+                        raise RequestError(400, "comment must be a string.")
+                    self._send_json(
+                        200,
+                        service.decide_manual_replay_session(
+                            path_parts[4],
+                            candle_index=candle_index,
+                            action=action,
+                            alert_id=alert_id,
+                            direction=direction,
+                            comment=comment,
                         ),
                     )
                     return
