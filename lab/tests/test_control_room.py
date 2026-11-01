@@ -493,7 +493,8 @@ class ControlRoomServiceTests(unittest.TestCase):
         ]
         self.assertEqual(len(snapshot_rows), len(result["alerts"]))
         self.assertEqual(
-            {path.name for path in self.output_dir.iterdir()}, {"snapshots.jsonl"}
+            {path.name for path in self.output_dir.iterdir()},
+            {"snapshots.jsonl", "system-intelligence"},
         )
 
     def test_backtest_rejects_windows_over_the_chart_cap(self):

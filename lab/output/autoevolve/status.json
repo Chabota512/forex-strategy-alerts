@@ -1,0 +1,20 @@
+{
+  "active_job_id": "b9f4b55e-fa9e-443f-904f-cfcef563676a",
+  "alerts": [],
+  "cooldown_seconds": 60,
+  "cooldown_until_utc": null,
+  "error": null,
+  "keys": {
+    "key1": "unknown",
+    "key2": "unknown"
+  },
+  "last_result_file": "evolve_round_02_20261101T203612702328Z_result.json",
+  "last_verdict": "failed",
+  "phase": "training",
+  "round": 3,
+  "running": true,
+  "state": "stopping",
+  "stop_requested": true,
+  "swing_version": "V2",
+  "updated_at_utc": "2026-11-01T20:58:12.069762Z"
+}

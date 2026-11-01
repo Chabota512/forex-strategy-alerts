@@ -647,9 +647,11 @@ def test_manual_filter_changes_only_gate_new_alerts_mid_replay() -> None:
 class _FunctionTest(unittest.TestCase):
     def __init__(self, function):
         super().__init__("runTest")
-        self.function = function
+        self.function = function if callable(function) else None
 
     def runTest(self) -> None:
+        if self.function is None:
+            self.skipTest("Function wrapper is collected only by unittest load_tests.")
         self.function()
 
 

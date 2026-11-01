@@ -1,6 +1,6 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { SimulatedTrade, TradeCommentResult } from '@workspace/api-client-react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TradeJournal } from './trade-journal';
 
 const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
@@ -54,6 +54,7 @@ function makeTrade(overrides: Partial<SimulatedTrade> = {}): SimulatedTrade {
 
 describe('trade journal', () => {
   beforeEach(() => mutate.mockReset());
+  afterEach(cleanup);
 
   it('shows the inversion badge and score for an inverted trade', () => {
     const trade = makeTrade({

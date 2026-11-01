@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SystemIntelligence as IntelligenceData } from '@workspace/api-client-react';
 import SystemIntelligence from './system-intelligence';
 
@@ -12,6 +12,22 @@ vi.mock('@workspace/api-client-react', () => ({
   useGetSystemIntelligence,
   getGetSystemIntelligenceQueryKey,
 }));
+
+class ResizeObserverStub implements ResizeObserver {
+  constructor(private readonly callback: ResizeObserverCallback) {}
+
+  observe(target: Element) {
+    this.callback([
+      {
+        target,
+        contentRect: { width: 640, height: 190 } as DOMRectReadOnly,
+      } as ResizeObserverEntry,
+    ], this);
+  }
+
+  unobserve() {}
+  disconnect() {}
+}
 
 const sampleData: IntelligenceData = {
   symbol: 'XAUUSD',
@@ -48,7 +64,14 @@ const sampleData: IntelligenceData = {
 };
 
 describe('SystemIntelligence', () => {
-  beforeEach(() => useGetSystemIntelligence.mockReset());
+  beforeEach(() => {
+    useGetSystemIntelligence.mockReset();
+    vi.stubGlobal('ResizeObserver', ResizeObserverStub);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it('renders the generated research summary and evidence surfaces', () => {
     useGetSystemIntelligence.mockReturnValue({
@@ -59,9 +82,12 @@ describe('SystemIntelligence', () => {
 
     expect(screen.getAllByText('58.3%').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Trend confirmation').length).toBeGreaterThan(0);
+    expect(screen.getByRole('img', { name: 'XAUUSD hit rate over time' })).toBeTruthy();
+    expect(screen.getByTestId('intel-rules').textContent).toContain('HIT RATE');
     expect(screen.getByText('Retain the rule for further observation.')).toBeTruthy();
     expect(screen.getByText(/SAMPLE COUNT:/)).toBeTruthy();
     expect(screen.getByText('STRENGTH THRESHOLDS')).toBeTruthy();
+    expect((screen.getByTestId('button-accept-intel-suggestion') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/SIMULATION ONLY/)).toBeTruthy();
   });
 

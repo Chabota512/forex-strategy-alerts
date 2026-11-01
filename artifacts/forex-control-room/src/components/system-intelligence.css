@@ -82,6 +82,7 @@
 .intel-message strong { display:block; color:var(--intel-strong); font-size:8px; font-weight:400; letter-spacing:.06em; }
 .intel-message p { margin:5px 0 0; }
 .intel-message button { min-height:26px; padding:0 9px; border:1px solid var(--control-border, #353c44); background:var(--control-raised, #1c2229); color:var(--intel-copy); cursor:pointer; font:7px var(--app-font-mono, monospace); }
+.intel-message button:disabled { cursor:not-allowed; opacity:.45; }
 .intel-skeleton { display:grid; gap:8px; padding:14px; }
 .intel-skeleton i { display:block; height:10px; background:linear-gradient(90deg,var(--loading-a,#191e24),var(--loading-b,#20262d),var(--loading-a,#191e24)); background-size:220% 100%; animation:intel-shimmer 1.6s ease-in-out infinite; }
 .intel-skeleton i:nth-child(2) { width:82%; }

@@ -1180,12 +1180,15 @@ class ReplaySession:
                             wp_state=wick_pressure,
                             simulation_settings=self.simulation.settings.to_dict(),
                         )
-                        snapshot["formation_fingerprint"] = build_formation_fingerprint(
-                            self.states[max(0, index + 1 - 20) : index + 1],
-                            self.swing_events,
-                            entry_index=index + 1,
-                            window=20,
-                        )
+                        if self.si_case_sink is not None:
+                            snapshot["formation_fingerprint"] = (
+                                build_formation_fingerprint(
+                                    self.states[max(0, index + 1 - 20) : index + 1],
+                                    self.swing_events,
+                                    entry_index=index + 1,
+                                    window=20,
+                                )
+                            )
                         alert_id = str(alert["alert_id"])
                         if queued:
                             self._pending_snapshots[alert_id] = snapshot

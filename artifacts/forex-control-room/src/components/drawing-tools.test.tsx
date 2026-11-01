@@ -223,9 +223,11 @@ describe('drawing toolbar', () => {
     expect(view.getByTestId('swing-version-agreement').textContent).toContain(
       'V1/V2 50%',
     );
-    expect(
-      view.getByTestId('cst-state-band').getAttribute('fill'),
-    ).toBe('var(--trend-down)');
+    const stateBands = view.getAllByTestId('cst-state-band');
+    expect(stateBands.length).toBeGreaterThan(0);
+    expect(stateBands.every(
+      band => band.getAttribute('fill') === 'var(--trend-down)',
+    )).toBe(true);
   });
 
   it('switches directly between drawing tools', () => {

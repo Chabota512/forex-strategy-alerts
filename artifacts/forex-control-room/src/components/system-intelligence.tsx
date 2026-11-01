@@ -129,6 +129,18 @@ function LoadedIntelligence({ data }: { data: SystemIntelligence }) {
       </div>
       <p className="intel-bounded-note">These values are displayed for research context only. Their bounds and any changes are governed by the server; this panel cannot edit or apply them.</p>
     </section>
+    <section className="intel-section" aria-labelledby="intel-suggestion-title">
+      <div className="intel-section-head"><h3 id="intel-suggestion-title">ACCEPT SUGGESTION</h3><span>INERT SLOT · DISABLED</span></div>
+      <div className="intel-message" data-testid="intel-accept-suggestion-slot">
+        <div><strong>NO SUGGESTION CAN BE APPLIED</strong><p>Reserved for future owner review; this control cannot change the system.</p></div>
+        <button
+          type="button"
+          disabled
+          aria-label="Accept suggestion (inactive)"
+          data-testid="button-accept-intel-suggestion"
+        >ACCEPT SUGGESTION</button>
+      </div>
+    </section>
   </>;
 }
 

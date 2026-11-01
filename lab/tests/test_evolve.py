@@ -873,6 +873,7 @@ class EvolutionLoopTests(unittest.TestCase):
             mtf_context=None,
             symbol="XAUUSD",
             swing_version=None,
+            include_si_fingerprints=False,
         ):
             alerts_by_index = {}
             counts = evolve.Counter()

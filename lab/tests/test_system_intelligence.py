@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 from typing import Any
 
+from lab.autoevolve import AutoevolveManager
 from lab.evolve_jobs import EvolveJobManager
 from lab.si_beliefs import adjust_tunables, initial_tunables, validate_tunables
 from lab.si_cases import (
@@ -290,6 +291,27 @@ def test_belief_hit_rate_and_expectancy_use_net_r(tmp_path: Any) -> None:
     assert countertrend["flagged"] is False
 
 
+def test_rule_weight_decay_matches_relative_hit_rate_gap(tmp_path: Any) -> None:
+    store = SICaseStore(
+        cases_path=tmp_path / "decay-cases.jsonl",
+        state_path=tmp_path / "decay-beliefs.json",
+    )
+    cases = [
+        _case(index, net_r=1.0 if index == 4 or index >= 5 else -1.0, consolidation=index < 5)
+        for index in range(10)
+    ]
+
+    store.ingest_cases(cases)
+
+    countertrend = next(
+        rule for rule in store.snapshot()["rules"]
+        if rule["id"] == "countertrend_consolidation"
+    )
+    assert countertrend["hit_rate"] == 0.2
+    assert countertrend["baseline_hit_rate"] == 0.6
+    assert abs(countertrend["weight"] - 0.2) < 1e-9
+
+
 def test_tunable_adjustments_remain_inside_approved_bounds() -> None:
     cases = [
         _case(index, net_r=1.0 if index % 2 == 0 else -1.0)
@@ -344,3 +366,54 @@ def test_evolution_job_passes_the_case_sink_without_live_llm_calls(
 
     assert case_seen.wait(timeout=5)
     assert store.snapshot()["case_count"] == 1
+
+
+def test_autoevolve_round_feeds_a_case_to_system_intelligence(
+    tmp_path: Any,
+) -> None:
+    store = SICaseStore(
+        tmp_path / "autoevolve-cases.jsonl",
+        tmp_path / "autoevolve-beliefs.json",
+    )
+    case_seen = threading.Event()
+    round_finished = threading.Event()
+
+    def fake_rounds_runner(**options: Any) -> dict[str, Any]:
+        options["si_case_sink"]([_case(1, net_r=1.0)])
+        case_seen.set()
+        round_finished.set()
+        return {
+            "rounds": [{
+                "decision": "ineligible",
+                "eligible": False,
+                "result_file": str(tmp_path / "evolve_round_01_fixture_result.json"),
+            }]
+        }
+
+    jobs = EvolveJobManager(run_rounds_fn=fake_rounds_runner)
+    jobs.set_system_intelligence_sink(store.ingest_cases)
+    manager = AutoevolveManager(
+        jobs,
+        data_root=tmp_path,
+        proposals_dir=tmp_path / "proposals",
+        state_path=tmp_path / "autoevolve-status.json",
+        active_round_path=tmp_path / "active-round.json",
+        cooldown_seconds=60,
+        poll_seconds=0.005,
+    )
+
+    manager.start()
+    try:
+        assert case_seen.wait(timeout=5)
+        assert round_finished.wait(timeout=5)
+        thread = manager._thread
+        assert thread is not None
+        manager.stop()
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+        assert manager.status()["round"] == 1
+        assert store.snapshot()["case_count"] == 1
+    finally:
+        if manager._thread is not None and manager._thread.is_alive():
+            manager.stop()
+            manager._thread.join(timeout=5)

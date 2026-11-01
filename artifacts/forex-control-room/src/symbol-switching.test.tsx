@@ -45,6 +45,14 @@ vi.mock('@/components/evolve-control', () => ({
   default: ({ symbol }: { symbol: string }) => <output data-testid="evolve-scope">{symbol}</output>,
 }));
 
+vi.mock('@/components/autoevolve-control', () => ({
+  default: () => null,
+}));
+
+vi.mock('@/components/system-intelligence', () => ({
+  default: () => null,
+}));
+
 const symbols: InstrumentSymbol[] = ['XAUUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDJPY'];
 const approvedReviews = symbols.map(symbol => ({
   symbol,
@@ -192,20 +200,36 @@ beforeEach(() => {
       refetch: vi.fn(),
     };
   });
-  api.start.mockResolvedValue({
-    sessionId: 'session-gbp',
-    symbol: 'GBPUSD',
-    runId: 'run-gbp',
-    timeframe: 'M15',
-    from: '2025-01-01',
-    to: '2025-12-31',
-    totalCandles: 2,
-    cursor: 0,
-    computedThrough: 0,
-    states: [],
-    wickPressureStates: [],
-    simulation: null,
-    currentCandle: candle('2025-01-01T00:00:00Z', 1.25),
+  api.start.mockImplementation(async (request: {
+    data: {
+      symbol: InstrumentSymbol;
+      timeframe: string;
+      from: string;
+      to: string;
+      swingDirectionVersion: 'V1' | 'V2';
+    };
+  }) => {
+    const { symbol, timeframe, from, to, swingDirectionVersion } = request.data;
+    const slug = symbol === 'GBPUSD' ? 'gbp' : symbol.toLowerCase();
+    return {
+      sessionId: `session-${slug}`,
+      symbol,
+      runId: `run-${slug}`,
+      timeframe,
+      from,
+      to,
+      swingDirectionVersion,
+      totalCandles: 2,
+      cursor: 0,
+      computedThrough: 0,
+      states: [],
+      wickPressureStates: [],
+      simulation: null,
+      currentCandle: candle(
+        '2025-01-01T00:00:00Z',
+        symbol === 'GBPUSD' ? 1.25 : 2000,
+      ),
+    };
   });
   api.advance.mockResolvedValue({
     newStates: [],
@@ -273,6 +297,7 @@ describe('symbol switching session', () => {
       symbol: 'XAUUSD',
       runId: 'run-ai-filter',
       timeframe: 'M15',
+      swingDirectionVersion: 'V2',
       from: '2023-01-01',
       to: '2023-01-31',
       totalCandles: 2,
@@ -356,6 +381,7 @@ describe('symbol switching session', () => {
   it('hides V1 layers in Gold V2 and restores their saved toggle states in V1', async () => {
     render(<TooltipProvider><Home /></TooltipProvider>);
 
+    fireEvent.click(await screen.findByTestId('button-swing-version-v1'));
     const cct = await screen.findByTestId('toggle-overlay-cct');
     const cst = screen.getByTestId('toggle-overlay-cst');
     const dc = screen.getByTestId('toggle-overlay-dc');
@@ -517,6 +543,7 @@ describe('symbol switching session', () => {
         symbol: 'XAUUSD',
         runId: `run-keyboard-${sessionNumber}`,
         timeframe: 'M15',
+        swingDirectionVersion: 'V2',
         from: '2023-01-01',
         to: '2023-01-31',
         totalCandles: 3,
@@ -642,6 +669,7 @@ describe('symbol switching session', () => {
       symbol: 'XAUUSD',
       runId: 'run-follow-cursor',
       timeframe: 'M15',
+      swingDirectionVersion: 'V2',
       from: '2023-01-01',
       to: '2023-01-02',
       totalCandles: simulationCandles.length,
@@ -744,6 +772,7 @@ describe('symbol switching session', () => {
       symbol: 'XAUUSD',
       runId: 'run-playback-follow',
       timeframe: 'M15',
+      swingDirectionVersion: 'V2',
       from: '2023-01-01',
       to: '2023-01-02',
       totalCandles: simulationCandles.length,
@@ -1037,6 +1066,7 @@ describe('symbol switching session', () => {
       symbol: 'XAUUSD',
       runId: 'run-journal',
       timeframe: 'M15',
+      swingDirectionVersion: 'V2',
       from: '2023-01-01',
       to: '2023-01-31',
       totalCandles: candles.length,
@@ -1209,6 +1239,7 @@ describe('symbol switching session', () => {
       refetch: vi.fn(),
     }));
     render(<TooltipProvider><Home /></TooltipProvider>);
+    fireEvent.click(screen.getByTestId('button-swing-version-v1'));
     fireEvent.click(screen.getByTestId('toggle-overlay-swings'));
 
     expect(document.querySelectorAll('.swing-marker')).toHaveLength(8);
@@ -1342,6 +1373,7 @@ describe('symbol switching session', () => {
       symbol: 'XAUUSD',
       runId: 'run-xau',
       timeframe: 'M15',
+      swingDirectionVersion: 'V2',
       from: '2023-01-01',
       to: '2023-01-31',
       totalCandles: 2,
@@ -1390,6 +1422,7 @@ describe('symbol switching session', () => {
       symbol: 'XAUUSD',
       runId: `run-${sessionId}`,
       timeframe: 'M15',
+      swingDirectionVersion: 'V2',
       from: '2023-01-01',
       to: '2023-01-31',
       totalCandles: 2,
@@ -1431,6 +1464,7 @@ describe('symbol switching session', () => {
       symbol: 'XAUUSD',
       runId: 'run-gold-filters',
       timeframe: 'M15',
+      swingDirectionVersion: 'V2',
       from: '2023-01-01',
       to: '2023-01-31',
       totalCandles: 2,
