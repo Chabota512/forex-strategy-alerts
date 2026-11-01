@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Forex Strategy Alerts"
+description = "A web app based on the public Forex Strategy Alerts repository."
+version = "1.0.0"
+id = "artifacts/forex-strategy-alerts"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24481
+
+[services.development]
+run = "pnpm --filter @workspace/forex-control-room run dev"
+
+[services.production]
+build = [ "pnpm", "--dir", "artifacts/forex-strategy-alerts", "--filter", "@workspace/forex-control-room", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/forex-strategy-alerts/artifacts/forex-control-room/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24481"
+BASE_PATH = "/"

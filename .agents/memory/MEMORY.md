@@ -1,0 +1,3 @@
+- [Managed workflow working directories](managed-workflow-cwd.md) — resolve service commands from the owning artifact directory, not the workspace root.
+- [Public GitHub repository imports](public-github-imports.md) — Git CLI may be routed through Replit’s disconnected proxy; direct public archives can still work.
+- [Project-root imports](project-root-imports.md) — preserve Replit-managed mounts and project Git metadata when replacing starter files with a downloaded tree.

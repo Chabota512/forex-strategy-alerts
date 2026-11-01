@@ -10,7 +10,7 @@ name = "API Server"
 paths = ["/api"]
 
 [services.development]
-run = "pnpm --filter @workspace/api-server run dev"
+run = "cd ../forex-strategy-alerts && uv run python -m lab.server"
 
 [services.production]
 
