@@ -7,6 +7,7 @@ export type PolicyDecisionView = {
 export type PolicyAlertItem = {
   alert: {
     alertId: string;
+    siScore?: number | null;
   };
 };
 
@@ -20,8 +21,9 @@ export function applyAiPolicyView<T extends PolicyAlertItem>(
   enabled: boolean,
   policyMode: string | undefined,
   decisions: ReadonlyMap<string, PolicyDecisionView>,
+  minSiScore = 0,
 ): { visible: T[]; hidden: HiddenPolicyAlert<T>[] } {
-  if (!enabled || policyMode !== 'active') {
+  if (!enabled || (policyMode !== 'active' && minSiScore <= 0)) {
     return { visible: items, hidden: [] };
   }
 

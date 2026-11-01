@@ -363,6 +363,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /evolve/policy/min-si-score:
+    post:
+      operationId: setEvolvePolicyMinSiScore
+      tags: [evolve]
+      summary: Set the owner-controlled SYSTEM INTELLIGENCE score threshold
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvolvePolicyMinSiScoreInput"
+      responses:
+        "200":
+          description: New immutable policy version with the requested score threshold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvolvePolicy"
+        "400":
+          description: The requested score threshold is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /evolve/autoevolve/status:
     get:
       operationId: getAutoevolveStatus
@@ -515,6 +539,10 @@ components:
           type: integer
           minimum: 0
           maximum: 48
+        min_si_score:
+          type: number
+          minimum: 0
+          maximum: 1
       required:
         - min_strength
         - require_wp_agree
@@ -522,6 +550,7 @@ components:
         - timeframes
         - exit_model
         - cooldown_candles
+        - min_si_score
     EvolvePolicy:
       type: object
       properties:
@@ -554,6 +583,15 @@ components:
           type: integer
           minimum: 1
       required: [version]
+      additionalProperties: false
+    EvolvePolicyMinSiScoreInput:
+      type: object
+      properties:
+        min_si_score:
+          type: number
+          minimum: 0
+          maximum: 1
+      required: [min_si_score]
       additionalProperties: false
     EvolvePolicyVersion:
       type: object
@@ -988,7 +1026,6 @@ components:
           exclusiveMinimum: 0
           maximum: 1000000000000
           default: 1000
-          default: 10000
         riskPercent:
           type: number
           exclusiveMinimum: 0
@@ -1736,6 +1773,10 @@ components:
           enum: [STRONG, NEUTRAL, WEAK]
         strengthScore:
           type: number
+          minimum: 0
+          maximum: 1
+        siScore:
+          type: [number, "null"]
           minimum: 0
           maximum: 1
         strengthFeatures:

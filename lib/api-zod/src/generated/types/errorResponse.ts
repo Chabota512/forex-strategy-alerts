@@ -5,7 +5,10 @@
  * Forex Strategy Lab read-only data and unscored review operations
  * OpenAPI spec version: 0.1.0
  */
+import type { ErrorResponseFailureCategory } from './errorResponseFailureCategory';
 
 export interface ErrorResponse {
   error: string;
+  /** @nullable */
+  failureCategory: ErrorResponseFailureCategory;
 }

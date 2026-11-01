@@ -1611,9 +1611,15 @@ class EvolutionLoopTests(unittest.TestCase):
             self.assertEqual(
                 current_policy["source_champion_version"], promoted["version"]
             )
+            expected_policy_settings = {
+                key: candidate_options[key]
+                for key in POLICY_SETTING_KEYS
+                if key != "min_si_score"
+            }
+            expected_policy_settings["min_si_score"] = 0.0
             self.assertEqual(
                 current_policy["settings"],
-                {key: candidate_options[key] for key in POLICY_SETTING_KEYS},
+                expected_policy_settings,
             )
             policy_archives = list((tmp_path / "policy_history").glob("*.json"))
             self.assertEqual(len(policy_archives), 1)

@@ -44,4 +44,20 @@ describe('applyAiPolicyView', () => {
       'Policy decision unavailable for this alert.',
     ]);
   });
+
+  it('applies an owner-set score threshold under passthrough mode', () => {
+    const filtered = applyAiPolicyView(
+      items,
+      true,
+      'passthrough',
+      new Map([
+        ['kept', { alertId: 'kept', passed: true, reasons: [] }],
+        ['blocked', { alertId: 'blocked', passed: false, reasons: ['si_score < 0.60'] }],
+      ]),
+      0.6,
+    );
+    expect(filtered.visible.map(item => item.alert.alertId)).toEqual(['kept']);
+    expect(filtered.hidden[0]?.reasons).toEqual(['si_score < 0.60']);
+    expect(applyAiPolicyView(items, true, 'passthrough', new Map(), 0).visible).toEqual(items);
+  });
 });

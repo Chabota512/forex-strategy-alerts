@@ -2031,7 +2031,9 @@ def _promote_candidate(
         atomic_write_json(policy_current_path, passthrough_policy())
     candidate_options = options_for_spec(candidate)
     policy_settings = {
-        key: candidate_options[key] for key in POLICY_SETTING_KEYS
+        key: candidate_options[key]
+        for key in POLICY_SETTING_KEYS
+        if key != "min_si_score"
     }
     write_promoted_policy(
         current_path=policy_current_path,

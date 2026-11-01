@@ -130,7 +130,7 @@ function LoadedIntelligence({ data }: { data: SystemIntelligence }) {
     </section>
     <section className="intel-section" aria-labelledby="intel-lessons-title">
       <div className="intel-section-head"><h3 id="intel-lessons-title">LESSON LEDGER</h3><span>{data.lessons.length} evidence records</span></div>
-      {data.lessons.length ? <div className="intel-ledger" data-testid="intel-lessons" tabIndex={0} aria-label="Scrollable lesson ledger">
+      {data.lessons.length ? <div className="intel-ledger" data-testid="intel-lessons" tabIndex={0} aria-label="Scrollable lesson ledger" style={{ maxHeight: 320, overflowY: 'auto' }}>
         {[...data.lessons].reverse().map(lesson => <article className="intel-lesson" key={lesson.id} data-testid={`intel-lesson-${lesson.id}`}>
           <div className="intel-lesson-meta"><strong>{lesson.ruleName}</strong><time dateTime={lesson.createdAtUtc}>{dateTime(lesson.createdAtUtc)}</time></div>
           <div className="intel-lesson-body"><div className="intel-lesson-action">{lesson.action}</div><Evidence evidence={lesson.evidence}/></div>

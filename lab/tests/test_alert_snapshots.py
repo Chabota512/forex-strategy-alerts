@@ -47,6 +47,8 @@ class AlertSnapshotTests(unittest.TestCase):
         }
 
     def test_snapshot_derives_candle_features_and_simulation_fields(self):
+        self.alert["si_score"] = 0.73
+        self.alert["formation_fingerprint"] = {"consecutive_lows_reversal": True}
         snapshot = build_alert_snapshot(
             self.alert,
             atr14=Decimal("2"),
@@ -64,6 +66,11 @@ class AlertSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot["tf"], "M1")
         self.assertEqual(snapshot["variant"], "A")
         self.assertEqual(snapshot["strength_score"], "0.625000")
+        self.assertEqual(snapshot["si_score"], "0.73")
+        self.assertEqual(
+            snapshot["formation_fingerprint"],
+            {"consecutive_lows_reversal": True},
+        )
         self.assertEqual(snapshot["cst_v1_state"], "uptrend")
         self.assertEqual(snapshot["cst_v2_state"], "consolidation")
         self.assertEqual(snapshot["swing_version_agreement_pct"], 0)

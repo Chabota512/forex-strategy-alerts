@@ -23,6 +23,7 @@ _FEATURE_AXES = (
     "direction",
     "strength",
     "strength_score",
+    "si_score",
     "sim_direction_mode",
     "sim_applied_direction",
     "sim_invert_score",
@@ -201,8 +202,8 @@ def _groups_for_axis(
             left = _eligible_value(row.get("cst"))
             right = _eligible_value(row.get("hier_state"))
             value = f"{left}|{right}" if left and right else None
-        elif axis in {"strength_score", "sim_invert_score"}:
-            raw_score = row.get("strength_score")
+        elif axis in {"strength_score", "si_score", "sim_invert_score"}:
+            raw_score = row.get(axis)
             if axis == "sim_invert_score":
                 raw_score = row.get("sim_invert_score")
             try:

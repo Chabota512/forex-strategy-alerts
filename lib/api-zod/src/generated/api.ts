@@ -158,7 +158,7 @@ export const GetLabCandlesResponse = zod.object({
  * @summary Run an unscored smoke backtest
  */
 export const runLabBacktestBodySimulationSettingsEnabledDefault = true;
-export const runLabBacktestBodySimulationSettingsStartingBalanceDefault = 10000;
+export const runLabBacktestBodySimulationSettingsStartingBalanceDefault = 1000;
 export const runLabBacktestBodySimulationSettingsStartingBalanceExclusiveMin = 0;
 export const runLabBacktestBodySimulationSettingsStartingBalanceMax = 1000000000000;
 
@@ -306,6 +306,9 @@ export const runLabBacktestResponseAlertsItemLegacyAgreementPctMax = 100;
 export const runLabBacktestResponseAlertsItemStrengthScoreMin = 0;
 export const runLabBacktestResponseAlertsItemStrengthScoreMax = 1;
 
+export const runLabBacktestResponseAlertsItemSiScoreMin = 0;
+export const runLabBacktestResponseAlertsItemSiScoreMax = 1;
+
 export const runLabBacktestResponseAlertsItemCandleSwingVersionAgreementPctMin = 0;
 export const runLabBacktestResponseAlertsItemCandleSwingVersionAgreementPctMax = 100;
 
@@ -325,7 +328,7 @@ export const runLabBacktestResponseSimulationOpenTradeCountMin = 0;
 export const runLabBacktestResponseSimulationClosedTradeCountMin = 0;
 
 export const runLabBacktestResponseSimulationSettingsEnabledDefault = true;
-export const runLabBacktestResponseSimulationSettingsStartingBalanceDefault = 10000;
+export const runLabBacktestResponseSimulationSettingsStartingBalanceDefault = 1000;
 export const runLabBacktestResponseSimulationSettingsStartingBalanceExclusiveMin = 0;
 export const runLabBacktestResponseSimulationSettingsStartingBalanceMax = 1000000000000;
 
@@ -491,6 +494,7 @@ export const RunLabBacktestResponse = zod.object({
   "hierState": zod.enum(['undefined', 'uptrend', 'downtrend', 'transition']),
   "strengthLabel": zod.enum(['STRONG', 'NEUTRAL', 'WEAK']),
   "strengthScore": zod.number().min(runLabBacktestResponseAlertsItemStrengthScoreMin).max(runLabBacktestResponseAlertsItemStrengthScoreMax),
+  "siScore": zod.number().min(runLabBacktestResponseAlertsItemSiScoreMin).max(runLabBacktestResponseAlertsItemSiScoreMax).nullish(),
   "strengthFeatures": zod.object({
   "cst_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
   "cct_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
@@ -609,6 +613,7 @@ export const RunLabBacktestResponse = zod.object({
   "winRatePct": zod.number().min(runLabBacktestResponseSimulationStatsWinRatePctMin).max(runLabBacktestResponseSimulationStatsWinRatePctMax),
   "avgR": zod.number(),
   "expectancyAfterCosts": zod.number(),
+  "expectancyMoneyAfterCosts": zod.number(),
   "maxDrawdown": zod.number().min(runLabBacktestResponseSimulationStatsMaxDrawdownMin),
   "maxDrawdownPct": zod.number().min(runLabBacktestResponseSimulationStatsMaxDrawdownPctMin),
   "profitFactor": zod.number().nullable()
@@ -670,7 +675,7 @@ export const RunLabBacktestResponse = zod.object({
  * @summary Start a paused incremental replay session
  */
 export const startLabReplaySessionBodySimulationSettingsEnabledDefault = true;
-export const startLabReplaySessionBodySimulationSettingsStartingBalanceDefault = 10000;
+export const startLabReplaySessionBodySimulationSettingsStartingBalanceDefault = 1000;
 export const startLabReplaySessionBodySimulationSettingsStartingBalanceExclusiveMin = 0;
 export const startLabReplaySessionBodySimulationSettingsStartingBalanceMax = 1000000000000;
 
@@ -816,7 +821,7 @@ export const startLabReplaySessionResponseSimulationOpenTradeCountMin = 0;
 export const startLabReplaySessionResponseSimulationClosedTradeCountMin = 0;
 
 export const startLabReplaySessionResponseSimulationSettingsEnabledDefault = true;
-export const startLabReplaySessionResponseSimulationSettingsStartingBalanceDefault = 10000;
+export const startLabReplaySessionResponseSimulationSettingsStartingBalanceDefault = 1000;
 export const startLabReplaySessionResponseSimulationSettingsStartingBalanceExclusiveMin = 0;
 export const startLabReplaySessionResponseSimulationSettingsStartingBalanceMax = 1000000000000;
 
@@ -916,7 +921,7 @@ export const startLabReplaySessionResponsePolicySimulationOneOpenTradeCountMin =
 export const startLabReplaySessionResponsePolicySimulationOneClosedTradeCountMin = 0;
 
 export const startLabReplaySessionResponsePolicySimulationOneSettingsEnabledDefault = true;
-export const startLabReplaySessionResponsePolicySimulationOneSettingsStartingBalanceDefault = 10000;
+export const startLabReplaySessionResponsePolicySimulationOneSettingsStartingBalanceDefault = 1000;
 export const startLabReplaySessionResponsePolicySimulationOneSettingsStartingBalanceExclusiveMin = 0;
 export const startLabReplaySessionResponsePolicySimulationOneSettingsStartingBalanceMax = 1000000000000;
 
@@ -1129,6 +1134,7 @@ export const StartLabReplaySessionResponse = zod.object({
   "winRatePct": zod.number().min(startLabReplaySessionResponseSimulationStatsWinRatePctMin).max(startLabReplaySessionResponseSimulationStatsWinRatePctMax),
   "avgR": zod.number(),
   "expectancyAfterCosts": zod.number(),
+  "expectancyMoneyAfterCosts": zod.number(),
   "maxDrawdown": zod.number().min(startLabReplaySessionResponseSimulationStatsMaxDrawdownMin),
   "maxDrawdownPct": zod.number().min(startLabReplaySessionResponseSimulationStatsMaxDrawdownPctMin),
   "profitFactor": zod.number().nullable()
@@ -1187,6 +1193,7 @@ export const StartLabReplaySessionResponse = zod.object({
   "winRatePct": zod.number().min(startLabReplaySessionResponsePolicySimulationOneStatsWinRatePctMin).max(startLabReplaySessionResponsePolicySimulationOneStatsWinRatePctMax),
   "avgR": zod.number(),
   "expectancyAfterCosts": zod.number(),
+  "expectancyMoneyAfterCosts": zod.number(),
   "maxDrawdown": zod.number().min(startLabReplaySessionResponsePolicySimulationOneStatsMaxDrawdownMin),
   "maxDrawdownPct": zod.number().min(startLabReplaySessionResponsePolicySimulationOneStatsMaxDrawdownPctMin),
   "profitFactor": zod.number().nullable()
@@ -1335,6 +1342,9 @@ export const advanceLabReplaySessionResponseNewAlertsItemAlertLegacyAgreementPct
 export const advanceLabReplaySessionResponseNewAlertsItemAlertStrengthScoreMin = 0;
 export const advanceLabReplaySessionResponseNewAlertsItemAlertStrengthScoreMax = 1;
 
+export const advanceLabReplaySessionResponseNewAlertsItemAlertSiScoreMin = 0;
+export const advanceLabReplaySessionResponseNewAlertsItemAlertSiScoreMax = 1;
+
 export const advanceLabReplaySessionResponseNewAlertsItemAlertCandleSwingVersionAgreementPctMin = 0;
 export const advanceLabReplaySessionResponseNewAlertsItemAlertCandleSwingVersionAgreementPctMax = 100;
 
@@ -1357,7 +1367,7 @@ export const advanceLabReplaySessionResponsePolicySimulationOneOpenTradeCountMin
 export const advanceLabReplaySessionResponsePolicySimulationOneClosedTradeCountMin = 0;
 
 export const advanceLabReplaySessionResponsePolicySimulationOneSettingsEnabledDefault = true;
-export const advanceLabReplaySessionResponsePolicySimulationOneSettingsStartingBalanceDefault = 10000;
+export const advanceLabReplaySessionResponsePolicySimulationOneSettingsStartingBalanceDefault = 1000;
 export const advanceLabReplaySessionResponsePolicySimulationOneSettingsStartingBalanceExclusiveMin = 0;
 export const advanceLabReplaySessionResponsePolicySimulationOneSettingsStartingBalanceMax = 1000000000000;
 
@@ -1534,7 +1544,7 @@ export const advanceLabReplaySessionResponseSimulationOpenTradeCountMin = 0;
 export const advanceLabReplaySessionResponseSimulationClosedTradeCountMin = 0;
 
 export const advanceLabReplaySessionResponseSimulationSettingsEnabledDefault = true;
-export const advanceLabReplaySessionResponseSimulationSettingsStartingBalanceDefault = 10000;
+export const advanceLabReplaySessionResponseSimulationSettingsStartingBalanceDefault = 1000;
 export const advanceLabReplaySessionResponseSimulationSettingsStartingBalanceExclusiveMin = 0;
 export const advanceLabReplaySessionResponseSimulationSettingsStartingBalanceMax = 1000000000000;
 
@@ -1715,6 +1725,7 @@ export const AdvanceLabReplaySessionResponse = zod.object({
   "hierState": zod.enum(['undefined', 'uptrend', 'downtrend', 'transition']),
   "strengthLabel": zod.enum(['STRONG', 'NEUTRAL', 'WEAK']),
   "strengthScore": zod.number().min(advanceLabReplaySessionResponseNewAlertsItemAlertStrengthScoreMin).max(advanceLabReplaySessionResponseNewAlertsItemAlertStrengthScoreMax),
+  "siScore": zod.number().min(advanceLabReplaySessionResponseNewAlertsItemAlertSiScoreMin).max(advanceLabReplaySessionResponseNewAlertsItemAlertSiScoreMax).nullish(),
   "strengthFeatures": zod.object({
   "cst_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
   "cct_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
@@ -1820,6 +1831,7 @@ export const AdvanceLabReplaySessionResponse = zod.object({
   "winRatePct": zod.number().min(advanceLabReplaySessionResponsePolicySimulationOneStatsWinRatePctMin).max(advanceLabReplaySessionResponsePolicySimulationOneStatsWinRatePctMax),
   "avgR": zod.number(),
   "expectancyAfterCosts": zod.number(),
+  "expectancyMoneyAfterCosts": zod.number(),
   "maxDrawdown": zod.number().min(advanceLabReplaySessionResponsePolicySimulationOneStatsMaxDrawdownMin),
   "maxDrawdownPct": zod.number().min(advanceLabReplaySessionResponsePolicySimulationOneStatsMaxDrawdownPctMin),
   "profitFactor": zod.number().nullable()
@@ -2006,6 +2018,7 @@ export const AdvanceLabReplaySessionResponse = zod.object({
   "winRatePct": zod.number().min(advanceLabReplaySessionResponseSimulationStatsWinRatePctMin).max(advanceLabReplaySessionResponseSimulationStatsWinRatePctMax),
   "avgR": zod.number(),
   "expectancyAfterCosts": zod.number(),
+  "expectancyMoneyAfterCosts": zod.number(),
   "maxDrawdown": zod.number().min(advanceLabReplaySessionResponseSimulationStatsMaxDrawdownMin),
   "maxDrawdownPct": zod.number().min(advanceLabReplaySessionResponseSimulationStatsMaxDrawdownPctMin),
   "profitFactor": zod.number().nullable()
@@ -2059,7 +2072,8 @@ export const GetTradeCommentResponse = zod.object({
   "responseTokens": zod.number().int(),
   "totalTokens": zod.number().int()
 }),zod.null()]),
-  "message": zod.string().nullable()
+  "message": zod.string().nullable(),
+  "failureCategory": zod.union([zod.literal('auth'),zod.literal('quota'),zod.literal('rate_limit'),zod.literal('network'),zod.literal('model_not_found'),zod.literal('unknown'),zod.literal(null)]).nullable()
 })
 
 
@@ -2074,6 +2088,9 @@ export const getAlertCommentBodyAlertLegacyAgreementPctMax = 100;
 
 export const getAlertCommentBodyAlertStrengthScoreMin = 0;
 export const getAlertCommentBodyAlertStrengthScoreMax = 1;
+
+export const getAlertCommentBodyAlertSiScoreMin = 0;
+export const getAlertCommentBodyAlertSiScoreMax = 1;
 
 export const getAlertCommentBodyAlertCandleSwingVersionAgreementPctMin = 0;
 export const getAlertCommentBodyAlertCandleSwingVersionAgreementPctMax = 100;
@@ -2112,6 +2129,7 @@ export const GetAlertCommentBody = zod.object({
   "hierState": zod.enum(['undefined', 'uptrend', 'downtrend', 'transition']),
   "strengthLabel": zod.enum(['STRONG', 'NEUTRAL', 'WEAK']),
   "strengthScore": zod.number().min(getAlertCommentBodyAlertStrengthScoreMin).max(getAlertCommentBodyAlertStrengthScoreMax),
+  "siScore": zod.number().min(getAlertCommentBodyAlertSiScoreMin).max(getAlertCommentBodyAlertSiScoreMax).nullish(),
   "strengthFeatures": zod.object({
   "cst_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
   "cct_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
@@ -2174,7 +2192,8 @@ export const GetAlertCommentResponse = zod.object({
   "responseTokens": zod.number().int(),
   "totalTokens": zod.number().int()
 }),zod.null()]),
-  "message": zod.string().nullable()
+  "message": zod.string().nullable(),
+  "failureCategory": zod.union([zod.literal('auth'),zod.literal('quota'),zod.literal('rate_limit'),zod.literal('network'),zod.literal('model_not_found'),zod.literal('unknown'),zod.literal(null)]).nullable()
 })
 
 
@@ -2355,6 +2374,9 @@ export const GetEvolveHistoryResponse = zod.object({
 export const getEvolvePolicyResponseSettingsCooldownCandlesMin = 0;
 export const getEvolvePolicyResponseSettingsCooldownCandlesMax = 48;
 
+export const getEvolvePolicyResponseSettingsMinSiScoreMin = 0;
+export const getEvolvePolicyResponseSettingsMinSiScoreMax = 1;
+
 
 
 export const GetEvolvePolicyResponse = zod.object({
@@ -2367,7 +2389,8 @@ export const GetEvolvePolicyResponse = zod.object({
   "require_engulf": zod.boolean(),
   "timeframes": zod.array(zod.enum(['M5', 'M15'])).min(1),
   "exit_model": zod.enum(['swept_level_atr', 'candle_geometry']),
-  "cooldown_candles": zod.number().int().min(getEvolvePolicyResponseSettingsCooldownCandlesMin).max(getEvolvePolicyResponseSettingsCooldownCandlesMax)
+  "cooldown_candles": zod.number().int().min(getEvolvePolicyResponseSettingsCooldownCandlesMin).max(getEvolvePolicyResponseSettingsCooldownCandlesMax),
+  "min_si_score": zod.number().min(getEvolvePolicyResponseSettingsMinSiScoreMin).max(getEvolvePolicyResponseSettingsMinSiScoreMax)
 }),
   "promoted_at_utc": zod.string().nullable(),
   "source_champion_version": zod.string().nullable()
@@ -2377,6 +2400,20 @@ export const GetEvolvePolicyResponse = zod.object({
 /**
  * @summary Read the XAUUSD case-learning dashboard
  */
+export const getSystemIntelligenceResponseOverallCapitalContextBalanceUsdExclusiveMin = 0;
+
+export const getSystemIntelligenceResponseOverallCapitalContextLotsExclusiveMinOne = 0;
+
+export const getSystemIntelligenceResponseRulesItemCapitalContextBalanceUsdExclusiveMin = 0;
+
+export const getSystemIntelligenceResponseRulesItemCapitalContextLotsExclusiveMinOne = 0;
+
+export const getSystemIntelligenceResponseHitRateOverTimeItemCapitalContextBalanceUsdExclusiveMin = 0;
+
+export const getSystemIntelligenceResponseHitRateOverTimeItemCapitalContextLotsExclusiveMinOne = 0;
+
+
+
 export const GetSystemIntelligenceResponse = zod.object({
   "symbol": zod.enum(['XAUUSD']),
   "informationalOnly": zod.boolean(),
@@ -2385,7 +2422,13 @@ export const GetSystemIntelligenceResponse = zod.object({
   "hits": zod.number().int(),
   "misses": zod.number().int(),
   "hitRate": zod.number().nullable(),
-  "expectancy": zod.number().nullable()
+  "expectancy": zod.number().nullable(),
+  "expectancyMoney": zod.number().nullable(),
+  "capitalContext": zod.object({
+  "balance_usd": zod.number().gt(getSystemIntelligenceResponseOverallCapitalContextBalanceUsdExclusiveMin),
+  "sizing": zod.enum(['LOTS', 'RISK_PERCENT']),
+  "lots": zod.record(zod.string(), zod.number().gt(getSystemIntelligenceResponseOverallCapitalContextLotsExclusiveMinOne))
+})
 }),
   "rules": zod.array(zod.object({
   "id": zod.string(),
@@ -2396,6 +2439,12 @@ export const GetSystemIntelligenceResponse = zod.object({
   "misses": zod.number().int(),
   "hitRate": zod.number().nullable(),
   "expectancy": zod.number().nullable(),
+  "expectancyMoney": zod.number().nullable(),
+  "capitalContext": zod.object({
+  "balance_usd": zod.number().gt(getSystemIntelligenceResponseRulesItemCapitalContextBalanceUsdExclusiveMin),
+  "sizing": zod.enum(['LOTS', 'RISK_PERCENT']),
+  "lots": zod.record(zod.string(), zod.number().gt(getSystemIntelligenceResponseRulesItemCapitalContextLotsExclusiveMinOne))
+}),
   "baselineHitRate": zod.number().nullable(),
   "weight": zod.number(),
   "flagged": zod.boolean()
@@ -2404,7 +2453,13 @@ export const GetSystemIntelligenceResponse = zod.object({
   "at": zod.string(),
   "caseCount": zod.number().int(),
   "hitRate": zod.number(),
-  "expectancy": zod.number()
+  "expectancy": zod.number(),
+  "expectancyMoney": zod.number().nullable(),
+  "capitalContext": zod.object({
+  "balance_usd": zod.number().gt(getSystemIntelligenceResponseHitRateOverTimeItemCapitalContextBalanceUsdExclusiveMin),
+  "sizing": zod.enum(['LOTS', 'RISK_PERCENT']),
+  "lots": zod.record(zod.string(), zod.number().gt(getSystemIntelligenceResponseHitRateOverTimeItemCapitalContextLotsExclusiveMinOne))
+})
 })),
   "lessons": zod.array(zod.object({
   "id": zod.string(),
@@ -2430,6 +2485,9 @@ export const GetSystemIntelligenceResponse = zod.object({
 export const getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMin = 0;
 export const getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMax = 48;
 
+export const getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMin = 0;
+export const getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMax = 1;
+
 
 
 export const GetEvolvePolicyHistoryResponse = zod.object({
@@ -2443,7 +2501,8 @@ export const GetEvolvePolicyHistoryResponse = zod.object({
   "require_engulf": zod.boolean(),
   "timeframes": zod.array(zod.enum(['M5', 'M15'])).min(1),
   "exit_model": zod.enum(['swept_level_atr', 'candle_geometry']),
-  "cooldown_candles": zod.number().int().min(getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMin).max(getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMax)
+  "cooldown_candles": zod.number().int().min(getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMin).max(getEvolvePolicyHistoryResponseVersionsItemSettingsCooldownCandlesMax),
+  "min_si_score": zod.number().min(getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMin).max(getEvolvePolicyHistoryResponseVersionsItemSettingsMinSiScoreMax)
 }),
   "promoted_at_utc": zod.string().nullable(),
   "source_champion_version": zod.string().nullable(),
@@ -2469,6 +2528,9 @@ export const RestoreEvolvePolicyBody = zod.object({
 export const restoreEvolvePolicyResponseSettingsCooldownCandlesMin = 0;
 export const restoreEvolvePolicyResponseSettingsCooldownCandlesMax = 48;
 
+export const restoreEvolvePolicyResponseSettingsMinSiScoreMin = 0;
+export const restoreEvolvePolicyResponseSettingsMinSiScoreMax = 1;
+
 
 
 export const RestoreEvolvePolicyResponse = zod.object({
@@ -2481,7 +2543,48 @@ export const RestoreEvolvePolicyResponse = zod.object({
   "require_engulf": zod.boolean(),
   "timeframes": zod.array(zod.enum(['M5', 'M15'])).min(1),
   "exit_model": zod.enum(['swept_level_atr', 'candle_geometry']),
-  "cooldown_candles": zod.number().int().min(restoreEvolvePolicyResponseSettingsCooldownCandlesMin).max(restoreEvolvePolicyResponseSettingsCooldownCandlesMax)
+  "cooldown_candles": zod.number().int().min(restoreEvolvePolicyResponseSettingsCooldownCandlesMin).max(restoreEvolvePolicyResponseSettingsCooldownCandlesMax),
+  "min_si_score": zod.number().min(restoreEvolvePolicyResponseSettingsMinSiScoreMin).max(restoreEvolvePolicyResponseSettingsMinSiScoreMax)
+}),
+  "promoted_at_utc": zod.string().nullable(),
+  "source_champion_version": zod.string().nullable()
+})
+
+
+/**
+ * @summary Set the owner-controlled SYSTEM INTELLIGENCE score threshold
+ */
+export const setEvolvePolicyMinSiScoreBodyMinSiScoreMin = 0;
+export const setEvolvePolicyMinSiScoreBodyMinSiScoreMax = 1;
+
+
+
+export const SetEvolvePolicyMinSiScoreBody = zod.object({
+  "min_si_score": zod.number().min(setEvolvePolicyMinSiScoreBodyMinSiScoreMin).max(setEvolvePolicyMinSiScoreBodyMinSiScoreMax)
+})
+
+
+
+export const setEvolvePolicyMinSiScoreResponseSettingsCooldownCandlesMin = 0;
+export const setEvolvePolicyMinSiScoreResponseSettingsCooldownCandlesMax = 48;
+
+export const setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMin = 0;
+export const setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMax = 1;
+
+
+
+export const SetEvolvePolicyMinSiScoreResponse = zod.object({
+  "schema_version": zod.literal(1),
+  "version": zod.number().int().min(1),
+  "mode": zod.enum(['passthrough', 'active']),
+  "settings": zod.object({
+  "min_strength": zod.enum(['NONE', 'NEUTRAL', 'STRONG']),
+  "require_wp_agree": zod.boolean(),
+  "require_engulf": zod.boolean(),
+  "timeframes": zod.array(zod.enum(['M5', 'M15'])).min(1),
+  "exit_model": zod.enum(['swept_level_atr', 'candle_geometry']),
+  "cooldown_candles": zod.number().int().min(setEvolvePolicyMinSiScoreResponseSettingsCooldownCandlesMin).max(setEvolvePolicyMinSiScoreResponseSettingsCooldownCandlesMax),
+  "min_si_score": zod.number().min(setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMin).max(setEvolvePolicyMinSiScoreResponseSettingsMinSiScoreMax)
 }),
   "promoted_at_utc": zod.string().nullable(),
   "source_champion_version": zod.string().nullable()

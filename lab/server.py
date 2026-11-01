@@ -26,6 +26,7 @@ from .alert_policy import (
     list_policy_versions,
     load_policy,
     restore_policy_version,
+    set_policy_min_si_score,
 )
 from .autoevolve import AutoevolveManager
 from .alert_snapshots import append_batch_snapshots, build_alert_snapshot
@@ -935,6 +936,13 @@ class LabService:
             version=version,
         )
 
+    def set_min_si_score(self, min_si_score: float) -> dict[str, Any]:
+        return set_policy_min_si_score(
+            current_path=self.policy_path,
+            min_si_score=min_si_score,
+            versions_dir=self.policy_versions_dir,
+        )
+
     def _instrument_review_info(self) -> list[dict[str, Any]]:
         data_dir = self.data_dir
         reviews: list[dict[str, Any]] = []
@@ -1176,6 +1184,16 @@ class LabService:
         run_id = backtest._run_id(
             settings_fingerprint, {(symbol, timeframe): source_data}
         )
+        si_belief_snapshot = (
+            self.si_case_store.scoring_snapshot() if symbol == "XAUUSD" else None
+        )
+        si_score_provider = (
+            lambda alert, fingerprint: self.si_case_store.score_alert(
+                alert, fingerprint, si_belief_snapshot
+            )
+            if si_belief_snapshot is not None
+            else None
+        )
         session = ReplaySession(
             session_id=uuid.uuid4().hex,
             run_id=run_id,
@@ -1193,6 +1211,7 @@ class LabService:
             mtf_records=mtf_records,
             snapshot_path=self.output_dir / "snapshots.jsonl",
             si_case_sink=self.si_case_store.ingest_cases,
+            si_score_provider=si_score_provider if symbol == "XAUUSD" else None,
         )
         with self._replay_sessions_lock:
             self._prune_replay_sessions()
@@ -1291,6 +1310,7 @@ class LabService:
                     "strengthLabel": entry["alert"]["strength_label"],
                     "strengthScore": float(entry["alert"]["strength_score"]),
                     "strengthFeatures": entry["alert"]["strength_features"],
+                    "siScore": entry["alert"].get("si_score"),
                     "note": entry["alert"]["note"] or None,
                     "candle": _serialize_candle(entry["alert"]["candle"]),
                     "previousCandle": _serialize_candle(
@@ -1653,11 +1673,72 @@ class LabService:
                 )
         else:
             trend_states = self._trend_states_for_timeframe(timeframe, symbol)
+        candle_indexes = {
+            str(candle["time"]): index for index, candle in enumerate(candles)
+        }
+        wick_pressure = StreamingWickPressure()
+        wick_pressure_by_time = {
+            candle.time: str(wick_pressure.update(candle))
+            for candle in backtest.candle_objects(candles)
+        }
+        formation_swing_events = (
+            compute_confirmed_swing_events(
+                candles, {**self.spec, "instruments": ["XAUUSD"]}
+            )
+            if symbol == "XAUUSD"
+            else []
+        )
+        si_belief_snapshot = (
+            self.si_case_store.scoring_snapshot() if symbol == "XAUUSD" else None
+        )
         for raw in smoke["alerts"]:
             state = trend_states[str(raw["time"])]
             raw["dc_state"] = state["dcState"]
             raw["hier_state"] = state["hierState"]
             raw["hier_promotions"] = state["hierPromotions"]
+            index = candle_indexes.get(str(raw["time"]))
+            if index is not None and si_belief_snapshot is not None:
+                state_history = []
+                for state_index in range(max(0, index + 1 - 20), index + 1):
+                    state_candle_time = str(candles[state_index]["time"])
+                    candle_state = trend_states.get(state_candle_time, {})
+                    state_history.append(
+                        {
+                            "index": state_index,
+                            "cct": candle_state.get(
+                                "cct", candle_state.get("cctState")
+                            ),
+                            "cst": candle_state.get(
+                                "cst", candle_state.get("cstState")
+                            ),
+                            "cst_v2_state": candle_state.get(
+                                "cst_v2_state", candle_state.get("cstV2State")
+                            ),
+                            "wp_state": wick_pressure_by_time.get(
+                                state_candle_time, "undefined"
+                            ),
+                            "mtf_cst": candle_state.get(
+                                "mtf_cst", candle_state.get("mtfCst")
+                            ),
+                            "mtf_cct": candle_state.get(
+                                "mtf_cct", candle_state.get("mtfCct")
+                            ),
+                            "mtf_wick_pressure": candle_state.get(
+                                "mtf_wick_pressure",
+                                candle_state.get("mtfWickPressure"),
+                            ),
+                        }
+                    )
+                fingerprint = build_formation_fingerprint(
+                    state_history,
+                    formation_swing_events,
+                    entry_index=index + 1,
+                    window=20,
+                )
+                raw["formation_fingerprint"] = fingerprint
+                raw["si_score"] = self.si_case_store.score_alert(
+                    raw, fingerprint, si_belief_snapshot
+                )
         alerts: list[dict[str, Any]] = []
         for raw in smoke["alerts"]:
             alert_candle = raw["candle"]
@@ -1680,19 +1761,24 @@ class LabService:
                     "strengthLabel": raw["strength_label"],
                     "strengthScore": float(raw["strength_score"]),
                     "strengthFeatures": raw["strength_features"],
+                    "siScore": raw.get("si_score"),
                     "note": raw["note"] or None,
                     "candle": _serialize_candle(alert_candle),
                     "previousCandle": _serialize_candle(previous_candle),
                     "scored": False,
                 }
             )
-        candle_indexes = {
-            str(candle["time"]): index for index, candle in enumerate(candles)
-        }
+        min_si_score = float(self.current_policy()["settings"].get("min_si_score", 0))
         alerts_by_index: dict[int, list[dict[str, Any]]] = {}
         for raw in smoke["alerts"]:
             candle_index = candle_indexes.get(str(raw["time"]))
-            if candle_index is not None:
+            score = raw.get("si_score")
+            passes_si_score = (
+                symbol != "XAUUSD"
+                or min_si_score <= 0
+                or (score is not None and float(score) >= min_si_score)
+            )
+            if candle_index is not None and passes_si_score:
                 alerts_by_index.setdefault(candle_index, []).append(raw)
         simulation_result = simulate_batch(
             candles,
@@ -1700,11 +1786,6 @@ class LabService:
             settings=active_settings.to_dict(),
             filters=active_filters,
         )
-        wick_pressure = StreamingWickPressure()
-        wick_pressure_by_time = {
-            candle.time: str(wick_pressure.update(candle))
-            for candle in backtest.candle_objects(candles)
-        }
         append_batch_snapshots(
             smoke["alerts"],
             path=self.output_dir / "snapshots.jsonl",
@@ -1723,37 +1804,12 @@ class LabService:
                 str(trade.get("alertId", "")): trade
                 for trade in simulation_result["mirrorTrades"]
             }
-            formation_swing_events = compute_confirmed_swing_events(
-                candles, {**self.spec, "instruments": ["XAUUSD"]}
-            )
             batch_cases: list[dict[str, Any]] = []
             for raw in smoke["alerts"]:
                 alert_id = str(raw["alert_id"])
                 index = candle_indexes.get(str(raw["time"]))
                 if index is None:
                     continue
-                state_history = []
-                for state_index in range(max(0, index + 1 - 20), index + 1):
-                    state_candle_time = str(candles[state_index]["time"])
-                    state = trend_states.get(state_candle_time, {})
-                    state_history.append(
-                        {
-                            "index": state_index,
-                            "cct": state.get("cct", state.get("cctState")),
-                            "cst": state.get("cst", state.get("cstState")),
-                            "cst_v2_state": state.get(
-                                "cst_v2_state", state.get("cstV2State")
-                            ),
-                            "wp_state": wick_pressure_by_time.get(
-                                state_candle_time, "undefined"
-                            ),
-                            "mtf_cst": state.get("mtf_cst", state.get("mtfCst")),
-                            "mtf_cct": state.get("mtf_cct", state.get("mtfCct")),
-                            "mtf_wick_pressure": state.get(
-                                "mtf_wick_pressure", state.get("mtfWickPressure")
-                            ),
-                        }
-                    )
                 snapshot = build_alert_snapshot(
                     raw,
                     atr14=simulation_result["atr14_by_alert_id"].get(alert_id),
@@ -1761,12 +1817,6 @@ class LabService:
                     trade=trades_by_alert.get(alert_id),
                     fade_trade=fade_trades_by_alert.get(alert_id),
                     simulation_settings=active_settings.to_dict(),
-                )
-                snapshot["formation_fingerprint"] = build_formation_fingerprint(
-                    state_history,
-                    formation_swing_events,
-                    entry_index=index + 1,
-                    window=20,
                 )
                 resolved_trades = [
                     trade
@@ -2079,7 +2129,9 @@ class LabService:
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "alertId": alert_id,
                 "provider": provider,
-                **provider_usage,
+                "promptTokens": provider_usage.get("input"),
+                "responseTokens": provider_usage.get("output"),
+                "totalTokens": provider_usage.get("total"),
             }
             with usage_path.open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps(usage_record, sort_keys=True) + "\n")
@@ -2306,6 +2358,24 @@ def make_handler(service: LabService) -> type[BaseHTTPRequestHandler]:
                     self._send_json(
                         200, service.restore_policy_version(version)
                     )
+                    return
+                if parsed.path == "/api/evolve/policy/min-si-score":
+                    min_si_score = payload.get("min_si_score")
+                    if set(payload) != {"min_si_score"}:
+                        raise RequestError(
+                            400, "Only min_si_score is accepted."
+                        )
+                    if isinstance(min_si_score, bool) or not isinstance(
+                        min_si_score, (int, float)
+                    ):
+                        raise RequestError(
+                            400, "min_si_score must be a number from 0 through 1."
+                        )
+                    try:
+                        policy = service.set_min_si_score(float(min_si_score))
+                    except ValueError as exc:
+                        raise RequestError(400, str(exc)) from exc
+                    self._send_json(200, policy)
                     return
                 if parsed.path == "/api/evolve/run":
                     if set(payload) - {"symbol", "swingVersion"}:

@@ -58,6 +58,11 @@ export interface EvolvePolicySettings {
      * @maximum 48
      */
   cooldown_candles: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  min_si_score: number;
 }
 
 export type EvolvePolicyMode = typeof EvolvePolicyMode[keyof typeof EvolvePolicyMode];
@@ -83,6 +88,14 @@ export interface EvolvePolicy {
 export interface EvolvePolicyRestoreInput {
   /** @minimum 1 */
   version: number;
+}
+
+export interface EvolvePolicyMinSiScoreInput {
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  min_si_score: number;
 }
 
 export type EvolvePolicyVersionMode = typeof EvolvePolicyVersionMode[keyof typeof EvolvePolicyVersionMode];
@@ -713,6 +726,7 @@ export interface SimulationStats {
   winRatePct: number;
   avgR: number;
   expectancyAfterCosts: number;
+  expectancyMoneyAfterCosts: number;
   /** @minimum 0 */
   maxDrawdown: number;
   /** @minimum 0 */
@@ -1079,6 +1093,12 @@ export interface Alert {
      * @maximum 1
      */
   strengthScore: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  siScore?: number | null;
   strengthFeatures: AlertStrengthFeatures;
   /** @nullable */
   note: string | null;
@@ -1181,6 +1201,21 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+/**
+ * @nullable
+ */
+export type AICommentResultFailureCategory = typeof AICommentResultFailureCategory[keyof typeof AICommentResultFailureCategory] | null;
+
+
+export const AICommentResultFailureCategory = {
+  auth: 'auth',
+  quota: 'quota',
+  rate_limit: 'rate_limit',
+  network: 'network',
+  model_not_found: 'model_not_found',
+  unknown: 'unknown',
+} as const;
+
 export interface AICommentResult {
   available: boolean;
   alertId: string;
@@ -1190,7 +1225,24 @@ export interface AICommentResult {
   tokenUsage: TokenUsage | null;
   /** @nullable */
   message: string | null;
+  /** @nullable */
+  failureCategory: AICommentResultFailureCategory;
 }
+
+/**
+ * @nullable
+ */
+export type TradeCommentResultFailureCategory = typeof TradeCommentResultFailureCategory[keyof typeof TradeCommentResultFailureCategory] | null;
+
+
+export const TradeCommentResultFailureCategory = {
+  auth: 'auth',
+  quota: 'quota',
+  rate_limit: 'rate_limit',
+  network: 'network',
+  model_not_found: 'model_not_found',
+  unknown: 'unknown',
+} as const;
 
 export interface TradeCommentResult {
   available: boolean;
@@ -1201,10 +1253,29 @@ export interface TradeCommentResult {
   tokenUsage: TokenUsage | null;
   /** @nullable */
   message: string | null;
+  /** @nullable */
+  failureCategory: TradeCommentResultFailureCategory;
 }
+
+/**
+ * @nullable
+ */
+export type ErrorResponseFailureCategory = typeof ErrorResponseFailureCategory[keyof typeof ErrorResponseFailureCategory] | null;
+
+
+export const ErrorResponseFailureCategory = {
+  auth: 'auth',
+  quota: 'quota',
+  rate_limit: 'rate_limit',
+  network: 'network',
+  model_not_found: 'model_not_found',
+  unknown: 'unknown',
+} as const;
 
 export interface ErrorResponse {
   error: string;
+  /** @nullable */
+  failureCategory: ErrorResponseFailureCategory;
 }
 
 export type EvolveRunInputSwingVersion = typeof EvolveRunInputSwingVersion[keyof typeof EvolveRunInputSwingVersion];
@@ -1272,6 +1343,23 @@ export const SystemIntelligenceSymbol = {
   XAUUSD: 'XAUUSD',
 } as const;
 
+export type CapitalContextSizing = typeof CapitalContextSizing[keyof typeof CapitalContextSizing];
+
+
+export const CapitalContextSizing = {
+  LOTS: 'LOTS',
+  RISK_PERCENT: 'RISK_PERCENT',
+} as const;
+
+export type CapitalContextLots = {[key: string]: number};
+
+export interface CapitalContext {
+  /** @exclusiveMinimum 0 */
+  balance_usd: number;
+  sizing: CapitalContextSizing;
+  lots: CapitalContextLots;
+}
+
 export interface SystemIntelligenceOverall {
   hits: number;
   misses: number;
@@ -1279,6 +1367,9 @@ export interface SystemIntelligenceOverall {
   hitRate: number | null;
   /** @nullable */
   expectancy: number | null;
+  /** @nullable */
+  expectancyMoney: number | null;
+  capitalContext: CapitalContext;
 }
 
 export interface SystemIntelligenceRule {
@@ -1293,6 +1384,9 @@ export interface SystemIntelligenceRule {
   /** @nullable */
   expectancy: number | null;
   /** @nullable */
+  expectancyMoney: number | null;
+  capitalContext: CapitalContext;
+  /** @nullable */
   baselineHitRate: number | null;
   weight: number;
   flagged: boolean;
@@ -1303,6 +1397,9 @@ export interface SystemIntelligenceHistoryPoint {
   caseCount: number;
   hitRate: number;
   expectancy: number;
+  /** @nullable */
+  expectancyMoney: number | null;
+  capitalContext: CapitalContext;
 }
 
 export type SystemIntelligenceLessonEvidence = { [key: string]: unknown };

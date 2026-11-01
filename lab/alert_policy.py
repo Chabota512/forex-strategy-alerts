@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import tempfile
@@ -19,7 +20,9 @@ POLICY_SETTING_KEYS = (
     "timeframes",
     "exit_model",
     "cooldown_candles",
+    "min_si_score",
 )
+_LEGACY_POLICY_SETTING_KEYS = frozenset(POLICY_SETTING_KEYS[:-1])
 POLICY_DEFAULT_SETTINGS: dict[str, Any] = {
     "min_strength": "NONE",
     "require_wp_agree": False,
@@ -27,6 +30,7 @@ POLICY_DEFAULT_SETTINGS: dict[str, Any] = {
     "timeframes": ["M5", "M15"],
     "exit_model": "swept_level_atr",
     "cooldown_candles": 0,
+    "min_si_score": 0.0,
 }
 POLICY_VERSION_PATTERN = re.compile(r"^policy_v([1-9]\d*)\.json$")
 _POLICY_VERSION_LOCK = threading.RLock()
@@ -47,7 +51,9 @@ def validate_policy_settings(value: Any) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         raise ValueError("Alert policy settings must be an object.")
     keys = set(value)
-    if keys != set(POLICY_SETTING_KEYS):
+    if keys == _LEGACY_POLICY_SETTING_KEYS:
+        value = {**POLICY_DEFAULT_SETTINGS, **value}
+    elif keys != set(POLICY_SETTING_KEYS):
         raise ValueError("Alert policy settings do not match the supported whitelist.")
 
     minimum_strength = value.get("min_strength")
@@ -70,6 +76,14 @@ def validate_policy_settings(value: Any) -> dict[str, Any]:
     cooldown = value.get("cooldown_candles")
     if isinstance(cooldown, bool) or not isinstance(cooldown, int) or not 0 <= cooldown <= 48:
         raise ValueError("Policy cooldown_candles must be an integer from 0 through 48.")
+    min_si_score = value.get("min_si_score")
+    if (
+        isinstance(min_si_score, bool)
+        or not isinstance(min_si_score, (int, float))
+        or not math.isfinite(float(min_si_score))
+        or not 0 <= float(min_si_score) <= 1
+    ):
+        raise ValueError("Policy min_si_score must be a finite number from 0 through 1.")
 
     return {
         "min_strength": minimum_strength,
@@ -78,6 +92,7 @@ def validate_policy_settings(value: Any) -> dict[str, Any]:
         "timeframes": [item for item in ("M5", "M15") if item in timeframes],
         "exit_model": exit_model,
         "cooldown_candles": cooldown,
+        "min_si_score": float(min_si_score),
     }
 
 
@@ -278,7 +293,12 @@ def write_promoted_policy(
             "schema_version": POLICY_SCHEMA_VERSION,
             "version": current["version"] + 1,
             "mode": "active",
-            "settings": validate_policy_settings(settings),
+            "settings": validate_policy_settings(
+                {
+                    **settings,
+                    "min_si_score": current["settings"]["min_si_score"],
+                }
+            ),
             "promoted_at_utc": promoted_at_utc,
             "source_champion_version": champion_version,
             "created_at_utc": promoted_at_utc,
@@ -290,6 +310,45 @@ def write_promoted_policy(
         return validate_policy(promoted), archive_path
 
 
+def set_policy_min_si_score(
+    *,
+    current_path: Path,
+    min_si_score: float,
+    versions_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Version an owner-set SI score threshold without letting SI tune it."""
+    if (
+        isinstance(min_si_score, bool)
+        or not isinstance(min_si_score, (int, float))
+        or not math.isfinite(float(min_si_score))
+        or not 0 <= float(min_si_score) <= 1
+    ):
+        raise ValueError("min_si_score must be a finite number from 0 through 1.")
+
+    version_dir = versions_dir or current_path.parent
+    with _POLICY_VERSION_LOCK:
+        current = load_policy(current_path)
+        score = float(min_si_score)
+        if math.isclose(score, current["settings"]["min_si_score"], abs_tol=1e-9):
+            return current
+        _ensure_current_policy_version(current_path, version_dir, current)
+        updated = {
+            **current,
+            "version": current["version"] + 1,
+            "settings": {
+                **current["settings"],
+                "min_si_score": score,
+            },
+            "promoted_at_utc": _utc_now(),
+            "created_at_utc": _utc_now(),
+        }
+        _write_new_policy_version(
+            _version_file(version_dir, updated["version"]), updated
+        )
+        _write_policy_pointer(current_path, updated)
+        return validate_policy(updated)
+
+
 def policy_rejection_reasons(
     policy: Mapping[str, Any],
     alert: Mapping[str, Any],
@@ -299,11 +358,27 @@ def policy_rejection_reasons(
     wick_pressure: str,
     previous_allowed_index: int | None,
 ) -> list[str]:
-    if policy.get("mode") != "active":
+    mode = policy.get("mode")
+    if mode not in {"passthrough", "active"}:
         return []
 
     settings = policy["settings"]
     reasons: list[str] = []
+    min_si_score = float(settings.get("min_si_score", 0.0))
+    if min_si_score > 0:
+        try:
+            si_score = float(alert.get("si_score", alert.get("siScore", 0.0)))
+        except (TypeError, ValueError):
+            si_score = 0.0
+        if not math.isfinite(si_score):
+            si_score = 0.0
+        if si_score < min_si_score:
+            reasons.append(
+                f"si_score < {min_si_score:.2f}: {si_score:.2f} is below minimum"
+            )
+    if mode != "active":
+        return reasons
+
     allowed_timeframes = settings["timeframes"]
     if timeframe not in allowed_timeframes:
         reasons.append(

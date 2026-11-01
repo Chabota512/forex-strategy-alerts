@@ -94,7 +94,7 @@ describe('SystemIntelligence', () => {
     expect(screen.getByRole('img', { name: 'XAUUSD hit rate over time' })).toBeTruthy();
     expect(screen.getByTestId('intel-rules').textContent).toContain('HIT RATE');
     expect(screen.getByText('Retain the rule for further observation.')).toBeTruthy();
-    expect(screen.getByText(/−\$0\.21\/trade/)).toBeTruthy();
+    expect(screen.getAllByText(/−\$0\.21\/trade/).length).toBeGreaterThan(0);
     expect(screen.getByText(/CAPITAL · \$1,000 · LOTS · 0\.01 XAUUSD/)).toBeTruthy();
     expect(screen.getByText(/SAMPLE COUNT:/)).toBeTruthy();
     expect(screen.getByText('STRENGTH THRESHOLDS')).toBeTruthy();

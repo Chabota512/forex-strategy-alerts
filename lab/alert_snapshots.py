@@ -314,6 +314,16 @@ def build_alert_snapshot(
             simulation_settings, symbol=str(alert.get("symbol", "XAUUSD"))
         ),
     }
+    si_score = _decimal(_get(alert, "si_score", "siScore"))
+    if si_score is not None:
+        if not Decimal("0") <= si_score <= Decimal("1"):
+            raise ValueError("System Intelligence score must be between 0 and 1.")
+        snapshot["si_score"] = _decimal_text(si_score)
+    formation_fingerprint = _get(
+        alert, "formation_fingerprint", "formationFingerprint"
+    )
+    if isinstance(formation_fingerprint, Mapping):
+        snapshot["formation_fingerprint"] = dict(formation_fingerprint)
     snapshot.update(_trade_snapshot_fields(trade, fade_trade))
     if simulation_settings is not None:
         settings = SimulationSettings.from_payload(

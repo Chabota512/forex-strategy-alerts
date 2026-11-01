@@ -71,6 +71,7 @@ describe('trade journal', () => {
         symbol="XAUUSD"
         selectedTradeId={null}
         onSelect={() => undefined}
+        systemIntelligenceEnabled={false}
       />,
     );
 
@@ -116,6 +117,7 @@ describe('trade journal', () => {
         symbol="XAUUSD"
         selectedTradeId={null}
         onSelect={onSelect}
+        systemIntelligenceEnabled={false}
       />,
     );
 
@@ -142,6 +144,7 @@ describe('trade journal', () => {
       cached: true,
       tokenUsage: null,
       message: null,
+      failureCategory: 'unknown',
     };
     render(
       <TradeJournal
@@ -149,6 +152,7 @@ describe('trade journal', () => {
         symbol="XAUUSD"
         selectedTradeId={null}
         onSelect={() => undefined}
+        systemIntelligenceEnabled={false}
       />,
     );
     expect(mutate).not.toHaveBeenCalled();
@@ -179,6 +183,7 @@ describe('trade journal', () => {
         symbol="XAUUSD"
         selectedTradeId={null}
         onSelect={() => undefined}
+        systemIntelligenceEnabled={false}
       />,
     );
     expect((screen.getByTestId('journal-ai-trade-open') as HTMLButtonElement).disabled).toBe(true);

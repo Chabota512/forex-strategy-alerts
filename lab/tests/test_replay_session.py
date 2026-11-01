@@ -27,7 +27,7 @@ from lab.replay import (
     compute_confirmed_swing_events,
 )
 from lab.shadow_detectors import compute_shadow_states
-from lab.simulation import simulate_batch
+from lab.simulation import SimulationSettings, simulate_batch
 
 SPEC_PATH = Path(__file__).parents[1] / "specs" / "seed_v1.5.0.json"
 FROM_DATE = date(2025, 1, 1)
@@ -162,6 +162,7 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
         simulation_settings: Mapping[str, Any] | None = None,
         alert_policy: Mapping[str, Any] | None = None,
         snapshot_path: Path | None = None,
+        si_score_provider: Any = None,
     ) -> ReplaySession:
         records = [
             {
@@ -205,6 +206,7 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
             alert_policy=alert_policy,
             snapshot_path=snapshot_path,
             swing_direction_version=swing_direction_version,
+            si_score_provider=si_score_provider,
         )
 
     def test_variant_b_is_always_on_and_pressure_stream_is_available(self):
@@ -237,6 +239,7 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
                 "swingReversal",
             },
         )
+
         self.assertEqual(
             advanced["newWickPressureStates"],
             [{"index": 1, "state": "down-pressure"}],
@@ -246,6 +249,27 @@ class ReplayFeatureStreamingTests(unittest.TestCase):
             ["SELL-B"],
         )
         self.assertIn("strength_score", advanced["newAlerts"][0]["alert"])
+
+    def test_pretrade_score_is_attached_before_system_intelligence_filtering(self):
+        policy = passthrough_policy()
+        policy["settings"]["min_si_score"] = 0.8
+        session = self.make_session(
+            alert_policy=policy,
+            si_score_provider=lambda _alert, _fingerprint: 0.73,
+        )
+
+        response = session.advance(to_index=1, view_start=0, view_end=1)
+
+        self.assertTrue(response["newAlerts"])
+        self.assertTrue(
+            all(entry["alert"]["si_score"] == 0.73 for entry in response["newAlerts"])
+        )
+        self.assertTrue(
+            all(
+                any("si_score < 0.80" in reason for reason in decision["reasons"])
+                for decision in response["policyDecisions"]
+            )
+        )
 
     def test_v2_is_active_while_both_versions_are_recorded(self):
         session = self.make_session("V2")
@@ -439,12 +463,9 @@ class ReplaySessionParityTests(unittest.TestCase):
             from_date=FROM_DATE,
             to_date=TO_DATE,
         )
-        simulation_settings = {
-            "enabled": True,
-            "startingBalance": 10000,
-            "riskPercent": 1,
-            "rewardMultiple": 2,
-        }
+        simulation_settings = SimulationSettings.from_payload(
+            None, symbol="XAUUSD"
+        ).to_dict()
         session = ReplaySession(
             session_id="ten-day-parity",
             run_id=batch["run_id"],

@@ -7,6 +7,7 @@
  */
 
 export * from './aICommentResult';
+export * from './aICommentResultFailureCategory';
 export * from './alert';
 export * from './alertAlertType';
 export * from './alertCommentInput';
@@ -41,11 +42,15 @@ export * from './candleDcState';
 export * from './candleHierState';
 export * from './candleMonthChunk';
 export * from './candleWindow';
+export * from './capitalContext';
+export * from './capitalContextLots';
+export * from './capitalContextSizing';
 export * from './confirmedSwingEvent';
 export * from './confirmedSwingEventSource';
 export * from './confirmedSwingEventType';
 export * from './datasetInfo';
 export * from './errorResponse';
+export * from './errorResponseFailureCategory';
 export * from './evolveArchivedRound';
 export * from './evolveArchivedRoundDetail';
 export * from './evolveArchivedRoundTokenUsage';
@@ -57,6 +62,7 @@ export * from './evolveJobStatusSwingVersion';
 export * from './evolveLogLine';
 export * from './evolvePolicy';
 export * from './evolvePolicyHistory';
+export * from './evolvePolicyMinSiScoreInput';
 export * from './evolvePolicyMode';
 export * from './evolvePolicyRestoreInput';
 export * from './evolvePolicySettings';
@@ -140,5 +146,6 @@ export * from './timeframe';
 export * from './tokenUsage';
 export * from './tradeCommentInput';
 export * from './tradeCommentResult';
+export * from './tradeCommentResultFailureCategory';
 export * from './wickPressure';
 export * from './wickPressurePoint';

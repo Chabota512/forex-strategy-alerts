@@ -21,4 +21,9 @@ export interface EvolvePolicySettings {
      * @maximum 48
      */
   cooldown_candles: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  min_si_score: number;
 }

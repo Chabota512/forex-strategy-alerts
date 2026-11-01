@@ -12,6 +12,7 @@ import {
   useGetLabCandles,
   useGetLabDataset,
   useGetEvolvePolicy,
+  useSetEvolvePolicyMinSiScore,
   useStartLabReplaySession,
 } from '@workspace/api-client-react';
 import type { AICommentResult, Alert, Candle, CandleMonthChunk, ConfirmedSwingEvent, EvolvePolicy, InstrumentReviewInfo, InstrumentSymbol, ReplayAlert, ReplayCandleState, ReplayPolicyDecision, ReplaySessionStartResult, SimulatedTrade, SimulationSettings, SimulationSnapshot, Timeframe, WickPressure, WickPressurePoint } from '@workspace/api-client-react';
@@ -24,6 +25,7 @@ import EvolveControl from '@/components/evolve-control';
 import AutoevolveControl from '@/components/autoevolve-control';
 import SystemIntelligence from '@/components/system-intelligence';
 import { AiFilterHiddenSummary, AiFilterToggle } from '@/components/ai-filter-controls';
+import { SiScoreBadge } from '@/components/si-score-badge';
 import { SwingConnectorLayer } from '@/components/swing-connector-layer';
 import { SwingDirectionSwitch } from '@/components/swing-direction-switch';
 import { selectVisibleSwingEvents, selectVisibleSwingSegments, type SwingFamily, type SwingFamilySettings } from '@/lib/swing-events';
@@ -107,6 +109,7 @@ type MtfAlert = Alert & {
   mtfCctAgree?: boolean;
   mtfWpAgree?: boolean;
   dualTfAlert?: boolean;
+  siScore?: number | null;
 };
 type AlertTapeItem = {
   candleIndex: number;
@@ -706,6 +709,14 @@ export function Chart({ symbol, timeframe, candles, alerts, active, onAlert, sho
               {variantB && <text className="chart-marker-badge" x={x + 9} y={markerY - 7}>B</text>}
             </>}
             {showStrengthLabels && <text className="chart-marker-strength" x={x + (showAlertMarkers ? (variantB ? 18 : 10) : 0)} y={markerY + 3} textAnchor={showAlertMarkers ? 'start' : 'middle'}>{alert.strengthLabel.slice(0, 1)}</text>}
+            {typeof alert.siScore === 'number' && <text
+              className="chart-marker-si-score"
+              x={x}
+              y={markerY + 20}
+              textAnchor="middle"
+              data-testid={`chart-si-score-${alert.alertId}`}
+              aria-label={`System Intelligence score ${alert.siScore.toFixed(2)}`}
+            >{alert.siScore.toFixed(2)}</text>}
           </g>}
         </g>;
       })}
@@ -939,6 +950,8 @@ export function Home() {
   const evolvePolicy = useGetEvolvePolicy({
     query: { staleTime: 60_000 },
   });
+  const setMinSiScoreMutation = useSetEvolvePolicyMinSiScore();
+  const minSiScore = evolvePolicy.data?.settings?.min_si_score ?? 0;
   const activeDataset = dataset.data?.symbol === selectedSymbol ? dataset.data : undefined;
   const [knownInstrumentReviews, setKnownInstrumentReviews] = useState<InstrumentReviewInfo[]>([]);
   const incomingInstrumentReviews = dataset.data?.instrumentReviews;
@@ -999,6 +1012,7 @@ export function Home() {
   const [wickPressureFilter, setWickPressureFilter] = useState<'ALL' | WickPressure>('ALL');
   const [mtfAgreementOnly, setMtfAgreementOnly] = useState(false);
   const [aiFilterEnabled, setAiFilterEnabled] = useState(false);
+  const [minSiScoreDraft, setMinSiScoreDraft] = useState('0.00');
   const [alertSort, setAlertSort] = useState<{ key: AlertSortKey; descending: boolean }>({
     key: 'time',
     descending: true,
@@ -1253,6 +1267,17 @@ export function Home() {
     resetMonthChunks();
   };
   useEffect(() => {
+    setMinSiScoreDraft(minSiScore.toFixed(2));
+  }, [minSiScore, evolvePolicy.data?.version]);
+  const saveMinSiScore = () => {
+    const value = Number(minSiScoreDraft);
+    if (!Number.isFinite(value) || value < 0 || value > 1) return;
+    setMinSiScoreMutation.mutate(
+      { data: { min_si_score: value } },
+      { onSuccess: () => { void evolvePolicy.refetch(); } },
+    );
+  };
+  useEffect(() => {
     const version = evolvePolicy.data?.version;
     if (version === undefined) return;
     if (policyVersionRef.current !== null && policyVersionRef.current !== version) {
@@ -1422,12 +1447,14 @@ export function Home() {
     aiFilterEnabled,
     evolvePolicy.data?.mode,
     policyDecisions,
+    minSiScore,
   ).visible.map(item => item.alert), [
     streamAlerts,
     cursor,
     aiFilterEnabled,
     evolvePolicy.data?.mode,
     policyDecisions,
+    minSiScore,
   ]);
   const chartAlerts = useMemo(() => {
     const items = streamAlerts.filter(item =>
@@ -1439,6 +1466,7 @@ export function Home() {
       aiFilterEnabled,
       evolvePolicy.data?.mode,
       policyDecisions,
+      minSiScore,
     ).visible.map(item => item.alert);
   }, [
     streamAlerts,
@@ -1448,6 +1476,7 @@ export function Home() {
     aiFilterEnabled,
     evolvePolicy.data?.mode,
     policyDecisions,
+    minSiScore,
   ]);
   const sortedAlertItems = useMemo<AlertTapeItem[]>(() => streamAlerts
     .map(item => ({
@@ -1505,12 +1534,14 @@ export function Home() {
       aiFilterEnabled,
       evolvePolicy.data?.mode,
       policyDecisions,
+      minSiScore,
     ),
     [
       currentManualAlertItems,
       aiFilterEnabled,
       evolvePolicy.data?.mode,
       policyDecisions,
+      minSiScore,
     ],
   );
   const shownAlertItems = alertTapePolicyView.visible;
@@ -1532,7 +1563,8 @@ export function Home() {
           netR: 0,
         }
       : trade), [simulatedTrades, cursor]);
-  const policySimulationActive = aiFilterEnabled && evolvePolicy.data?.mode === 'active';
+  const policySimulationActive = aiFilterEnabled
+    && (evolvePolicy.data?.mode === 'active' || minSiScore > 0);
   const displayedSimulationSnapshot = policySimulationActive
     ? policySimulationSnapshot
     : simulationSnapshot;
@@ -2301,6 +2333,30 @@ export function Home() {
             enabled={aiFilterEnabled}
             onToggle={() => setAiFilterEnabled(value => !value)}
           />
+          {selectedSymbol === 'XAUUSD' && <>
+            <label className="si-score-threshold" title="Saved as an owner-controlled policy version; applies to the next replay.">
+              <span>SI MIN</span>
+              <strong data-testid="si-score-threshold-value">{Number(minSiScoreDraft).toFixed(2)}</strong>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={minSiScoreDraft}
+                aria-label="Minimum System Intelligence score"
+                data-testid="si-score-threshold"
+                onChange={event => setMinSiScoreDraft(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className="si-threshold-save"
+              onClick={saveMinSiScore}
+              disabled={setMinSiScoreMutation.isPending || Math.abs(Number(minSiScoreDraft) - minSiScore) < 1e-9}
+              data-testid="save-si-score-threshold"
+            >{setMinSiScoreMutation.isPending ? 'SAVING…' : 'SAVE SI MIN'}</button>
+            {setMinSiScoreMutation.isError && <span role="alert" className="si-threshold-error">SAVE FAILED</span>}
+          </>}
         </div>
         <AiFilterHiddenSummary
           hidden={hiddenByAiFilter}
@@ -2335,6 +2391,7 @@ export function Home() {
                     title={`M15 CST ${alert.mtfCst ?? '—'} · CCT ${alert.mtfCct ?? '—'} (${alert.mtfCctAgree ? 'agree' : 'no match'}) · WP ${alert.mtfWickPressure ?? '—'} (${alert.mtfWpAgree ? 'agree' : 'no match'})${alert.dualTfAlert ? ' · same-direction M15 alert within the causal 6-candle window' : ''}`}
                     data-testid={`alert-mtf-${alert.alertId}`}
                   >{alert.mtfTrendAgree ? 'MTF ✓' : 'MTF —'}{alert.dualTfAlert ? ' · DUAL' : ''}</span>
+                  <SiScoreBadge score={alert.siScore} />
                 </span>
                 <span className={`alert-feature-cell wp-${wpState ?? 'unknown'}`} title={`Wick pressure: ${wickPressureLabel(wpState)}`} data-testid={`alert-wp-${alert.alertId}`}>
                   {wpState === 'up-pressure' ? 'UP' : wpState === 'down-pressure' ? 'DOWN' : wpState === 'balanced' ? 'BAL' : '—'}

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { TokenUsage } from './tokenUsage';
+import type { TradeCommentResultFailureCategory } from './tradeCommentResultFailureCategory';
 
 export interface TradeCommentResult {
   available: boolean;
@@ -16,4 +17,6 @@ export interface TradeCommentResult {
   tokenUsage: TokenUsage | null;
   /** @nullable */
   message: string | null;
+  /** @nullable */
+  failureCategory: TradeCommentResultFailureCategory;
 }

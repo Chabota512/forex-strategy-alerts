@@ -25,9 +25,9 @@ describe('System Intelligence failure toasts', () => {
   });
 
   it('throttles each failure class for five minutes and stays silent when SI is off', () => {
-    expect(notifySiFailure('quota', true, 1_000)).toBe(true);
-    expect(notifySiFailure('quota', true, 1_000 + 299_999)).toBe(false);
-    expect(notifySiFailure('quota', true, 1_000 + 300_000)).toBe(true);
+    expect(notifySiFailure('quota', true, 1_000_000)).toBe(true);
+    expect(notifySiFailure('quota', true, 1_000_000 + 299_999)).toBe(false);
+    expect(notifySiFailure('quota', true, 1_000_000 + 300_000)).toBe(true);
     expect(notifySiFailure('auth', false, 2_000_000)).toBe(false);
     expect(toastError).toHaveBeenCalledTimes(2);
   });

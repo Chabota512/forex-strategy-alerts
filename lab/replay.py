@@ -609,6 +609,9 @@ class ReplaySession:
         snapshot_path: Path | None = None,
         swing_direction_version: str = "V2",
         si_case_sink: Callable[[Sequence[Mapping[str, Any]]], Any] | None = None,
+        si_score_provider: Callable[
+            [Mapping[str, Any], Mapping[str, Any]], float
+        ] | None = None,
     ):
         if not records:
             raise ValueError("A replay session requires at least one candle.")
@@ -631,6 +634,7 @@ class ReplaySession:
         self.settings_fingerprint = settings_fingerprint
         self.snapshot_path = Path(snapshot_path) if snapshot_path is not None else None
         self.si_case_sink = si_case_sink
+        self.si_score_provider = si_score_provider
         self._si_recorded_trade_ids: set[str] = set()
         simulation_settings = dict(simulation_settings or {})
         simulation_settings["swingVersion"] = swing_direction_version
@@ -1139,6 +1143,17 @@ class ReplaySession:
                         "previous_candle": self.records[index - 1],
                         "scored": False,
                     }
+                    formation_fingerprint = None
+                    if self.si_score_provider is not None:
+                        formation_fingerprint = build_formation_fingerprint(
+                            self.states[max(0, index + 1 - 20) : index + 1],
+                            self.swing_events,
+                            entry_index=index + 1,
+                            window=20,
+                        )
+                        alert["si_score"] = self.si_score_provider(
+                            alert, formation_fingerprint
+                        )
                     self.alerts.append((index, alert))
                     engulfing = body_engulfs_previous(
                         previous, candle, alert_direction  # type: ignore[arg-type]
@@ -1180,14 +1195,9 @@ class ReplaySession:
                             wp_state=wick_pressure,
                             simulation_settings=self.simulation.settings.to_dict(),
                         )
-                        if self.si_case_sink is not None:
+                        if formation_fingerprint is not None:
                             snapshot["formation_fingerprint"] = (
-                                build_formation_fingerprint(
-                                    self.states[max(0, index + 1 - 20) : index + 1],
-                                    self.swing_events,
-                                    entry_index=index + 1,
-                                    window=20,
-                                )
+                                formation_fingerprint
                             )
                         alert_id = str(alert["alert_id"])
                         if queued:

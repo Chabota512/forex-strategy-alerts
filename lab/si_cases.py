@@ -22,6 +22,7 @@ if __package__:
         adjust_tunables,
         initial_tunables,
         matches_rule,
+        score_belief_rules,
         validate_tunables,
     )
     from .versioning import atomic_write_json
@@ -37,6 +38,7 @@ else:
         adjust_tunables,
         initial_tunables,
         matches_rule,
+        score_belief_rules,
         validate_tunables,
     )
     from versioning import atomic_write_json
@@ -792,6 +794,54 @@ class SICaseStore:
             )
             self._state["tunables"] = updated
         self._state["last_tuned_case_count"] = next_tuned_count
+
+    def scoring_snapshot(self) -> dict[str, Any]:
+        """Freeze the current evidence for deterministic batch/session scoring."""
+        with self._lock:
+            return {
+                "rules": _json_safe(self._state.get("rules", [])),
+                "overall": _json_safe(self._state.get("overall", {})),
+            }
+
+    def score_alert(
+        self,
+        alert: Mapping[str, Any],
+        formation_fingerprint: Mapping[str, Any],
+        belief_state: Mapping[str, Any] | None = None,
+    ) -> float:
+        state = belief_state if belief_state is not None else self.scoring_snapshot()
+        overall = state.get("overall", {})
+        if not isinstance(overall, Mapping):
+            overall = {}
+        features = {
+            "direction": _first(alert, ("direction",), ""),
+            "cct": _first(alert, ("cct", "cct_state", "cctState"), ""),
+            "cst_v2_state": _first(
+                alert, ("cst_v2_state", "cstV2State", "cst"), ""
+            ),
+            "mtf_trend_agree": bool(
+                _first(alert, ("mtf_trend_agree", "mtfTrendAgree"), False)
+            ),
+            "swing_reversal": bool(
+                _first(alert, ("swing_reversal", "swingReversal"), False)
+            ),
+        }
+        rules = state.get("rules", [])
+        return score_belief_rules(
+            {"case_type": "real", "features": features,
+             "formation_fingerprint": formation_fingerprint},
+            rules if isinstance(rules, list) else [],
+            baseline_hit_rate=(
+                float(overall["hit_rate"])
+                if overall.get("hit_rate") is not None
+                else None
+            ),
+            baseline_expectancy=(
+                float(overall["expectancy"])
+                if overall.get("expectancy") is not None
+                else None
+            ),
+        )
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:

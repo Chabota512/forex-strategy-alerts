@@ -20,6 +20,7 @@ export interface SimulationStats {
   winRatePct: number;
   avgR: number;
   expectancyAfterCosts: number;
+  expectancyMoneyAfterCosts: number;
   /** @minimum 0 */
   maxDrawdown: number;
   /** @minimum 0 */

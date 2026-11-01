@@ -86,6 +86,75 @@ def matches_rule(rule_id: str, case: Mapping[str, Any]) -> bool:
     return False
 
 
+def score_belief_rules(
+    case: Mapping[str, Any],
+    rules: Sequence[Mapping[str, Any]],
+    *,
+    baseline_hit_rate: float | None,
+    baseline_expectancy: float | None,
+) -> float:
+    """Score matched rules using evidence-shrunk quality and bounded confidence."""
+    baseline_rate = (
+        min(1.0, max(0.0, baseline_hit_rate))
+        if baseline_hit_rate is not None and math.isfinite(baseline_hit_rate)
+        else 0.5
+    )
+    baseline_r = (
+        baseline_expectancy
+        if baseline_expectancy is not None and math.isfinite(baseline_expectancy)
+        else 0.0
+    )
+    rule_metrics = {
+        str(rule.get("id", "")): rule
+        for rule in rules
+        if isinstance(rule, Mapping)
+    }
+    weighted_score = 0.0
+    total_confidence = 0.0
+
+    for definition in RULE_DEFINITIONS:
+        rule_id = definition["id"]
+        if not matches_rule(rule_id, case):
+            continue
+        metric = rule_metrics.get(rule_id)
+        if metric is None:
+            continue
+
+        try:
+            samples = int(metric.get("samples", 0))
+            raw_hit_rate = float(metric.get("hit_rate"))
+            raw_expectancy = float(metric.get("expectancy"))
+            rule_weight = float(metric.get("weight", 1.0))
+        except (TypeError, ValueError):
+            continue
+        if samples <= 0 or not all(
+            math.isfinite(value)
+            for value in (raw_hit_rate, raw_expectancy, rule_weight)
+        ):
+            continue
+
+        rule_weight = min(1.0, max(0.0, rule_weight))
+        confidence = rule_weight * samples / (samples + MIN_RULE_CASES)
+        if confidence <= 0:
+            continue
+
+        adjusted_hit_rate = (
+            samples * min(1.0, max(0.0, raw_hit_rate))
+            + MIN_RULE_CASES * baseline_rate
+        ) / (samples + MIN_RULE_CASES)
+        adjusted_expectancy = (
+            samples * raw_expectancy + MIN_RULE_CASES * baseline_r
+        ) / (samples + MIN_RULE_CASES)
+        expectancy_score = 0.5 + 0.5 * math.tanh(adjusted_expectancy)
+        rule_score = 0.5 * adjusted_hit_rate + 0.5 * expectancy_score
+        weighted_score += confidence * rule_score
+        total_confidence += confidence
+
+    if total_confidence == 0:
+        return 0.5
+    return round(min(1.0, max(0.0, weighted_score / total_confidence)), 6)
+
+
 def initial_tunables() -> dict[str, Any]:
     return {
         "strength_weights": {

@@ -5,6 +5,7 @@
  * Forex Strategy Lab read-only data and unscored review operations
  * OpenAPI spec version: 0.1.0
  */
+import type { AICommentResultFailureCategory } from './aICommentResultFailureCategory';
 import type { TokenUsage } from './tokenUsage';
 
 export interface AICommentResult {
@@ -16,4 +17,6 @@ export interface AICommentResult {
   tokenUsage: TokenUsage | null;
   /** @nullable */
   message: string | null;
+  /** @nullable */
+  failureCategory: AICommentResultFailureCategory;
 }

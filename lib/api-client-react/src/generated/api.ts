@@ -40,6 +40,7 @@ import type {
   EvolveJobStatus,
   EvolvePolicy,
   EvolvePolicyHistory,
+  EvolvePolicyMinSiScoreInput,
   EvolvePolicyRestoreInput,
   EvolveRoundHistory,
   EvolveRunInput,
@@ -1507,6 +1508,94 @@ export const useRestoreEvolvePolicy = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getRestoreEvolvePolicyMutationOptions(options), queryClient);
+    }
+
+export const getSetEvolvePolicyMinSiScoreUrl = () => {
+
+
+
+
+  return `/api/evolve/policy/min-si-score`
+}
+
+/**
+ * @summary Set the owner-controlled SYSTEM INTELLIGENCE score threshold
+ */
+export const setEvolvePolicyMinSiScore = async (evolvePolicyMinSiScoreInput: EvolvePolicyMinSiScoreInput, options?: Parameters<typeof customFetch>[1]): Promise<EvolvePolicy> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<EvolvePolicy>(getSetEvolvePolicyMinSiScoreUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(evolvePolicyMinSiScoreInput)
+  }
+);}
+
+
+
+
+
+export const getSetEvolvePolicyMinSiScoreMutationKey = () => ['setEvolvePolicyMinSiScore'] as const;
+
+export const getSetEvolvePolicyMinSiScoreMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setEvolvePolicyMinSiScore>>, TError,SetEvolvePolicyMinSiScoreMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setEvolvePolicyMinSiScore>>, TError,SetEvolvePolicyMinSiScoreMutationVariables, TContext> => {
+
+const mutationKey = getSetEvolvePolicyMinSiScoreMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setEvolvePolicyMinSiScore>>, SetEvolvePolicyMinSiScoreMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  setEvolvePolicyMinSiScore(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetEvolvePolicyMinSiScoreMutationResult = NonNullable<Awaited<ReturnType<typeof setEvolvePolicyMinSiScore>>>
+    export type SetEvolvePolicyMinSiScoreMutationBody = BodyType<EvolvePolicyMinSiScoreInput>
+    export type SetEvolvePolicyMinSiScoreMutationError = ErrorType<ErrorResponse>
+    export type SetEvolvePolicyMinSiScoreMutationVariables = {data: BodyType<EvolvePolicyMinSiScoreInput>}
+
+    /**
+ * @summary Set the owner-controlled SYSTEM INTELLIGENCE score threshold
+ */
+export const useSetEvolvePolicyMinSiScore = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setEvolvePolicyMinSiScore>>, TError,SetEvolvePolicyMinSiScoreMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setEvolvePolicyMinSiScore>>,
+        TError,
+        SetEvolvePolicyMinSiScoreMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetEvolvePolicyMinSiScoreMutationOptions(options), queryClient);
     }
 
 export const getGetAutoevolveStatusUrl = () => {

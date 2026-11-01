@@ -5,6 +5,7 @@
  * Forex Strategy Lab read-only data and unscored review operations
  * OpenAPI spec version: 0.1.0
  */
+import type { CapitalContext } from './capitalContext';
 
 export interface SystemIntelligenceOverall {
   hits: number;
@@ -13,4 +14,7 @@ export interface SystemIntelligenceOverall {
   hitRate: number | null;
   /** @nullable */
   expectancy: number | null;
+  /** @nullable */
+  expectancyMoney: number | null;
+  capitalContext: CapitalContext;
 }

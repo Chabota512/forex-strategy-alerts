@@ -483,7 +483,7 @@ class ControlRoomServiceTests(unittest.TestCase):
         self.assertIn("cct", result["candles"][0])
         self.assertIn("cst", result["candles"][0])
         self.assertTrue(all(alert["scored"] is False for alert in result["alerts"]))
-        self.assertEqual(result["simulation"]["settings"]["startingBalance"], 10000)
+        self.assertEqual(result["simulation"]["settings"]["startingBalance"], 1000)
         self.assertIn("simulatedTrades", result)
         snapshot_path = self.output_dir / "snapshots.jsonl"
         self.assertTrue(snapshot_path.is_file())

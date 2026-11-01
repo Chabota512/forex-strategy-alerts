@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   advance: vi.fn(),
   comment: vi.fn(),
   policy: vi.fn(),
+  setMinSiScore: vi.fn(),
 }));
 
 vi.mock('@workspace/api-client-react', () => ({
@@ -19,6 +20,11 @@ vi.mock('@workspace/api-client-react', () => ({
   useGetLabDataset: (...args: unknown[]) => api.dataset(...args),
   useGetLabCandles: (...args: unknown[]) => api.candles(...args),
   useGetEvolvePolicy: (...args: unknown[]) => api.policy(...args),
+  useSetEvolvePolicyMinSiScore: () => ({
+    mutate: api.setMinSiScore,
+    isPending: false,
+    isError: false,
+  }),
   useStartLabReplaySession: () => ({
     mutateAsync: api.start,
     isPending: false,

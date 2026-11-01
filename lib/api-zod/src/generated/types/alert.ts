@@ -52,6 +52,12 @@ export interface Alert {
      * @maximum 1
      */
   strengthScore: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  siScore?: number | null;
   strengthFeatures: AlertStrengthFeatures;
   /** @nullable */
   note: string | null;
