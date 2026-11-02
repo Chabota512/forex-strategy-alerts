@@ -2852,6 +2852,10 @@ export function Home() {
           <span>STR <b>{revealedCounts.strong}</b></span><span>NEU <b>{revealedCounts.neutral}</b></span><span>WEAK <b>{revealedCounts.weak}</b></span>
         </div>
         <div className="filters">
+          <div className="alert-filters-heading">
+            <span>FILTER ALERTS</span>
+            <small>REFINE THE TAPE</small>
+          </div>
           <select value={direction} onChange={e => setDirection(e.target.value)} aria-label="Direction filter" data-testid="filter-alert-direction"><option value="ALL">ALL DIR</option><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
           <select value={strength} onChange={e => setStrength(e.target.value)} aria-label="Strength filter" data-testid="filter-alert-strength"><option value="ALL">ALL STRENGTH</option><option value="STRONG">STRONG</option><option value="NEUTRAL">NEUTRAL</option><option value="WEAK">WEAK</option></select>
           <select value={variantFilter} onChange={e => setVariantFilter(e.target.value as 'ALL' | 'A' | 'B')} aria-label="Variant filter" data-testid="filter-alert-variant"><option value="ALL">ALL VAR</option><option value="A">A</option><option value="B">B</option></select>
@@ -2867,99 +2871,116 @@ export function Home() {
             onClick={() => setMtfAgreementOnly(value => !value)}
             data-testid="filter-alert-mtf"
           >{mtfAgreementOnly ? 'MTF ONLY' : 'MTF ALL'}</button>
-          <AiFilterToggle
-            enabled={aiFilterEnabled}
-            onToggle={() => setAiFilterEnabled(value => !value)}
-          />
+          <div className="si-filter-row">
+            <AiFilterToggle
+              enabled={aiFilterEnabled}
+              onToggle={() => setAiFilterEnabled(value => !value)}
+            />
+            <span>Hide lower-confidence alerts</span>
+          </div>
           {selectedSymbol === 'XAUUSD' && <>
-            <label className="si-score-threshold" title="AUTO recalibrates from scored XAUUSD cases. Saving the slider creates an owner override for the next replay.">
-              <span>SI MIN · {minSiScoreMode === 'override' ? 'OWNER OVERRIDE' : 'AUTO'}</span>
-              <strong data-testid="si-score-threshold-value">{Number(minSiScoreDraft).toFixed(2)}</strong>
-              <input
-                type="range"
-                min="0"
-                max="0.8"
-                step="0.01"
-                value={minSiScoreDraft}
-                aria-label="Minimum System Intelligence score"
-                data-testid="si-score-threshold"
-                onChange={event => setMinSiScoreDraft(event.target.value)}
-              />
-              <small
-                className={minSiScoreEvidence?.status === 'calibrating' ? 'is-warning' : ''}
-                data-testid="si-score-auto-evidence"
-              >
-                AUTO {minSiScoreAuto.toFixed(2)} · {minSiScoreEvidenceLabel}
-              </small>
-            </label>
-            <button
-              type="button"
-              className="si-threshold-save"
-              onClick={saveMinSiScore}
-              disabled={setMinSiScoreMutation.isPending || (
-                minSiScoreMode === 'override'
-                && Math.abs(Number(minSiScoreDraft) - minSiScore) < 1e-9
-              )}
-              data-testid="save-si-score-threshold"
-            >{setMinSiScoreMutation.isPending ? 'SAVING…' : 'SET OWNER OVERRIDE'}</button>
-            {minSiScoreMode === 'override' && <button
-              type="button"
-              className="si-threshold-reset"
-              onClick={resetMinSiScoreToAuto}
-              disabled={setMinSiScoreMutation.isPending}
-              data-testid="reset-si-score-auto"
-            >RESET TO AUTO</button>}
-            <div className="si-model-controls" data-testid="si-score-model-controls">
-              <label>
-                <span>SI SCORE MODEL</span>
-                <select
-                  value={siModel}
-                  onChange={event => changeSiModel(event.target.value as SiModelName)}
-                  aria-label="System Intelligence score model"
-                  data-testid="select-si-score-model"
-                >
-                  <option value="evidence">EVIDENCE</option>
-                  <option value="owner">OWNER</option>
-                  <option value="blend">BLEND</option>
-                </select>
-              </label>
-              {siModel === 'blend' && <label>
-                <span>OWNER MIX · {Math.round(siBlendWeight * 100)}%</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={siBlendWeight}
-                  onChange={event => changeSiBlendWeight(Number(event.target.value))}
-                  aria-label="Owner score weight in blend"
-                  data-testid="slider-si-blend-weight"
-                />
-              </label>}
-              <small data-testid="si-owner-model-status">
-                {matchingSession?.ownerModel?.qualified
-                  ? `OWNER MODEL READY · ${matchingSession.ownerModel.caseCount} CHOICES`
-                  : `OWNER MODEL NEEDS ${Math.max(
-                    0,
-                    (matchingSession?.ownerModel?.requiredCaseCount ?? 30)
-                      - (matchingSession?.ownerModel?.caseCount ?? 0),
-                  )} MORE CHOICES`}
-              </small>
-              {matchingSession?.ownerModel?.trained && <small
-                className="si-owner-model-weights"
-                data-testid="si-owner-model-weights"
-              >
-                EFFECTIVE W · {summarizeOwnerWeights(
-                  matchingSession.ownerModel.effectiveWeights,
-                )} · HIT {matchingSession.ownerModel.hitRate == null
-                  ? '—'
-                  : `${Math.round(matchingSession.ownerModel.hitRate * 100)}%`} · EXP {
-                  matchingSession.ownerModel.expectancyR == null
-                    ? '—'
-                    : `${matchingSession.ownerModel.expectancyR >= 0 ? '+' : ''}${matchingSession.ownerModel.expectancyR.toFixed(2)}R`
-                }
-              </small>}
-            </div>
+            <details className="si-advanced-settings" data-testid="si-score-advanced">
+              <summary>
+                <span>SYSTEM INTELLIGENCE OPTIONS</span>
+                <span className="si-advanced-current">
+                  {siModel.toUpperCase()} · {Number(minSiScoreDraft).toFixed(2)} MIN
+                </span>
+              </summary>
+              <div className="si-advanced-body">
+                <div className="si-score-controls">
+                  <label className="si-score-threshold" title="AUTO recalibrates from scored XAUUSD cases. Saving the slider creates an owner override for the next replay.">
+                    <span>MINIMUM SI SCORE · {minSiScoreMode === 'override' ? 'OWNER OVERRIDE' : 'AUTO'}</span>
+                    <strong data-testid="si-score-threshold-value">{Number(minSiScoreDraft).toFixed(2)}</strong>
+                    <input
+                      type="range"
+                      min="0"
+                      max="0.8"
+                      step="0.01"
+                      value={minSiScoreDraft}
+                      aria-label="Minimum System Intelligence score"
+                      data-testid="si-score-threshold"
+                      onChange={event => setMinSiScoreDraft(event.target.value)}
+                    />
+                    <small
+                      className={minSiScoreEvidence?.status === 'calibrating' ? 'is-warning' : ''}
+                      data-testid="si-score-auto-evidence"
+                    >
+                      AUTO {minSiScoreAuto.toFixed(2)} · {minSiScoreEvidenceLabel}
+                    </small>
+                  </label>
+                  <div className="si-score-actions">
+                    <button
+                      type="button"
+                      className="si-threshold-save"
+                      onClick={saveMinSiScore}
+                      disabled={setMinSiScoreMutation.isPending || (
+                        minSiScoreMode === 'override'
+                        && Math.abs(Number(minSiScoreDraft) - minSiScore) < 1e-9
+                      )}
+                      data-testid="save-si-score-threshold"
+                    >{setMinSiScoreMutation.isPending ? 'SAVING…' : 'SET OWNER OVERRIDE'}</button>
+                    {minSiScoreMode === 'override' && <button
+                      type="button"
+                      className="si-threshold-reset"
+                      onClick={resetMinSiScoreToAuto}
+                      disabled={setMinSiScoreMutation.isPending}
+                      data-testid="reset-si-score-auto"
+                    >RESET TO AUTO</button>}
+                  </div>
+                </div>
+                <div className="si-model-controls" data-testid="si-score-model-controls">
+                  <label>
+                    <span>SI SCORE MODEL</span>
+                    <select
+                      value={siModel}
+                      onChange={event => changeSiModel(event.target.value as SiModelName)}
+                      aria-label="System Intelligence score model"
+                      data-testid="select-si-score-model"
+                    >
+                      <option value="evidence">EVIDENCE</option>
+                      <option value="owner">OWNER</option>
+                      <option value="blend">BLEND</option>
+                    </select>
+                  </label>
+                  {siModel === 'blend' && <label>
+                    <span>OWNER MIX · {Math.round(siBlendWeight * 100)}%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={siBlendWeight}
+                      onChange={event => changeSiBlendWeight(Number(event.target.value))}
+                      aria-label="Owner score weight in blend"
+                      data-testid="slider-si-blend-weight"
+                    />
+                  </label>}
+                  <small data-testid="si-owner-model-status">
+                    {matchingSession?.ownerModel?.qualified
+                      ? `OWNER MODEL READY · ${matchingSession.ownerModel.caseCount} CHOICES`
+                      : `OWNER MODEL NEEDS ${Math.max(
+                        0,
+                        (matchingSession?.ownerModel?.requiredCaseCount ?? 30)
+                          - (matchingSession?.ownerModel?.caseCount ?? 0),
+                      )} MORE CHOICES`}
+                  </small>
+                  {matchingSession?.ownerModel?.trained && <small
+                    className="si-owner-model-weights"
+                    data-testid="si-owner-model-weights"
+                  >
+                    EFFECTIVE W · {summarizeOwnerWeights(
+                      matchingSession.ownerModel.effectiveWeights,
+                    )} · HIT {matchingSession.ownerModel.hitRate == null
+                      ? '—'
+                      : `${Math.round(matchingSession.ownerModel.hitRate * 100)}%`} · EXP {
+                      matchingSession.ownerModel.expectancyR == null
+                        ? '—'
+                        : `${matchingSession.ownerModel.expectancyR >= 0 ? '+' : ''}${matchingSession.ownerModel.expectancyR.toFixed(2)}R`
+                    }
+                  </small>}
+                </div>
+              </div>
+            </details>
             {setMinSiScoreMutation.isError && <span role="alert" className="si-threshold-error">SAVE FAILED</span>}
           </>}
         </div>
@@ -2984,8 +3005,20 @@ export function Home() {
             {sortButton('variant', 'VAR')}
             <span className="alert-column-label">ACTION</span>
           </div>
-          {!matchingSession ? <div className="tape-empty">{m1DataReplay ? <>M1 candle replay is loaded.<br/>No engine run was started.</> : <>No engine output yet.<br/>Press RUN, then play — alerts fire as candles arrive.</>}</div> :
-            shownAlertItems.length === 0 ? <div className="tape-empty">{revealedAlerts.length ? 'No revealed alerts match filters.' : 'No alerts revealed at this candle.'}</div> :
+            {!matchingSession ? <div className="tape-empty">
+              <span className="tape-empty-mark" aria-hidden="true">00</span>
+              <strong>{m1DataReplay ? 'ENGINE REPLAY NOT STARTED' : 'NO ALERTS YET'}</strong>
+              <p>{m1DataReplay
+                ? 'Candle replay is loaded. Start an engine run to generate alert output.'
+                : 'Press RUN, then play — alerts will appear here as candles are revealed.'}</p>
+            </div> :
+              shownAlertItems.length === 0 ? <div className="tape-empty">
+                <span className="tape-empty-mark" aria-hidden="true">00</span>
+                <strong>{revealedAlerts.length ? 'NO MATCHING ALERTS' : 'NO ALERTS REVEALED'}</strong>
+                <p>{revealedAlerts.length
+                  ? 'Adjust the filters to see more alerts.'
+                  : 'Continue playback to reveal the next alert.'}</p>
+              </div> :
               shownAlertItems.map(({ alert, wpState }) => <div key={alert.alertId} className={`alert-row ${selected?.alertId === alert.alertId ? 'chosen' : ''}`} role="button" tabIndex={0} onClick={() => selectAlert(alert)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') selectAlert(alert); }} data-testid={`alert-row-${alert.alertId}`}>
                 <span className={`direction-mark ${alert.direction.toLowerCase()}`}>{alert.direction === 'BUY' ? <ArrowUpRight size={15}/> : <ArrowDownRight size={15}/>}</span>
                 <span className="alert-main">
