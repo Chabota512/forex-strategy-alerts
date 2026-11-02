@@ -28,7 +28,8 @@ import {
 import { SimulationPanel } from '@/components/simulation-panel';
 import { DrawingLayer, DrawingToolbar, requestClearSelectedDrawings } from '@/components/drawing-tools';
 import { TradeJournal } from '@/components/trade-journal';
-import { ManualDecisionLog, type ManualDecisionRecord } from '@/components/manual-decision-log';
+import { ManualTradesPanel } from '@/components/manual-trades-panel';
+import type { ManualDecisionRecord } from '@/components/manual-decision-log';
 import EvolveControl from '@/components/evolve-control';
 import AutoevolveControl from '@/components/autoevolve-control';
 import SystemIntelligence from '@/components/system-intelligence';
@@ -315,14 +316,29 @@ export function Chart({ symbol, timeframe, candles, alerts, active, onAlert, sho
     && candle.low === flatPrice
     && candle.close === flatPrice,
   );
+  const visibleTradeLevels = useMemo(() => {
+    if (!showTradeLevels) return [];
+    const visibleEnd = viewStart + span.length - 1;
+    return trades.filter(trade => {
+      if (trade.outcome !== 'OPEN') return false;
+      const visibleFrom = Math.max(trade.entryIndex, viewStart);
+      const visibleThrough = Math.min(trade.exitIndex ?? replayIndex, visibleEnd);
+      return visibleFrom <= visibleThrough && visibleFrom <= replayIndex;
+    });
+  }, [replayIndex, showTradeLevels, span.length, trades, viewStart]);
   const levels = useMemo(() => {
     if (!validCandles.length) return null;
-    const lo = Math.min(...validCandles.map(c => c.low));
-    const hi = Math.max(...validCandles.map(c => c.high));
+    const tradePrices = visibleTradeLevels.flatMap(trade => [
+      trade.entryPrice,
+      trade.stopPrice,
+      trade.takeProfitPrice,
+    ]);
+    const lo = Math.min(...validCandles.map(c => c.low), ...tradePrices);
+    const hi = Math.max(...validCandles.map(c => c.high), ...tradePrices);
     const minSlack = symbol === 'XAUUSD' ? 0.25 : symbol.endsWith('JPY') ? 0.02 : 0.0002;
     const slack = Math.max((hi - lo) * 0.09, minSlack);
     return { low: lo - slack, high: hi + slack };
-  }, [validCandles]);
+  }, [symbol, validCandles, visibleTradeLevels]);
   const y = (v: number) => levels ? pad.top + (levels.high - v) / (levels.high - levels.low) * plotH : 0;
   const step = plotW / Math.max(1, viewSize);
   const plotGeometry: PlotGeometry = {
@@ -801,7 +817,7 @@ export function Chart({ symbol, timeframe, candles, alerts, active, onAlert, sho
         <rect className="price-tag" x={width - pad.right + 3} y={activeY - 10} width={pad.right - 6} height="20"/>
         <text className="price-tag-text" x={width - pad.right + 9} y={activeY + 4}>{fmtPrice(active?.close, symbol)}</text>
       </g>}
-      {showTradeLevels && trades.filter(trade => trade.outcome === 'OPEN').map(trade => {
+      {visibleTradeLevels.map(trade => {
         const resolvedThrough = trade.exitIndex === null ? replayIndex : trade.exitIndex;
         const visibleFrom = Math.max(trade.entryIndex, viewStart);
         const visibleThrough = Math.min(resolvedThrough, viewStart + span.length - 1);
@@ -810,7 +826,12 @@ export function Chart({ symbol, timeframe, candles, alerts, active, onAlert, sho
         const localThrough = visibleThrough - viewStart;
         const x1 = pad.left + step * (localFrom + 0.5);
         const x2 = pad.left + step * (localThrough + 0.5);
-        return <g key={`trade-levels-${trade.tradeId}`} className="trade-level-set">
+        return <g
+          key={`trade-levels-${trade.tradeId}`}
+          className={`trade-level-set${trade.source === 'manual' || trade.manual ? ' is-manual' : ''}`}
+          data-source={trade.source === 'manual' || trade.manual ? 'manual' : 'simulated'}
+          data-testid={`chart-trade-levels-${trade.tradeId}`}
+        >
           <line className="trade-entry-line" x1={x1} x2={x2} y1={y(trade.entryPrice)} y2={y(trade.entryPrice)}/>
           <line className="trade-stop-line" x1={x1} x2={x2} y1={y(trade.stopPrice)} y2={y(trade.stopPrice)}/>
           <line className="trade-target-line" x1={x1} x2={x2} y1={y(trade.takeProfitPrice)} y2={y(trade.takeProfitPrice)}/>
@@ -1160,7 +1181,7 @@ export function Home() {
   const [showTradeLevels, setShowTradeLevels] = useState(true);
   const [drawingTool, setDrawingTool] = useState<AnnotationTool | null>('cursor');
   const [focusedTrade, setFocusedTrade] = useState<SimulatedTrade | null>(null);
-  const [rightPanel, setRightPanel] = useState<'alerts' | 'journal'>('alerts');
+  const [rightPanel, setRightPanel] = useState<'alerts' | 'journal' | 'manual'>('alerts');
   const [selected, setSelected] = useState<Alert | null>(null);
   const [comment, setComment] = useState<AICommentResult | null>(null);
   const [scrubbing, setScrubbing] = useState(false);
@@ -1930,6 +1951,11 @@ export function Home() {
   const simulationPanelTrades = selectedSymbol === 'XAUUSD'
     ? displayedSimulatedTrades
     : visibleSimulatedTrades;
+  const activeManualTrades = simulationPanelTrades.filter(trade =>
+    (trade.source === 'manual' || trade.manual === true)
+    && trade.outcome === 'OPEN'
+    && trade.entryIndex <= cursor,
+  );
   const simulationFilterParts = [
     strength !== 'ALL' ? strength : null,
     direction !== 'ALL' ? direction : null,
@@ -2687,65 +2713,6 @@ export function Home() {
       {replayFailed && <button className="inline-error retry" onClick={retryReplay} data-testid="button-retry-smoke">Replay failed · Retry</button>}
     </section>
 
-    {selectedSymbol === 'XAUUSD' && <section
-      className={`manual-replay-controls${manualMode ? ' is-active' : ''}`}
-      aria-label="Manual replay controls"
-      data-testid="manual-replay-controls"
-    >
-      <label className="manual-mode-toggle">
-        <input
-          type="checkbox"
-          checked={manualMode}
-          onChange={event => changeManualMode(event.target.checked)}
-          data-testid="toggle-manual-replay"
-        />
-        <span>MANUAL MODE</span>
-      </label>
-      {manualMode ? <>
-        <p>Paused replay · N next · P previous · B/S take the matching alert side · K skip. Moving past a candle records undecided alerts there as skipped.</p>
-        <div className="manual-decision-actions">
-          <textarea
-            value={manualComment}
-            onChange={event => setManualComment(event.target.value.slice(0, 500))}
-            maxLength={500}
-            placeholder="Optional decision comment"
-            aria-label="Optional manual decision comment"
-            data-testid="input-manual-decision-comment"
-          />
-          <button
-            type="button"
-            disabled={!matchingSession || !manualSelectedAlert || manualSelectedAlert.direction !== 'BUY'}
-            title={!matchingSession ? 'Start a manual replay to enable decisions.' : manualSelectedAlert?.direction !== 'BUY' ? 'TAKE BUY is available for a current BUY alert.' : 'Take the current BUY alert.'}
-            onClick={() => takeManualSide('BUY')}
-            data-testid="button-manual-take-buy"
-          >TAKE BUY · B</button>
-          <button
-            type="button"
-            disabled={!matchingSession || !manualSelectedAlert || manualSelectedAlert.direction !== 'SELL'}
-            title={!matchingSession ? 'Start a manual replay to enable decisions.' : manualSelectedAlert?.direction !== 'SELL' ? 'TAKE SELL is available for a current SELL alert.' : 'Take the current SELL alert.'}
-            onClick={() => takeManualSide('SELL')}
-            data-testid="button-manual-take-sell"
-          >TAKE SELL · S</button>
-          <button
-            type="button"
-            disabled={!matchingSession || !manualSelectedAlert}
-            title={!matchingSession ? 'Start a manual replay to enable decisions.' : !manualSelectedAlert ? 'No undecided alert at the current candle.' : 'Skip the current alert.'}
-            onClick={skipManualSelection}
-            data-testid="button-manual-skip"
-          >SKIP ALERT · K</button>
-        </div>
-        <div className="manual-decision-status" role="status" data-testid="manual-decision-status">
-          {!matchingSession
-            ? 'RUN ENGINE TO START A MANUAL REPLAY.'
-            : manualSelectedAlert
-              ? `CURRENT ${manualSelectedAlert.direction} ALERT · ${fmtTime(manualSelectedAlert.time)} · ${manualAlertsAtCursor.length} UNDECIDED`
-              : 'NO UNDECIDED ALERT AT THIS CANDLE · ADVANCE TO THE NEXT ALERT.'}
-        </div>
-        {manualActionError && <div role="alert" className="inline-error" data-testid="error-manual-decision">{manualActionError}</div>}
-        <ManualDecisionLog records={manualDecisionLog}/>
-      </> : <p>Manual replay is paused by default when enabled. Automated playback remains unchanged otherwise.</p>}
-    </section>}
-
     <div className="workbench">
       <section
         className="chart-column"
@@ -2921,16 +2888,34 @@ export function Home() {
 
       <div className="right-panel">
         <div className="right-panel-tabs" role="tablist" aria-label="Right-side workstation panels">
-          <button role="tab" aria-selected={rightPanel === 'alerts'} className={rightPanel === 'alerts' ? 'active' : ''} onClick={() => setRightPanel('alerts')} data-testid="tab-alert-tape">ALERT TAPE</button>
-          <button role="tab" aria-selected={rightPanel === 'journal'} className={rightPanel === 'journal' ? 'active' : ''} onClick={() => setRightPanel('journal')} data-testid="tab-trade-journal">TRADE JOURNAL</button>
+          <button id="tab-alert-tape" role="tab" aria-controls="panel-alert-tape" aria-selected={rightPanel === 'alerts'} className={rightPanel === 'alerts' ? 'active' : ''} onClick={() => setRightPanel('alerts')} data-testid="tab-alert-tape">ALERT TAPE</button>
+          <button id="tab-trade-journal" role="tab" aria-controls="panel-trade-journal" aria-selected={rightPanel === 'journal'} className={rightPanel === 'journal' ? 'active' : ''} onClick={() => setRightPanel('journal')} data-testid="tab-trade-journal">TRADE JOURNAL</button>
+          <button id="tab-manual-trades" role="tab" aria-controls="panel-manual-trades" aria-selected={rightPanel === 'manual'} className={rightPanel === 'manual' ? 'active' : ''} onClick={() => setRightPanel('manual')} data-testid="tab-manual-trades">MANUAL TRADES</button>
         </div>
-      {rightPanel === 'journal' ? <TradeJournal
+      {rightPanel === 'journal' ? <div id="panel-trade-journal" role="tabpanel" aria-labelledby="tab-trade-journal" className="right-panel-content">
+        <TradeJournal
         trades={displayedSimulatedTrades}
         symbol={selectedSymbol}
         selectedTradeId={focusedTrade?.tradeId ?? null}
         onSelect={focusTrade}
         systemIntelligenceEnabled={aiFilterEnabled}
-      /> : <aside className="alert-pane">
+      /></div> : rightPanel === 'manual' ? <ManualTradesPanel
+        symbol={selectedSymbol}
+        manualMode={manualMode}
+        onManualModeChange={changeManualMode}
+        manualComment={manualComment}
+        onManualCommentChange={setManualComment}
+        manualSessionReady={Boolean(matchingSession)}
+        activeAlert={manualSelectedAlert}
+        undecidedCount={manualAlertsAtCursor.length}
+        simulationEnabled={Boolean(simulationPanelSnapshot?.enabled)}
+        actionError={manualActionError}
+        onTakeBuy={() => takeManualSide('BUY')}
+        onTakeSell={() => takeManualSide('SELL')}
+        onSkip={skipManualSelection}
+        decisions={manualDecisionLog}
+        activeTrades={activeManualTrades}
+      /> : <aside id="panel-alert-tape" role="tabpanel" aria-labelledby="tab-alert-tape" className="alert-pane">
         <div className="alert-header">
           <div><strong>ALERT TAPE</strong><span>{matchingSession ? 'INCREMENTAL ENGINE OUTPUT · REVEALED' : m1DataReplay ? 'CANDLE-ONLY M1 REPLAY · NO ENGINE OUTPUT' : 'PRESS RUN TO BEGIN REPLAY'}</span></div>
           <b data-testid="count-revealed-alerts">{revealedAlerts.length.toString().padStart(2, '0')}</b>
