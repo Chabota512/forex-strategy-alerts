@@ -1,0 +1,10 @@
+{
+  "trade:12055dec4c4e33ba130ec7776dd4ddab3565c990141fd858d939186ff2589bd6-sim": {
+    "comment": "A BUY entry was taken on an M15 engulfing candle, which closed at 1835.718 with a strong body ratio of 0.6541 and minimal upper wick. The trade concluded as a loss, realizing an R-multiple of -1.0. Entry context showed both current candle and structure types as ranging, despite a daily cycle uptrend, and the alert candle's significant lower wick fraction was present alongside an overall down-pressure state, with no multi-timeframe alignment.",
+    "contextSha256": "52d498793db5d6dbb5da32a07541fb82be8aec9c266990081c1fc70a223db0e9"
+  },
+  "trade:47a630919f4d93a1b013678e4d54628eac00fa9573b38bc2a4e9cc65f441ca91-sim": {
+    "comment": "A BUY entry was initiated, resulting in a WIN with an achieved R-multiple of 3.63. The alert candle displayed a body ratio of 0.37, with an upper wick fraction of 0.36 and a lower wick fraction of 0.26, indicating down-pressure at the time of the alert. The current candle trend, current structure trend, and hierarchical state were all aligned in an uptrend, while the Donchian Channel state was in a downtrend.",
+    "contextSha256": "83b434b8704ef9bfad9a47c358a869bbcc21015faccd36be0c8f7297c20053c0"
+  }
+}
