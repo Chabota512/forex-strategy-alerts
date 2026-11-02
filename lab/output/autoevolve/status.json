@@ -1,5 +1,5 @@
 {
-  "active_job_id": "ae461082-2da5-40b2-baa2-4b4b1566d07c",
+  "active_job_id": null,
   "alerts": [
     {
       "created_at_utc": "2026-11-01T21:03:44.407616Z",
@@ -12,18 +12,18 @@
   ],
   "cooldown_seconds": 60,
   "cooldown_until_utc": null,
-  "error": null,
+  "error": "The server restarted during a round; a failed archive was saved.",
   "keys": {
     "key1": "unknown",
     "key2": "unknown"
   },
-  "last_result_file": "evolve_round_05_20261102T023309919532Z_result.json",
+  "last_result_file": "evolve_round_06_20261102T025424515425Z_result.json",
   "last_verdict": "failed",
-  "phase": "training",
+  "phase": "failed",
   "round": 6,
-  "running": true,
-  "state": "running",
+  "running": false,
+  "state": "failed",
   "stop_requested": false,
   "swing_version": "V2",
-  "updated_at_utc": "2026-11-02T03:00:35.720791Z"
+  "updated_at_utc": "2026-11-02T03:10:21.279381Z"
 }
