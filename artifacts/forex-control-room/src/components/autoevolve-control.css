@@ -1,0 +1,224 @@
+.autoevolve-strip {
+  position: fixed;
+  z-index: 40;
+  inset: auto 12px 33px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--surface-raised) 96%, transparent);
+  box-shadow: 0 -5px 24px rgb(0 0 0 / 18%);
+  color: var(--text-body);
+  font: 9px/1.45 var(--app-font-mono, monospace);
+  backdrop-filter: blur(10px);
+}
+.autoevolve-strip-heading,
+.autoevolve-strip-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.autoevolve-strip-heading strong {
+  color: var(--text-heading);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .06em;
+}
+.autoevolve-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-subtle);
+}
+.autoevolve-indicator.is-running,
+.autoevolve-indicator.is-cooldown,
+.autoevolve-indicator.is-awaiting-owner-approval {
+  background: var(--positive-text);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--positive-text) 55%, transparent);
+}
+.autoevolve-indicator.is-paused-keys-depleted,
+.autoevolve-indicator.is-failed {
+  background: var(--negative-text);
+}
+.autoevolve-round-link {
+  padding: 0 3px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-label);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font: inherit;
+}
+.autoevolve-round-link:disabled {
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: default;
+}
+.autoevolve-config { position: relative; }
+.autoevolve-config summary {
+  color: var(--text-muted);
+  cursor: pointer;
+  letter-spacing: .07em;
+}
+.autoevolve-config-panel {
+  position: absolute;
+  z-index: 44;
+  right: 0;
+  bottom: calc(100% + 10px);
+  width: min(330px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 28%);
+}
+.autoevolve-config-panel label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+}
+.autoevolve-config-panel select {
+  max-width: 190px;
+  padding: 5px 7px;
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: var(--text-input);
+  font: inherit;
+}
+.autoevolve-config-panel p {
+  margin: 10px 0 0;
+  color: var(--text-subtle);
+  font-size: 8px;
+  line-height: 1.6;
+}
+.autoevolve-action {
+  min-height: 27px;
+  padding: 0 9px;
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: var(--text-body);
+  cursor: pointer;
+  font: 8px var(--app-font-mono, monospace);
+  letter-spacing: .04em;
+}
+.autoevolve-action:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  color: var(--accent-label);
+}
+.autoevolve-action:disabled { opacity: .48; cursor: not-allowed; }
+.autoevolve-action.is-start { border-color: var(--accent-border); color: var(--accent-label); }
+.autoevolve-action.is-stop { border-color: var(--warning-border); color: var(--warning-text); }
+.autoevolve-action.is-restore { margin-top: 8px; }
+.autoevolve-persistent-alert {
+  color: var(--warning-text);
+  font-size: 8px;
+}
+.autoevolve-persistent-alert {
+  flex: 1 1 240px;
+  padding-left: 8px;
+  border-left: 2px solid var(--warning-border);
+}
+.autoevolve-inline-error {
+  flex-basis: 100%;
+  color: var(--negative-text);
+}
+.autoevolve-dataset-note {
+  flex-basis: 100%;
+  color: var(--warning-text);
+  font-size: 8px;
+}
+
+.policy-history {
+  margin: 10px 0 20px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-body);
+  font: 9px/1.5 var(--app-font-mono, monospace);
+}
+.policy-history > details > summary {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 10px;
+  color: var(--text-heading);
+  cursor: pointer;
+  letter-spacing: .06em;
+}
+.policy-history > details > summary span { color: var(--text-muted); font-size: 8px; }
+.policy-history-content { padding: 0 9px 9px; }
+.policy-version {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-raised);
+}
+.policy-version header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-heading);
+}
+.policy-version time,
+.policy-version p { color: var(--text-muted); font-size: 8px; }
+.policy-version p { margin: 6px 0; }
+.policy-version pre {
+  max-height: 140px;
+  overflow: auto;
+  margin: 0;
+  color: var(--text-secondary);
+  font: 8px/1.5 var(--app-font-mono, monospace);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.autoevolve-dialog-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(5 8 10 / 72%);
+}
+.autoevolve-alert-dialog {
+  width: min(450px, 100%);
+  padding: 20px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 42%);
+  color: var(--text-body);
+  font: 10px/1.65 var(--app-font-mono, monospace);
+}
+.autoevolve-alert-dialog h2 {
+  margin: 8px 0;
+  color: var(--text-heading);
+  font-size: 14px;
+  font-weight: 600;
+}
+.autoevolve-alert-dialog p { margin: 0 0 16px; color: var(--text-body); }
+.autoevolve-kicker { color: var(--accent-label); font-size: 8px; letter-spacing: .1em; }
+.autoevolve-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.terminal { padding-bottom: 112px; }
+@media (max-width: 680px) {
+  .autoevolve-strip {
+    inset-inline: 5px;
+    gap: 6px 9px;
+    padding: 7px 8px;
+    font-size: 8px;
+  }
+  .autoevolve-strip-heading { flex: 1 1 100%; }
+  .autoevolve-strip-summary { flex-wrap: wrap; white-space: normal; }
+  .autoevolve-persistent-alert { flex-basis: 100%; }
+  .autoevolve-config { margin-left: auto; }
+  .autoevolve-strip .autoevolve-action { margin-left: auto; }
+  .terminal { padding-bottom: 140px; }
+  .policy-version header { flex-direction: column; gap: 3px; }
+}
