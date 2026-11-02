@@ -77,7 +77,9 @@ describe('streamCandleWindow', () => {
       isCached: (_month, offset) => offset === 0,
       fetchChunk,
       onChunk: () => undefined,
-      onProgress: () => controller.abort(),
+      onProgress: loaded => {
+        if (loaded >= 50_000) controller.abort();
+      },
     });
 
     expect(fetchChunk).toHaveBeenCalledTimes(1);

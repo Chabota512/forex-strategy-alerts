@@ -594,6 +594,82 @@ class ControlRoomServiceTests(unittest.TestCase):
         self.assertEqual(self.ai_calls, 0)
 
 
+    def test_manual_replay_endpoint_persists_take_and_owner_model(self):
+        _, started = self.request_json(
+            "/api/lab/replay/sessions",
+            method="POST",
+            payload={
+                "symbol": "XAUUSD",
+                "timeframe": "M1",
+                "from": "2025-12-30",
+                "to": "2025-12-30",
+                "manualMode": True,
+                "siModel": "evidence",
+                "simulationSettings": {
+                    "enabled": True,
+                    "startingBalance": 1000,
+                    "riskPercent": 1,
+                },
+            },
+        )
+        session = self.service._replay_sessions[started["sessionId"]]
+        session.alerts = [
+            (
+                0,
+                {
+                    "alert_id": "http-manual-alert",
+                    "symbol": "XAUUSD",
+                    "time": "2025-12-30T00:00:00Z",
+                    "tf": "M1",
+                    "direction": "SELL",
+                    "alert_type": "SELL-A",
+                    "strength_score": 0.7,
+                    "candle": {
+                        "time": "2025-12-30T00:00:00Z",
+                        "open": "2600",
+                        "high": "2601",
+                        "low": "2599",
+                        "close": "2600",
+                    },
+                    "previous_candle": {
+                        "time": "2025-12-29T23:59:00Z",
+                        "open": "2599",
+                        "high": "2600",
+                        "low": "2598",
+                        "close": "2599",
+                    },
+                    "formation_fingerprint": {"window": 20, "symbol": "XAUUSD"},
+                },
+            )
+        ]
+
+        status, result = self.request_json(
+            f"/api/lab/replay/sessions/{started['sessionId']}/manual-decision",
+            method="POST",
+            payload={
+                "candleIndex": 0,
+                "action": "take",
+                "alertId": "http-manual-alert",
+                "direction": "BUY",
+                "comment": "HTTP decision fixture",
+            },
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(result["manualDecisions"][0]["decision"], "take")
+        self.assertEqual(result["allManualDecisions"][0]["comment"], "HTTP decision fixture")
+        self.assertEqual(result["allManualDecisions"][0]["tradeDirection"], "BUY")
+        self.assertEqual(result["ownerModel"]["caseCount"], 1)
+        self.assertEqual(result["ownerModel"]["trained"], True)
+        self.assertEqual(
+            result["allManualDecisions"][0]["source"],
+            "manual",
+        )
+        self.assertTrue(
+            (self.output_dir / "owner-decisions.jsonl").is_file()
+        )
+
+
 class SmokeReviewWindowTests(unittest.TestCase):
     def test_smoke_window_keeps_engine_alerts_unscored_and_in_memory(self):
         loaded, review_date = smoke_fixture()

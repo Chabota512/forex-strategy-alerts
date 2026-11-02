@@ -1,7 +1,16 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8');
+const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
+const evolveCss = readFileSync(
+  resolve(process.cwd(), 'src/components/evolve-control.css'),
+  'utf8',
+);
+const autoevolveCss = readFileSync(
+  resolve(process.cwd(), 'src/components/autoevolve-control.css'),
+  'utf8',
+);
 
 function declarations(selector: string): Record<string, string> {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -61,5 +70,21 @@ describe('theme text contrast', () => {
     const light = declarations(".terminal[data-theme='light']");
     expect(contrastRatio(dark['warning-text'], dark['warning-bg'])).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(light['warning-text'], light['warning-bg'])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('uses red for errors and keeps persistent warnings amber', () => {
+    const evolveError = evolveCss.match(
+      /\.evolve-error, \.evolve-failure\s*\{([^}]*)\}/,
+    )?.[1] ?? '';
+    const persistentAlert = autoevolveCss.match(
+      /\.autoevolve-persistent-alert\s*\{([^}]*)\}/,
+    )?.[1] ?? '';
+    const inlineError = autoevolveCss.match(
+      /\.autoevolve-inline-error\s*\{([^}]*)\}/,
+    )?.[1] ?? '';
+    expect(evolveError).toContain('var(--negative-text)');
+    expect(evolveError).toContain('var(--negative-bg)');
+    expect(inlineError).toContain('var(--negative-text)');
+    expect(persistentAlert).toContain('var(--warning-text)');
   });
 });

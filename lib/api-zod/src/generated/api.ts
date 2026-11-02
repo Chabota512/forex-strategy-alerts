@@ -247,6 +247,7 @@ export const runLabBacktestBodySimulationSettingsInvertThresholdMax = 1;
 
 export const runLabBacktestBodySimulationSettingsSwingVersionDefault = `V2`;
 export const runLabBacktestBodySimulationFiltersDirectionDefault = `ALL`;
+export const runLabBacktestBodySimulationFiltersTradeDirectionDefault = `both`;
 export const runLabBacktestBodySimulationFiltersStrengthDefault = `ALL`;
 export const runLabBacktestBodySimulationFiltersVariantDefault = `ALL`;
 export const runLabBacktestBodySimulationFiltersWickPressureDefault = `ALL`;
@@ -295,6 +296,7 @@ export const RunLabBacktestBody = zod.object({
 }).optional(),
   "simulationFilters": zod.object({
   "direction": zod.enum(['ALL', 'BUY', 'SELL']).default(runLabBacktestBodySimulationFiltersDirectionDefault),
+  "tradeDirection": zod.enum(['both', 'buy_only', 'sell_only']).default(runLabBacktestBodySimulationFiltersTradeDirectionDefault),
   "strength": zod.enum(['ALL', 'STRONG', 'NEUTRAL', 'WEAK']).default(runLabBacktestBodySimulationFiltersStrengthDefault),
   "variant": zod.enum(['ALL', 'A', 'B']).default(runLabBacktestBodySimulationFiltersVariantDefault),
   "wickPressure": zod.enum(['ALL', 'up-pressure', 'balanced', 'down-pressure']).default(runLabBacktestBodySimulationFiltersWickPressureDefault),
@@ -320,6 +322,12 @@ export const runLabBacktestResponseAlertsItemStrengthScoreMax = 1;
 
 export const runLabBacktestResponseAlertsItemSiScoreMin = 0;
 export const runLabBacktestResponseAlertsItemSiScoreMax = 1;
+
+export const runLabBacktestResponseAlertsItemSiEvidenceScoreMin = 0;
+export const runLabBacktestResponseAlertsItemSiEvidenceScoreMax = 1;
+
+export const runLabBacktestResponseAlertsItemSiOwnerScoreMin = 0;
+export const runLabBacktestResponseAlertsItemSiOwnerScoreMax = 1;
 
 export const runLabBacktestResponseAlertsItemCandleSwingVersionAgreementPctMin = 0;
 export const runLabBacktestResponseAlertsItemCandleSwingVersionAgreementPctMax = 100;
@@ -508,6 +516,8 @@ export const RunLabBacktestResponse = zod.object({
   "strengthLabel": zod.enum(['STRONG', 'NEUTRAL', 'WEAK']),
   "strengthScore": zod.number().min(runLabBacktestResponseAlertsItemStrengthScoreMin).max(runLabBacktestResponseAlertsItemStrengthScoreMax),
   "siScore": zod.number().min(runLabBacktestResponseAlertsItemSiScoreMin).max(runLabBacktestResponseAlertsItemSiScoreMax).nullish(),
+  "siEvidenceScore": zod.number().min(runLabBacktestResponseAlertsItemSiEvidenceScoreMin).max(runLabBacktestResponseAlertsItemSiEvidenceScoreMax).nullish(),
+  "siOwnerScore": zod.number().min(runLabBacktestResponseAlertsItemSiOwnerScoreMin).max(runLabBacktestResponseAlertsItemSiOwnerScoreMax).nullish(),
   "strengthFeatures": zod.object({
   "cst_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
   "cct_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
@@ -648,6 +658,10 @@ export const RunLabBacktestResponse = zod.object({
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']),
   "invertScore": zod.union([zod.number().min(runLabBacktestResponseSimulatedTradesItemInvertScoreOneMin).max(runLabBacktestResponseSimulatedTradesItemInvertScoreOneMax),zod.null()]),
   "inverted": zod.boolean(),
+  "manual": zod.boolean().optional(),
+  "source": zod.enum(['simulated', 'manual']).optional(),
+  "manualCaseId": zod.string().nullish(),
+  "comment": zod.string().nullish(),
   "alertType": zod.enum(['BUY-A', 'SELL-A', 'BUY-B', 'SELL-B']),
   "entryIndex": zod.number().int().min(runLabBacktestResponseSimulatedTradesItemEntryIndexMin),
   "entryTime": zod.coerce.date(),
@@ -768,6 +782,13 @@ export const startLabReplaySessionBodySimulationSettingsInvertThresholdMax = 1;
 
 export const startLabReplaySessionBodySimulationSettingsSwingVersionDefault = `V2`;
 export const startLabReplaySessionBodySwingDirectionVersionDefault = `V2`;
+export const startLabReplaySessionBodyManualModeDefault = false;
+export const startLabReplaySessionBodySiModelDefault = `evidence`;
+export const startLabReplaySessionBodySiBlendWeightDefault = 0.5;
+export const startLabReplaySessionBodySiBlendWeightMin = 0;
+export const startLabReplaySessionBodySiBlendWeightMax = 1;
+
+
 
 export const StartLabReplaySessionBody = zod.object({
   "symbol": zod.enum(['XAUUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDJPY']).optional(),
@@ -809,7 +830,10 @@ export const StartLabReplaySessionBody = zod.object({
   "invertThreshold": zod.number().min(startLabReplaySessionBodySimulationSettingsInvertThresholdMin).max(startLabReplaySessionBodySimulationSettingsInvertThresholdMax).default(startLabReplaySessionBodySimulationSettingsInvertThresholdDefault).describe('Adaptive mode inverts when the normalized score is greater than or equal to this threshold.'),
   "swingVersion": zod.enum(['V1', 'V2']).default(startLabReplaySessionBodySimulationSettingsSwingVersionDefault)
 }).optional(),
-  "swingDirectionVersion": zod.enum(['V1', 'V2']).default(startLabReplaySessionBodySwingDirectionVersionDefault)
+  "swingDirectionVersion": zod.enum(['V1', 'V2']).default(startLabReplaySessionBodySwingDirectionVersionDefault),
+  "manualMode": zod.boolean().default(startLabReplaySessionBodyManualModeDefault),
+  "siModel": zod.enum(['evidence', 'owner', 'blend']).default(startLabReplaySessionBodySiModelDefault),
+  "siBlendWeight": zod.number().min(startLabReplaySessionBodySiBlendWeightMin).max(startLabReplaySessionBodySiBlendWeightMax).default(startLabReplaySessionBodySiBlendWeightDefault)
 })
 
 export const startLabReplaySessionResponseStatesItemIndexMin = 0;
@@ -1063,6 +1087,18 @@ export const startLabReplaySessionResponseCurrentCandleSwingVersionAgreementPctM
 export const startLabReplaySessionResponseCurrentCandleLegacyAgreementPctMin = 0;
 export const startLabReplaySessionResponseCurrentCandleLegacyAgreementPctMax = 100;
 
+export const startLabReplaySessionResponseSiBlendWeightMin = 0;
+export const startLabReplaySessionResponseSiBlendWeightMax = 1;
+
+export const startLabReplaySessionResponseOwnerModelOwnerWeightMin = 0;
+export const startLabReplaySessionResponseOwnerModelOwnerWeightMax = 1;
+
+export const startLabReplaySessionResponseOwnerModelEvidenceWeightMin = 0;
+export const startLabReplaySessionResponseOwnerModelEvidenceWeightMax = 1;
+
+export const startLabReplaySessionResponseOwnerModelHitRateMin = 0;
+export const startLabReplaySessionResponseOwnerModelHitRateMax = 1;
+
 
 
 export const StartLabReplaySessionResponse = zod.object({
@@ -1234,6 +1270,10 @@ export const StartLabReplaySessionResponse = zod.object({
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']),
   "invertScore": zod.union([zod.number().min(startLabReplaySessionResponsePolicyTradesItemInvertScoreOneMin).max(startLabReplaySessionResponsePolicyTradesItemInvertScoreOneMax),zod.null()]),
   "inverted": zod.boolean(),
+  "manual": zod.boolean().optional(),
+  "source": zod.enum(['simulated', 'manual']).optional(),
+  "manualCaseId": zod.string().nullish(),
+  "comment": zod.string().nullish(),
   "alertType": zod.enum(['BUY-A', 'SELL-A', 'BUY-B', 'SELL-B']),
   "entryIndex": zod.number().int().min(startLabReplaySessionResponsePolicyTradesItemEntryIndexMin),
   "entryTime": zod.coerce.date(),
@@ -1285,7 +1325,24 @@ export const StartLabReplaySessionResponse = zod.object({
   "dcState": zod.enum(['undefined', 'uptrend', 'downtrend']).optional(),
   "hierState": zod.enum(['undefined', 'uptrend', 'downtrend', 'transition']).optional(),
   "wickPressure": zod.enum(['up-pressure', 'balanced', 'down-pressure']).optional()
-})
+}),
+  "manualMode": zod.boolean().optional(),
+  "siModel": zod.enum(['evidence', 'owner', 'blend']).optional(),
+  "siBlendWeight": zod.number().min(startLabReplaySessionResponseSiBlendWeightMin).max(startLabReplaySessionResponseSiBlendWeightMax).optional(),
+  "ownerModel": zod.object({
+  "trained": zod.boolean(),
+  "qualified": zod.boolean(),
+  "caseCount": zod.number().int(),
+  "requiredCaseCount": zod.number().int(),
+  "intercept": zod.number(),
+  "weights": zod.record(zod.string(), zod.number()),
+  "effectiveWeights": zod.record(zod.string(), zod.number()),
+  "ownerWeight": zod.number().min(startLabReplaySessionResponseOwnerModelOwnerWeightMin).max(startLabReplaySessionResponseOwnerModelOwnerWeightMax),
+  "evidenceWeight": zod.number().min(startLabReplaySessionResponseOwnerModelEvidenceWeightMin).max(startLabReplaySessionResponseOwnerModelEvidenceWeightMax),
+  "hitRate": zod.number().min(startLabReplaySessionResponseOwnerModelHitRateMin).max(startLabReplaySessionResponseOwnerModelHitRateMax).nullable(),
+  "expectancyR": zod.number().nullable(),
+  "resolvedTakenCount": zod.number().int()
+}).optional()
 })
 
 
@@ -1303,6 +1360,7 @@ export const advanceLabReplaySessionBodyViewStartMin = 0;
 export const advanceLabReplaySessionBodyViewEndMin = 0;
 
 export const advanceLabReplaySessionBodySimulationFiltersDirectionDefault = `ALL`;
+export const advanceLabReplaySessionBodySimulationFiltersTradeDirectionDefault = `both`;
 export const advanceLabReplaySessionBodySimulationFiltersStrengthDefault = `ALL`;
 export const advanceLabReplaySessionBodySimulationFiltersVariantDefault = `ALL`;
 export const advanceLabReplaySessionBodySimulationFiltersWickPressureDefault = `ALL`;
@@ -1315,6 +1373,7 @@ export const AdvanceLabReplaySessionBody = zod.object({
   "viewEnd": zod.number().int().min(advanceLabReplaySessionBodyViewEndMin),
   "simulationFilters": zod.object({
   "direction": zod.enum(['ALL', 'BUY', 'SELL']).default(advanceLabReplaySessionBodySimulationFiltersDirectionDefault),
+  "tradeDirection": zod.enum(['both', 'buy_only', 'sell_only']).default(advanceLabReplaySessionBodySimulationFiltersTradeDirectionDefault),
   "strength": zod.enum(['ALL', 'STRONG', 'NEUTRAL', 'WEAK']).default(advanceLabReplaySessionBodySimulationFiltersStrengthDefault),
   "variant": zod.enum(['ALL', 'A', 'B']).default(advanceLabReplaySessionBodySimulationFiltersVariantDefault),
   "wickPressure": zod.enum(['ALL', 'up-pressure', 'balanced', 'down-pressure']).default(advanceLabReplaySessionBodySimulationFiltersWickPressureDefault),
@@ -1364,6 +1423,12 @@ export const advanceLabReplaySessionResponseNewAlertsItemAlertStrengthScoreMax =
 
 export const advanceLabReplaySessionResponseNewAlertsItemAlertSiScoreMin = 0;
 export const advanceLabReplaySessionResponseNewAlertsItemAlertSiScoreMax = 1;
+
+export const advanceLabReplaySessionResponseNewAlertsItemAlertSiEvidenceScoreMin = 0;
+export const advanceLabReplaySessionResponseNewAlertsItemAlertSiEvidenceScoreMax = 1;
+
+export const advanceLabReplaySessionResponseNewAlertsItemAlertSiOwnerScoreMin = 0;
+export const advanceLabReplaySessionResponseNewAlertsItemAlertSiOwnerScoreMax = 1;
 
 export const advanceLabReplaySessionResponseNewAlertsItemAlertCandleSwingVersionAgreementPctMin = 0;
 export const advanceLabReplaySessionResponseNewAlertsItemAlertCandleSwingVersionAgreementPctMax = 100;
@@ -1664,6 +1729,21 @@ export const advanceLabReplaySessionResponseCurrentCandleSwingVersionAgreementPc
 export const advanceLabReplaySessionResponseCurrentCandleLegacyAgreementPctMin = 0;
 export const advanceLabReplaySessionResponseCurrentCandleLegacyAgreementPctMax = 100;
 
+export const advanceLabReplaySessionResponseManualDecisionsItemBlendWeightMin = 0;
+export const advanceLabReplaySessionResponseManualDecisionsItemBlendWeightMax = 1;
+
+export const advanceLabReplaySessionResponseSiBlendWeightMin = 0;
+export const advanceLabReplaySessionResponseSiBlendWeightMax = 1;
+
+export const advanceLabReplaySessionResponseOwnerModelOwnerWeightMin = 0;
+export const advanceLabReplaySessionResponseOwnerModelOwnerWeightMax = 1;
+
+export const advanceLabReplaySessionResponseOwnerModelEvidenceWeightMin = 0;
+export const advanceLabReplaySessionResponseOwnerModelEvidenceWeightMax = 1;
+
+export const advanceLabReplaySessionResponseOwnerModelHitRateMin = 0;
+export const advanceLabReplaySessionResponseOwnerModelHitRateMax = 1;
+
 
 
 export const AdvanceLabReplaySessionResponse = zod.object({
@@ -1748,6 +1828,8 @@ export const AdvanceLabReplaySessionResponse = zod.object({
   "strengthLabel": zod.enum(['STRONG', 'NEUTRAL', 'WEAK']),
   "strengthScore": zod.number().min(advanceLabReplaySessionResponseNewAlertsItemAlertStrengthScoreMin).max(advanceLabReplaySessionResponseNewAlertsItemAlertStrengthScoreMax),
   "siScore": zod.number().min(advanceLabReplaySessionResponseNewAlertsItemAlertSiScoreMin).max(advanceLabReplaySessionResponseNewAlertsItemAlertSiScoreMax).nullish(),
+  "siEvidenceScore": zod.number().min(advanceLabReplaySessionResponseNewAlertsItemAlertSiEvidenceScoreMin).max(advanceLabReplaySessionResponseNewAlertsItemAlertSiEvidenceScoreMax).nullish(),
+  "siOwnerScore": zod.number().min(advanceLabReplaySessionResponseNewAlertsItemAlertSiOwnerScoreMin).max(advanceLabReplaySessionResponseNewAlertsItemAlertSiOwnerScoreMax).nullish(),
   "strengthFeatures": zod.object({
   "cst_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
   "cct_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
@@ -1875,6 +1957,10 @@ export const AdvanceLabReplaySessionResponse = zod.object({
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']),
   "invertScore": zod.union([zod.number().min(advanceLabReplaySessionResponsePolicyTradesItemInvertScoreOneMin).max(advanceLabReplaySessionResponsePolicyTradesItemInvertScoreOneMax),zod.null()]),
   "inverted": zod.boolean(),
+  "manual": zod.boolean().optional(),
+  "source": zod.enum(['simulated', 'manual']).optional(),
+  "manualCaseId": zod.string().nullish(),
+  "comment": zod.string().nullish(),
   "alertType": zod.enum(['BUY-A', 'SELL-A', 'BUY-B', 'SELL-B']),
   "entryIndex": zod.number().int().min(advanceLabReplaySessionResponsePolicyTradesItemEntryIndexMin),
   "entryTime": zod.coerce.date(),
@@ -1918,6 +2004,10 @@ export const AdvanceLabReplaySessionResponse = zod.object({
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']),
   "invertScore": zod.union([zod.number().min(advanceLabReplaySessionResponseNewlyOpenedTradesItemInvertScoreOneMin).max(advanceLabReplaySessionResponseNewlyOpenedTradesItemInvertScoreOneMax),zod.null()]),
   "inverted": zod.boolean(),
+  "manual": zod.boolean().optional(),
+  "source": zod.enum(['simulated', 'manual']).optional(),
+  "manualCaseId": zod.string().nullish(),
+  "comment": zod.string().nullish(),
   "alertType": zod.enum(['BUY-A', 'SELL-A', 'BUY-B', 'SELL-B']),
   "entryIndex": zod.number().int().min(advanceLabReplaySessionResponseNewlyOpenedTradesItemEntryIndexMin),
   "entryTime": zod.coerce.date(),
@@ -1961,6 +2051,10 @@ export const AdvanceLabReplaySessionResponse = zod.object({
   "directionMode": zod.enum(['normal', 'inverted', 'adaptive']),
   "invertScore": zod.union([zod.number().min(advanceLabReplaySessionResponseNewlyResolvedTradesItemInvertScoreOneMin).max(advanceLabReplaySessionResponseNewlyResolvedTradesItemInvertScoreOneMax),zod.null()]),
   "inverted": zod.boolean(),
+  "manual": zod.boolean().optional(),
+  "source": zod.enum(['simulated', 'manual']).optional(),
+  "manualCaseId": zod.string().nullish(),
+  "comment": zod.string().nullish(),
   "alertType": zod.enum(['BUY-A', 'SELL-A', 'BUY-B', 'SELL-B']),
   "entryIndex": zod.number().int().min(advanceLabReplaySessionResponseNewlyResolvedTradesItemEntryIndexMin),
   "entryTime": zod.coerce.date(),
@@ -2072,7 +2166,285 @@ export const AdvanceLabReplaySessionResponse = zod.object({
   "hierState": zod.enum(['undefined', 'uptrend', 'downtrend', 'transition']).optional(),
   "wickPressure": zod.enum(['up-pressure', 'balanced', 'down-pressure']).optional()
 }),
-  "expiresInSeconds": zod.number().int()
+  "expiresInSeconds": zod.number().int(),
+  "manualMode": zod.boolean().optional(),
+  "manualDecisions": zod.array(zod.object({
+  "eventType": zod.enum(['manual_decision']),
+  "caseId": zod.string(),
+  "sessionId": zod.string(),
+  "alertId": zod.string(),
+  "candleIndex": zod.number().int(),
+  "source": zod.enum(['manual']),
+  "decision": zod.enum(['take', 'skip']),
+  "comment": zod.string().nullable(),
+  "formationFingerprint": zod.string(),
+  "featureContext": zod.record(zod.string(), zod.unknown()),
+  "scoreModel": zod.enum(['evidence', 'owner', 'blend']),
+  "blendWeight": zod.number().min(advanceLabReplaySessionResponseManualDecisionsItemBlendWeightMin).max(advanceLabReplaySessionResponseManualDecisionsItemBlendWeightMax),
+  "tradeDirection": zod.enum(['BUY', 'SELL']).optional()
+})).optional(),
+  "siModel": zod.enum(['evidence', 'owner', 'blend']).optional(),
+  "siBlendWeight": zod.number().min(advanceLabReplaySessionResponseSiBlendWeightMin).max(advanceLabReplaySessionResponseSiBlendWeightMax).optional(),
+  "ownerModel": zod.object({
+  "trained": zod.boolean(),
+  "qualified": zod.boolean(),
+  "caseCount": zod.number().int(),
+  "requiredCaseCount": zod.number().int(),
+  "intercept": zod.number(),
+  "weights": zod.record(zod.string(), zod.number()),
+  "effectiveWeights": zod.record(zod.string(), zod.number()),
+  "ownerWeight": zod.number().min(advanceLabReplaySessionResponseOwnerModelOwnerWeightMin).max(advanceLabReplaySessionResponseOwnerModelOwnerWeightMax),
+  "evidenceWeight": zod.number().min(advanceLabReplaySessionResponseOwnerModelEvidenceWeightMin).max(advanceLabReplaySessionResponseOwnerModelEvidenceWeightMax),
+  "hitRate": zod.number().min(advanceLabReplaySessionResponseOwnerModelHitRateMin).max(advanceLabReplaySessionResponseOwnerModelHitRateMax).nullable(),
+  "expectancyR": zod.number().nullable(),
+  "resolvedTakenCount": zod.number().int()
+}).optional()
+})
+
+
+/**
+ * @summary Record a take, skip, or finalize decision in manual replay
+ */
+export const SubmitLabReplayManualDecisionParams = zod.object({
+  "sessionId": zod.coerce.string().uuid()
+})
+
+export const submitLabReplayManualDecisionBodyCandleIndexMin = 0;
+
+export const submitLabReplayManualDecisionBodyCommentMax = 500;
+
+
+
+export const SubmitLabReplayManualDecisionBody = zod.object({
+  "candleIndex": zod.number().int().min(submitLabReplayManualDecisionBodyCandleIndexMin),
+  "action": zod.enum(['take', 'skip', 'finalize']),
+  "alertId": zod.string().optional(),
+  "direction": zod.enum(['BUY', 'SELL']).optional(),
+  "comment": zod.string().max(submitLabReplayManualDecisionBodyCommentMax).optional()
+})
+
+export const submitLabReplayManualDecisionResponseManualDecisionsItemBlendWeightMin = 0;
+export const submitLabReplayManualDecisionResponseManualDecisionsItemBlendWeightMax = 1;
+
+export const submitLabReplayManualDecisionResponseAllManualDecisionsItemBlendWeightMin = 0;
+export const submitLabReplayManualDecisionResponseAllManualDecisionsItemBlendWeightMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationIndexMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationOpenTradeCountMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationClosedTradeCountMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsEnabledDefault = true;
+export const submitLabReplayManualDecisionResponseSimulationSettingsStartingBalanceDefault = 1000;
+export const submitLabReplayManualDecisionResponseSimulationSettingsStartingBalanceExclusiveMin = 0;
+export const submitLabReplayManualDecisionResponseSimulationSettingsStartingBalanceMax = 1000000000000;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsRiskPercentDefault = 1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsRiskPercentExclusiveMin = 0;
+export const submitLabReplayManualDecisionResponseSimulationSettingsRiskPercentMax = 100;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsSizingModeDefault = `RISK_PERCENT`;
+export const submitLabReplayManualDecisionResponseSimulationSettingsLotSizeDefault = 0.01;
+export const submitLabReplayManualDecisionResponseSimulationSettingsLotSizeExclusiveMin = 0;
+export const submitLabReplayManualDecisionResponseSimulationSettingsLotSizeMax = 1000000;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsRewardMultipleDefault = 2;
+export const submitLabReplayManualDecisionResponseSimulationSettingsRewardMultipleExclusiveMin = 0;
+export const submitLabReplayManualDecisionResponseSimulationSettingsRewardMultipleMax = 100;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsStopBodyWeightDefault = 1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsStopBodyWeightExclusiveMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsStopWickMultiplierDefault = 2;
+export const submitLabReplayManualDecisionResponseSimulationSettingsStopWickMultiplierExclusiveMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsTargetRangeMultiplierDefault = 3;
+export const submitLabReplayManualDecisionResponseSimulationSettingsTargetRangeMultiplierExclusiveMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsExitModelDefault = `swept_level_atr`;
+export const submitLabReplayManualDecisionResponseSimulationSettingsGeometryWeightsOneBodyWeightMin = 0.5;
+export const submitLabReplayManualDecisionResponseSimulationSettingsGeometryWeightsOneBodyWeightMax = 2;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsGeometryWeightsOneWickMultiplierMax = 4;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMin = 2;
+export const submitLabReplayManualDecisionResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMax = 6;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsDirectionModeDefault = `normal`;
+export const submitLabReplayManualDecisionResponseSimulationSettingsTradeDirectionDefault = `both`;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsDirectionMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsDirectionMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsVariantMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsVariantMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCctStateMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCctStateMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCctAlignmentMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCctAlignmentMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCstStateMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCstStateMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCstAlignmentMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCstAlignmentMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsWpStateMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsWpStateMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsMtfTrendAgreeMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsMtfTrendAgreeMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsMtfWpAgreeMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsMtfWpAgreeMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsEngulfMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsEngulfMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsDualTfAlertMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsDualTfAlertMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsStrengthScoreMin = -1;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsStrengthScoreMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertThresholdDefault = 0.5;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertThresholdMin = 0;
+export const submitLabReplayManualDecisionResponseSimulationSettingsInvertThresholdMax = 1;
+
+export const submitLabReplayManualDecisionResponseSimulationSettingsSwingVersionDefault = `V2`;
+export const submitLabReplayManualDecisionResponseSimulationStatsClosedTradeCountMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationStatsWinsMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationStatsLossesMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationStatsWinRatePctMin = 0;
+export const submitLabReplayManualDecisionResponseSimulationStatsWinRatePctMax = 100;
+
+export const submitLabReplayManualDecisionResponseSimulationStatsMaxDrawdownMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationStatsMaxDrawdownPctMin = 0;
+
+export const submitLabReplayManualDecisionResponseSimulationEquityCurveItemIndexMin = 0;
+
+export const submitLabReplayManualDecisionResponseOwnerModelOwnerWeightMin = 0;
+export const submitLabReplayManualDecisionResponseOwnerModelOwnerWeightMax = 1;
+
+export const submitLabReplayManualDecisionResponseOwnerModelEvidenceWeightMin = 0;
+export const submitLabReplayManualDecisionResponseOwnerModelEvidenceWeightMax = 1;
+
+export const submitLabReplayManualDecisionResponseOwnerModelHitRateMin = 0;
+export const submitLabReplayManualDecisionResponseOwnerModelHitRateMax = 1;
+
+
+
+export const SubmitLabReplayManualDecisionResponse = zod.object({
+  "manualMode": zod.boolean(),
+  "manualDecisions": zod.array(zod.object({
+  "eventType": zod.enum(['manual_decision']),
+  "caseId": zod.string(),
+  "sessionId": zod.string(),
+  "alertId": zod.string(),
+  "candleIndex": zod.number().int(),
+  "source": zod.enum(['manual']),
+  "decision": zod.enum(['take', 'skip']),
+  "comment": zod.string().nullable(),
+  "formationFingerprint": zod.string(),
+  "featureContext": zod.record(zod.string(), zod.unknown()),
+  "scoreModel": zod.enum(['evidence', 'owner', 'blend']),
+  "blendWeight": zod.number().min(submitLabReplayManualDecisionResponseManualDecisionsItemBlendWeightMin).max(submitLabReplayManualDecisionResponseManualDecisionsItemBlendWeightMax),
+  "tradeDirection": zod.enum(['BUY', 'SELL']).optional()
+})),
+  "allManualDecisions": zod.array(zod.object({
+  "eventType": zod.enum(['manual_decision']),
+  "caseId": zod.string(),
+  "sessionId": zod.string(),
+  "alertId": zod.string(),
+  "candleIndex": zod.number().int(),
+  "source": zod.enum(['manual']),
+  "decision": zod.enum(['take', 'skip']),
+  "comment": zod.string().nullable(),
+  "formationFingerprint": zod.string(),
+  "featureContext": zod.record(zod.string(), zod.unknown()),
+  "scoreModel": zod.enum(['evidence', 'owner', 'blend']),
+  "blendWeight": zod.number().min(submitLabReplayManualDecisionResponseAllManualDecisionsItemBlendWeightMin).max(submitLabReplayManualDecisionResponseAllManualDecisionsItemBlendWeightMax),
+  "tradeDirection": zod.enum(['BUY', 'SELL']).optional()
+})),
+  "simulation": zod.object({
+  "index": zod.number().int().min(submitLabReplayManualDecisionResponseSimulationIndexMin),
+  "enabled": zod.boolean(),
+  "balance": zod.number(),
+  "openTradeCount": zod.number().int().min(submitLabReplayManualDecisionResponseSimulationOpenTradeCountMin),
+  "closedTradeCount": zod.number().int().min(submitLabReplayManualDecisionResponseSimulationClosedTradeCountMin),
+  "settings": zod.object({
+  "enabled": zod.boolean().default(submitLabReplayManualDecisionResponseSimulationSettingsEnabledDefault),
+  "startingBalance": zod.number().gt(submitLabReplayManualDecisionResponseSimulationSettingsStartingBalanceExclusiveMin).max(submitLabReplayManualDecisionResponseSimulationSettingsStartingBalanceMax).default(submitLabReplayManualDecisionResponseSimulationSettingsStartingBalanceDefault),
+  "riskPercent": zod.number().gt(submitLabReplayManualDecisionResponseSimulationSettingsRiskPercentExclusiveMin).max(submitLabReplayManualDecisionResponseSimulationSettingsRiskPercentMax).default(submitLabReplayManualDecisionResponseSimulationSettingsRiskPercentDefault).describe('Percent of current realized balance risked by each trade.'),
+  "sizingMode": zod.enum(['LOTS', 'RISK_PERCENT']).default(submitLabReplayManualDecisionResponseSimulationSettingsSizingModeDefault).describe('Use fixed lot size or percent-risk position sizing.'),
+  "lotSize": zod.number().gt(submitLabReplayManualDecisionResponseSimulationSettingsLotSizeExclusiveMin).max(submitLabReplayManualDecisionResponseSimulationSettingsLotSizeMax).default(submitLabReplayManualDecisionResponseSimulationSettingsLotSizeDefault).describe('Fixed lot size used when sizingMode is LOTS.'),
+  "rewardMultiple": zod.number().gt(submitLabReplayManualDecisionResponseSimulationSettingsRewardMultipleExclusiveMin).max(submitLabReplayManualDecisionResponseSimulationSettingsRewardMultipleMax).default(submitLabReplayManualDecisionResponseSimulationSettingsRewardMultipleDefault),
+  "stopBodyWeight": zod.number().gt(submitLabReplayManualDecisionResponseSimulationSettingsStopBodyWeightExclusiveMin).default(submitLabReplayManualDecisionResponseSimulationSettingsStopBodyWeightDefault).describe('Candle-geometry weight applied to the alert-candle body.'),
+  "stopWickMultiplier": zod.number().gt(submitLabReplayManualDecisionResponseSimulationSettingsStopWickMultiplierExclusiveMin).default(submitLabReplayManualDecisionResponseSimulationSettingsStopWickMultiplierDefault).describe('Candle-geometry multiplier applied to the sweep-side wick.'),
+  "targetRangeMultiplier": zod.number().gt(submitLabReplayManualDecisionResponseSimulationSettingsTargetRangeMultiplierExclusiveMin).default(submitLabReplayManualDecisionResponseSimulationSettingsTargetRangeMultiplierDefault).describe('Candle-geometry multiplier applied to the alert-candle range.'),
+  "exitModel": zod.enum(['swept_level_atr', 'candle_geometry']).default(submitLabReplayManualDecisionResponseSimulationSettingsExitModelDefault).describe('Candle geometry uses the configured body and sweep-wick stop weights and alert-candle range target; rewardMultiple applies only to swept_level_atr.'),
+  "geometryWeights": zod.union([zod.object({
+  "bodyWeight": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsGeometryWeightsOneBodyWeightMin).max(submitLabReplayManualDecisionResponseSimulationSettingsGeometryWeightsOneBodyWeightMax),
+  "wickMultiplier": zod.number().min(1).max(submitLabReplayManualDecisionResponseSimulationSettingsGeometryWeightsOneWickMultiplierMax),
+  "rangeMultiplier": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMin).max(submitLabReplayManualDecisionResponseSimulationSettingsGeometryWeightsOneRangeMultiplierMax)
+}),zod.null()]).describe('Active candle-geometry multipliers; null when swept_level_atr is selected.'),
+  "directionMode": zod.enum(['normal', 'inverted', 'adaptive']).default(submitLabReplayManualDecisionResponseSimulationSettingsDirectionModeDefault).describe('XAUUSD-only direction handling. Normal preserves the source alert side.'),
+  "tradeDirection": zod.enum(['both', 'buy_only', 'sell_only']).default(submitLabReplayManualDecisionResponseSimulationSettingsTradeDirectionDefault).describe('Limit simulated entries to both sides, buys only, or sells only.'),
+  "invertWeights": zod.object({
+  "direction": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsDirectionMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsDirectionMax),
+  "variant": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsVariantMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsVariantMax),
+  "cctState": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCctStateMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCctStateMax),
+  "cctAlignment": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCctAlignmentMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCctAlignmentMax),
+  "cstState": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCstStateMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCstStateMax),
+  "cstAlignment": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCstAlignmentMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsCstAlignmentMax),
+  "wpState": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsWpStateMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsWpStateMax),
+  "mtfTrendAgree": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsMtfTrendAgreeMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsMtfTrendAgreeMax),
+  "mtfWpAgree": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsMtfWpAgreeMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsMtfWpAgreeMax),
+  "engulf": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsEngulfMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsEngulfMax),
+  "dualTfAlert": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsDualTfAlertMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsDualTfAlertMax),
+  "strengthScore": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsStrengthScoreMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertWeightsStrengthScoreMax)
+}).describe('Signed weights normalized by their absolute sum before scoring.'),
+  "invertThreshold": zod.number().min(submitLabReplayManualDecisionResponseSimulationSettingsInvertThresholdMin).max(submitLabReplayManualDecisionResponseSimulationSettingsInvertThresholdMax).default(submitLabReplayManualDecisionResponseSimulationSettingsInvertThresholdDefault).describe('Adaptive mode inverts when the normalized score is greater than or equal to this threshold.'),
+  "swingVersion": zod.enum(['V1', 'V2']).default(submitLabReplayManualDecisionResponseSimulationSettingsSwingVersionDefault)
+}),
+  "stats": zod.object({
+  "closedTradeCount": zod.number().int().min(submitLabReplayManualDecisionResponseSimulationStatsClosedTradeCountMin),
+  "wins": zod.number().int().min(submitLabReplayManualDecisionResponseSimulationStatsWinsMin),
+  "losses": zod.number().int().min(submitLabReplayManualDecisionResponseSimulationStatsLossesMin),
+  "winRatePct": zod.number().min(submitLabReplayManualDecisionResponseSimulationStatsWinRatePctMin).max(submitLabReplayManualDecisionResponseSimulationStatsWinRatePctMax),
+  "avgR": zod.number(),
+  "expectancyAfterCosts": zod.number(),
+  "expectancyMoneyAfterCosts": zod.number(),
+  "maxDrawdown": zod.number().min(submitLabReplayManualDecisionResponseSimulationStatsMaxDrawdownMin),
+  "maxDrawdownPct": zod.number().min(submitLabReplayManualDecisionResponseSimulationStatsMaxDrawdownPctMin),
+  "profitFactor": zod.number().nullable()
+}),
+  "equityCurve": zod.array(zod.object({
+  "index": zod.number().int().min(submitLabReplayManualDecisionResponseSimulationEquityCurveItemIndexMin),
+  "time": zod.coerce.date(),
+  "equity": zod.number()
+}))
+}),
+  "ownerModel": zod.object({
+  "trained": zod.boolean(),
+  "qualified": zod.boolean(),
+  "caseCount": zod.number().int(),
+  "requiredCaseCount": zod.number().int(),
+  "intercept": zod.number(),
+  "weights": zod.record(zod.string(), zod.number()),
+  "effectiveWeights": zod.record(zod.string(), zod.number()),
+  "ownerWeight": zod.number().min(submitLabReplayManualDecisionResponseOwnerModelOwnerWeightMin).max(submitLabReplayManualDecisionResponseOwnerModelOwnerWeightMax),
+  "evidenceWeight": zod.number().min(submitLabReplayManualDecisionResponseOwnerModelEvidenceWeightMin).max(submitLabReplayManualDecisionResponseOwnerModelEvidenceWeightMax),
+  "hitRate": zod.number().min(submitLabReplayManualDecisionResponseOwnerModelHitRateMin).max(submitLabReplayManualDecisionResponseOwnerModelHitRateMax).nullable(),
+  "expectancyR": zod.number().nullable(),
+  "resolvedTakenCount": zod.number().int()
+})
 })
 
 
@@ -2116,6 +2488,12 @@ export const getAlertCommentBodyAlertStrengthScoreMax = 1;
 export const getAlertCommentBodyAlertSiScoreMin = 0;
 export const getAlertCommentBodyAlertSiScoreMax = 1;
 
+export const getAlertCommentBodyAlertSiEvidenceScoreMin = 0;
+export const getAlertCommentBodyAlertSiEvidenceScoreMax = 1;
+
+export const getAlertCommentBodyAlertSiOwnerScoreMin = 0;
+export const getAlertCommentBodyAlertSiOwnerScoreMax = 1;
+
 export const getAlertCommentBodyAlertCandleSwingVersionAgreementPctMin = 0;
 export const getAlertCommentBodyAlertCandleSwingVersionAgreementPctMax = 100;
 
@@ -2154,6 +2532,8 @@ export const GetAlertCommentBody = zod.object({
   "strengthLabel": zod.enum(['STRONG', 'NEUTRAL', 'WEAK']),
   "strengthScore": zod.number().min(getAlertCommentBodyAlertStrengthScoreMin).max(getAlertCommentBodyAlertStrengthScoreMax),
   "siScore": zod.number().min(getAlertCommentBodyAlertSiScoreMin).max(getAlertCommentBodyAlertSiScoreMax).nullish(),
+  "siEvidenceScore": zod.number().min(getAlertCommentBodyAlertSiEvidenceScoreMin).max(getAlertCommentBodyAlertSiEvidenceScoreMax).nullish(),
+  "siOwnerScore": zod.number().min(getAlertCommentBodyAlertSiOwnerScoreMin).max(getAlertCommentBodyAlertSiOwnerScoreMax).nullish(),
   "strengthFeatures": zod.object({
   "cst_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),
   "cct_alignment": zod.union([zod.literal(-1),zod.literal(0),zod.literal(1)]),

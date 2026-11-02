@@ -685,6 +685,15 @@ export const SimulationFiltersDirection = {
   SELL: 'SELL',
 } as const;
 
+export type SimulationFiltersTradeDirection = typeof SimulationFiltersTradeDirection[keyof typeof SimulationFiltersTradeDirection];
+
+
+export const SimulationFiltersTradeDirection = {
+  both: 'both',
+  buy_only: 'buy_only',
+  sell_only: 'sell_only',
+} as const;
+
 export type SimulationFiltersStrength = typeof SimulationFiltersStrength[keyof typeof SimulationFiltersStrength];
 
 
@@ -716,6 +725,7 @@ export const SimulationFiltersWickPressure = {
 
 export interface SimulationFilters {
   direction: SimulationFiltersDirection;
+  tradeDirection?: SimulationFiltersTradeDirection;
   strength: SimulationFiltersStrength;
   variant?: SimulationFiltersVariant;
   wickPressure?: SimulationFiltersWickPressure;
@@ -740,6 +750,15 @@ export const ReplaySessionStartInputSwingDirectionVersion = {
   V2: 'V2',
 } as const;
 
+export type ReplaySessionStartInputSiModel = typeof ReplaySessionStartInputSiModel[keyof typeof ReplaySessionStartInputSiModel];
+
+
+export const ReplaySessionStartInputSiModel = {
+  evidence: 'evidence',
+  owner: 'owner',
+  blend: 'blend',
+} as const;
+
 export interface ReplaySessionStartInput {
   symbol?: InstrumentSymbol;
   timeframe: Timeframe;
@@ -747,6 +766,13 @@ export interface ReplaySessionStartInput {
   to: string;
   simulationSettings?: SimulationSettings;
   swingDirectionVersion?: ReplaySessionStartInputSwingDirectionVersion;
+  manualMode?: boolean;
+  siModel?: ReplaySessionStartInputSiModel;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  siBlendWeight?: number;
 }
 
 export type ReplayCandleStateDcState = typeof ReplayCandleStateDcState[keyof typeof ReplayCandleStateDcState];
@@ -806,6 +832,15 @@ export type ReplaySessionStartResultSwingDirectionVersion = typeof ReplaySession
 export const ReplaySessionStartResultSwingDirectionVersion = {
   V1: 'V1',
   V2: 'V2',
+} as const;
+
+export type ReplaySessionStartResultSiModel = typeof ReplaySessionStartResultSiModel[keyof typeof ReplaySessionStartResultSiModel];
+
+
+export const ReplaySessionStartResultSiModel = {
+  evidence: 'evidence',
+  owner: 'owner',
+  blend: 'blend',
 } as const;
 
 export interface SimulationStats {
@@ -896,6 +931,14 @@ export const SimulatedTradeDirectionMode = {
   adaptive: 'adaptive',
 } as const;
 
+export type SimulatedTradeSource = typeof SimulatedTradeSource[keyof typeof SimulatedTradeSource];
+
+
+export const SimulatedTradeSource = {
+  simulated: 'simulated',
+  manual: 'manual',
+} as const;
+
 export type SimulatedTradeAlertType = typeof SimulatedTradeAlertType[keyof typeof SimulatedTradeAlertType];
 
 
@@ -952,6 +995,12 @@ export interface SimulatedTrade {
   directionMode: SimulatedTradeDirectionMode;
   invertScore: number | null;
   inverted: boolean;
+  manual?: boolean;
+  source?: SimulatedTradeSource;
+  /** @nullable */
+  manualCaseId?: string | null;
+  /** @nullable */
+  comment?: string | null;
   alertType: SimulatedTradeAlertType;
   /** @minimum 0 */
   entryIndex: number;
@@ -996,6 +1045,39 @@ export interface SimulatedTrade {
   netR: number;
 }
 
+export type SiOwnerModelSummaryWeights = {[key: string]: number};
+
+export type SiOwnerModelSummaryEffectiveWeights = {[key: string]: number};
+
+export interface SiOwnerModelSummary {
+  trained: boolean;
+  qualified: boolean;
+  caseCount: number;
+  requiredCaseCount: number;
+  intercept: number;
+  weights: SiOwnerModelSummaryWeights;
+  effectiveWeights: SiOwnerModelSummaryEffectiveWeights;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  ownerWeight: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  evidenceWeight: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  hitRate: number | null;
+  /** @nullable */
+  expectancyR: number | null;
+  resolvedTakenCount: number;
+}
+
 export interface ReplaySessionStartResult {
   sessionId: string;
   symbol: InstrumentSymbol;
@@ -1016,6 +1098,14 @@ export interface ReplaySessionStartResult {
   policySimulation: SimulationSnapshot | null;
   policyTrades: SimulatedTrade[];
   currentCandle: Candle;
+  manualMode?: boolean;
+  siModel?: ReplaySessionStartResultSiModel;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  siBlendWeight?: number;
+  ownerModel?: SiOwnerModelSummary;
 }
 
 export interface ReplayAdvanceInput {
@@ -1026,6 +1116,103 @@ export interface ReplayAdvanceInput {
   /** @minimum 0 */
   viewEnd: number;
   simulationFilters?: SimulationFilters;
+}
+
+export type ReplayManualDecisionInputAction = typeof ReplayManualDecisionInputAction[keyof typeof ReplayManualDecisionInputAction];
+
+
+export const ReplayManualDecisionInputAction = {
+  take: 'take',
+  skip: 'skip',
+  finalize: 'finalize',
+} as const;
+
+export type ReplayManualDecisionInputDirection = typeof ReplayManualDecisionInputDirection[keyof typeof ReplayManualDecisionInputDirection];
+
+
+export const ReplayManualDecisionInputDirection = {
+  BUY: 'BUY',
+  SELL: 'SELL',
+} as const;
+
+export interface ReplayManualDecisionInput {
+  /** @minimum 0 */
+  candleIndex: number;
+  action: ReplayManualDecisionInputAction;
+  alertId?: string;
+  direction?: ReplayManualDecisionInputDirection;
+  /** @maxLength 500 */
+  comment?: string;
+}
+
+export type ManualDecisionEventType = typeof ManualDecisionEventType[keyof typeof ManualDecisionEventType];
+
+
+export const ManualDecisionEventType = {
+  manual_decision: 'manual_decision',
+} as const;
+
+export type ManualDecisionSource = typeof ManualDecisionSource[keyof typeof ManualDecisionSource];
+
+
+export const ManualDecisionSource = {
+  manual: 'manual',
+} as const;
+
+export type ManualDecisionDecision = typeof ManualDecisionDecision[keyof typeof ManualDecisionDecision];
+
+
+export const ManualDecisionDecision = {
+  take: 'take',
+  skip: 'skip',
+} as const;
+
+export type ManualDecisionFeatureContext = { [key: string]: unknown };
+
+export type ManualDecisionScoreModel = typeof ManualDecisionScoreModel[keyof typeof ManualDecisionScoreModel];
+
+
+export const ManualDecisionScoreModel = {
+  evidence: 'evidence',
+  owner: 'owner',
+  blend: 'blend',
+} as const;
+
+export type ManualDecisionTradeDirection = typeof ManualDecisionTradeDirection[keyof typeof ManualDecisionTradeDirection];
+
+
+export const ManualDecisionTradeDirection = {
+  BUY: 'BUY',
+  SELL: 'SELL',
+} as const;
+
+export interface ManualDecision {
+  eventType: ManualDecisionEventType;
+  caseId: string;
+  sessionId: string;
+  alertId: string;
+  candleIndex: number;
+  source: ManualDecisionSource;
+  decision: ManualDecisionDecision;
+  /** @nullable */
+  comment: string | null;
+  formationFingerprint: string;
+  featureContext: ManualDecisionFeatureContext;
+  scoreModel: ManualDecisionScoreModel;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  blendWeight: number;
+  tradeDirection?: ManualDecisionTradeDirection;
+}
+
+export interface ReplayManualDecisionResult {
+  manualMode: boolean;
+  manualDecisions: ManualDecision[];
+  allManualDecisions: ManualDecision[];
+  simulation: SimulationSnapshot;
+  ownerModel: SiOwnerModelSummary;
 }
 
 export type AlertDirection = typeof AlertDirection[keyof typeof AlertDirection];
@@ -1195,6 +1382,18 @@ export interface Alert {
      * @nullable
      */
   siScore?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  siEvidenceScore?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  siOwnerScore?: number | null;
   strengthFeatures: AlertStrengthFeatures;
   /** @nullable */
   note: string | null;
@@ -1216,6 +1415,15 @@ export interface ReplayPolicyDecision {
   passed: boolean;
   reasons: string[];
 }
+
+export type ReplayAdvanceResultSiModel = typeof ReplayAdvanceResultSiModel[keyof typeof ReplayAdvanceResultSiModel];
+
+
+export const ReplayAdvanceResultSiModel = {
+  evidence: 'evidence',
+  owner: 'owner',
+  blend: 'blend',
+} as const;
 
 export interface ReplayAdvanceResult {
   sessionId: string;
@@ -1244,6 +1452,15 @@ export interface ReplayAdvanceResult {
   simulation: SimulationSnapshot;
   currentCandle: Candle;
   expiresInSeconds: number;
+  manualMode?: boolean;
+  manualDecisions?: ManualDecision[];
+  siModel?: ReplayAdvanceResultSiModel;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  siBlendWeight?: number;
+  ownerModel?: SiOwnerModelSummary;
 }
 
 export interface AlertCounts {

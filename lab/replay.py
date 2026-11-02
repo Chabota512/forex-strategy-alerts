@@ -8,6 +8,7 @@ batch implementation in tests. Strategy rules in engine.py remain unchanged.
 from __future__ import annotations
 
 import hashlib
+import math
 import threading
 import time
 from collections import deque
@@ -55,6 +56,13 @@ from .engine import (
 )
 from .simulation import SimulationSession
 from .si_cases import build_formation_fingerprint, cases_from_snapshot
+from .si_manual_cases import (
+    DEFAULT_MANUAL_CASES_PATH,
+    read_manual_decisions,
+    record_manual_decision,
+    record_manual_outcome,
+)
+from .si_owner_model import fit_owner_model, load_owner_model, select_score
 from .shadow_detectors import (
     StreamingDirectionalChange,
     StreamingHierarchicalSwings,
@@ -610,8 +618,12 @@ class ReplaySession:
         swing_direction_version: str = "V2",
         si_case_sink: Callable[[Sequence[Mapping[str, Any]]], Any] | None = None,
         si_score_provider: Callable[
-            [Mapping[str, Any], Mapping[str, Any]], float
+            [Mapping[str, Any], Mapping[str, Any]], float | None
         ] | None = None,
+        manual_mode: bool = False,
+        si_model: str = "evidence",
+        si_blend_weight: float = 0.5,
+        manual_cases_path: Path | None = None,
     ):
         if not records:
             raise ValueError("A replay session requires at least one candle.")
@@ -635,6 +647,44 @@ class ReplaySession:
         self.snapshot_path = Path(snapshot_path) if snapshot_path is not None else None
         self.si_case_sink = si_case_sink
         self.si_score_provider = si_score_provider
+        if not isinstance(manual_mode, bool):
+            raise ValueError("manual_mode must be a boolean.")
+        if manual_mode and self.symbol != "XAUUSD":
+            raise ValueError("Manual replay is available for XAUUSD only.")
+        if not isinstance(si_model, str) or si_model not in {
+            "evidence",
+            "owner",
+            "blend",
+        }:
+            raise ValueError("SI model must be evidence, owner, or blend.")
+        if (
+            isinstance(si_blend_weight, bool)
+            or not isinstance(si_blend_weight, (int, float))
+            or not math.isfinite(float(si_blend_weight))
+            or not 0 <= float(si_blend_weight) <= 1
+        ):
+            raise ValueError("SI blend weight must be between 0 and 1.")
+        self.manual_mode = manual_mode
+        self.si_model = si_model
+        self.si_blend_weight = float(si_blend_weight)
+        self.manual_cases_path = Path(
+            manual_cases_path or DEFAULT_MANUAL_CASES_PATH
+        )
+        self.owner_model = (
+            load_owner_model(self.manual_cases_path)
+            if self.symbol == "XAUUSD"
+            else fit_owner_model([])
+        )
+        self.manual_decisions = [
+            row
+            for row in read_manual_decisions(self.manual_cases_path)
+            if row.get("sessionId") == self.session_id
+        ]
+        self._manual_decisions_by_alert = {
+            str(row.get("alertId")): row
+            for row in self.manual_decisions
+            if row.get("alertId")
+        }
         self._si_recorded_trade_ids: set[str] = set()
         simulation_settings = dict(simulation_settings or {})
         simulation_settings["swingVersion"] = swing_direction_version
@@ -757,7 +807,129 @@ class ReplaySession:
                     if self.policy_simulation is not None
                     else []
                 ),
+                "manualMode": self.manual_mode,
+                "manualDecisions": list(self.manual_decisions),
+                "siModel": self.si_model,
+                "siBlendWeight": self.si_blend_weight,
+                "ownerModel": dict(self.owner_model),
             }
+
+    def decide_manually(
+        self,
+        *,
+        candle_index: int,
+        action: str,
+        alert_id: str | None = None,
+        direction: str | None = None,
+        comment: str | None = None,
+    ) -> dict[str, Any]:
+        with self.lock:
+            if not self.manual_mode:
+                raise ValueError("Enable manual mode when starting this replay.")
+            if candle_index < 0 or candle_index > self.computed_through:
+                raise ValueError("Manual decisions must target a revealed replay candle.")
+            action = action.strip().lower()
+            if action == "finalize":
+                new_decisions = []
+                for index, alert in self.alerts:
+                    current_id = str(alert.get("alert_id", ""))
+                    if index == candle_index and current_id not in self._manual_decisions_by_alert:
+                        new_decisions.append(
+                            self._record_manual_choice(
+                                candle_index, alert, "skip", None, None
+                            )
+                        )
+                return {
+                    "manualMode": True,
+                    "manualDecisions": new_decisions,
+                    "allManualDecisions": list(self.manual_decisions),
+                    "simulation": self.simulation.snapshot(candle_index),
+                    "ownerModel": dict(self.owner_model),
+                }
+            if action not in {"take", "skip"}:
+                raise ValueError("Manual action must be take, skip, or finalize.")
+            match = next(
+                (
+                    alert
+                    for index, alert in self.alerts
+                    if index == candle_index
+                    and (
+                        alert_id is None
+                        or str(alert.get("alert_id", "")) == alert_id
+                    )
+                ),
+                None,
+            )
+            if match is None:
+                raise ValueError("No revealed alert matches this manual decision.")
+            current_id = str(match.get("alert_id", ""))
+            if current_id in self._manual_decisions_by_alert:
+                raise ValueError("This alert already has a manual decision.")
+            selected_direction = None
+            if action == "take":
+                selected_direction = str(direction or match.get("direction", "")).upper()
+                if selected_direction not in {"BUY", "SELL"}:
+                    raise ValueError("Manual trade direction must be BUY or SELL.")
+                if candle_index >= len(self.records) - 1:
+                    raise ValueError("The last candle has no next candle for entry.")
+                if not self.simulation.settings.enabled:
+                    raise ValueError("Enable simulation before taking a manual trade.")
+            decision = self._record_manual_choice(
+                candle_index,
+                match,
+                action,
+                comment,
+                selected_direction,
+            )
+            if action == "take":
+                self.simulation.queue_manual_alert(
+                    candle_index,
+                    match,
+                    comment=decision["comment"],
+                    case_id=decision["caseId"],
+                    direction=selected_direction,
+                )
+            return {
+                "manualMode": True,
+                "manualDecisions": [decision],
+                "allManualDecisions": list(self.manual_decisions),
+                "simulation": self.simulation.snapshot(candle_index),
+                "ownerModel": dict(self.owner_model),
+            }
+
+    def _record_manual_choice(
+        self,
+        candle_index: int,
+        alert: Mapping[str, Any],
+        decision: str,
+        comment: str | None,
+        trade_direction: str | None,
+    ) -> dict[str, Any]:
+        alert_id = str(alert.get("alert_id", ""))
+        case_id = hashlib.sha256(
+            f"{self.session_id}:{alert_id}".encode("utf-8")
+        ).hexdigest()
+        formation = alert.get("formation_fingerprint")
+        record = record_manual_decision(
+            self.manual_cases_path,
+            case_id=case_id,
+            session_id=self.session_id,
+            alert_id=alert_id,
+            candle_index=candle_index,
+            decision=decision,
+            comment=comment,
+            formation=formation if isinstance(formation, Mapping) else None,
+            feature_context=alert,
+            score_model=self.si_model,
+            blend_weight=self.si_blend_weight,
+            trade_direction=trade_direction,
+        )
+        self.manual_decisions.append(record)
+        self._manual_decisions_by_alert[alert_id] = record
+        self.owner_model = load_owner_model(self.manual_cases_path)
+        if decision == "skip" and alert_id in self._pending_snapshots:
+            self._persist_snapshot(alert_id)
+        return record
 
     def advance(
         self,
@@ -824,6 +996,7 @@ class ReplaySession:
                 self._apply_snapshot_trade(trade, resolved=False)
             for trade in newly_resolved:
                 self._record_si_case(trade)
+                self._record_manual_outcome(trade)
                 self._apply_snapshot_trade(trade, resolved=True)
             for trade in self.simulation.mirror_trades_at(self.computed_through):
                 if str(trade.get("outcome", "")).upper() != "OPEN":
@@ -873,6 +1046,11 @@ class ReplaySession:
                 "simulation": self.simulation.snapshot(
                     min(to_index, self.computed_through)
                 ),
+                "manualMode": self.manual_mode,
+                "manualDecisions": list(self.manual_decisions),
+                "siModel": self.si_model,
+                "siBlendWeight": self.si_blend_weight,
+                "ownerModel": dict(self.owner_model),
             }
 
     def _state_at(self, index: int) -> dict[str, Any]:
@@ -1151,9 +1329,19 @@ class ReplaySession:
                             entry_index=index + 1,
                             window=20,
                         )
-                        alert["si_score"] = self.si_score_provider(
-                            alert, formation_fingerprint
+                        alert["formation_fingerprint"] = formation_fingerprint
+                        selected, evidence, owner = select_score(
+                            alert,
+                            evidence_score=self.si_score_provider(
+                                alert, formation_fingerprint
+                            ),
+                            model_name=self.si_model,
+                            owner_model=self.owner_model,
+                            blend_weight=self.si_blend_weight,
                         )
+                        alert["si_score"] = selected
+                        alert["si_evidence_score"] = evidence
+                        alert["si_owner_score"] = owner
                     self.alerts.append((index, alert))
                     engulfing = body_engulfs_previous(
                         previous, candle, alert_direction  # type: ignore[arg-type]
@@ -1183,10 +1371,14 @@ class ReplaySession:
                             policy_alert,
                             simulation_filters,
                         )
-                    queued = self.simulation.queue_alert(
-                        index,
-                        alert,
-                        simulation_filters,
+                    queued = (
+                        False
+                        if self.manual_mode
+                        else self.simulation.queue_alert(
+                            index,
+                            alert,
+                            simulation_filters,
+                        )
                     )
                     if self.snapshot_path is not None or self.si_case_sink is not None:
                         snapshot = build_alert_snapshot(
@@ -1200,7 +1392,7 @@ class ReplaySession:
                                 formation_fingerprint
                             )
                         alert_id = str(alert["alert_id"])
-                        if queued:
+                        if queued or self.manual_mode:
                             self._pending_snapshots[alert_id] = snapshot
                         elif self.snapshot_path is not None:
                             append_snapshot(self.snapshot_path, snapshot)
@@ -1225,6 +1417,18 @@ class ReplaySession:
         if cases:
             self.si_case_sink(cases)
             self._si_recorded_trade_ids.add(trade_id)
+
+    def _record_manual_outcome(self, trade: Mapping[str, Any]) -> None:
+        if trade.get("source") != "manual" or not trade.get("manualCaseId"):
+            return
+        record_manual_outcome(
+            self.manual_cases_path,
+            case_id=str(trade["manualCaseId"]),
+            trade_id=str(trade.get("tradeId", "")),
+            net_r=float(trade.get("netR", 0.0)),
+            outcome=str(trade.get("outcome", "")),
+        )
+        self.owner_model = load_owner_model(self.manual_cases_path)
 
     def _apply_snapshot_trade(
         self,

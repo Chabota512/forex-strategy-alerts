@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { InstrumentSymbol } from './instrumentSymbol';
+import type { ReplaySessionStartInputSiModel } from './replaySessionStartInputSiModel';
 import type { ReplaySessionStartInputSwingDirectionVersion } from './replaySessionStartInputSwingDirectionVersion';
 import type { SimulationSettings } from './simulationSettings';
 import type { Timeframe } from './timeframe';
@@ -17,4 +18,11 @@ export interface ReplaySessionStartInput {
   to: Date;
   simulationSettings?: SimulationSettings;
   swingDirectionVersion?: ReplaySessionStartInputSwingDirectionVersion;
+  manualMode?: boolean;
+  siModel?: ReplaySessionStartInputSiModel;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  siBlendWeight?: number;
 }

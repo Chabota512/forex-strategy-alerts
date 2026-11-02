@@ -62,8 +62,8 @@
 .evolve-loading span:nth-child(3) { margin-right: 5px; animation-delay: .3s; }
 .evolve-error, .evolve-failure {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 9px 12px; color: var(--evolve-warn); background: var(--warning-bg, #2a2422);
-  border-bottom: 1px solid var(--warning-border, #bf8560); line-height: 1.5;
+  padding: 9px 12px; color: var(--negative-text); background: var(--negative-bg);
+  border-bottom: 1px solid var(--negative-text); line-height: 1.5;
 }
 .evolve-error button { min-height: 24px; padding: 0 7px; color: inherit; background: transparent; border: 1px solid currentColor; font: inherit; cursor: pointer; white-space: nowrap; }
 .evolve-detail { min-width: 0; }

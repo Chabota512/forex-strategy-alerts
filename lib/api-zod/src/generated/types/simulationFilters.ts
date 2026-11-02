@@ -7,11 +7,13 @@
  */
 import type { SimulationFiltersDirection } from './simulationFiltersDirection';
 import type { SimulationFiltersStrength } from './simulationFiltersStrength';
+import type { SimulationFiltersTradeDirection } from './simulationFiltersTradeDirection';
 import type { SimulationFiltersVariant } from './simulationFiltersVariant';
 import type { SimulationFiltersWickPressure } from './simulationFiltersWickPressure';
 
 export interface SimulationFilters {
   direction: SimulationFiltersDirection;
+  tradeDirection?: SimulationFiltersTradeDirection;
   strength: SimulationFiltersStrength;
   variant?: SimulationFiltersVariant;
   wickPressure?: SimulationFiltersWickPressure;

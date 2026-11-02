@@ -58,6 +58,18 @@ export interface Alert {
      * @nullable
      */
   siScore?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  siEvidenceScore?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  siOwnerScore?: number | null;
   strengthFeatures: AlertStrengthFeatures;
   /** @nullable */
   note: string | null;

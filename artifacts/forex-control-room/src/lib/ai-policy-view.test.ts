@@ -46,18 +46,21 @@ describe('applyAiPolicyView', () => {
   });
 
   it('applies an owner-set score threshold under passthrough mode', () => {
+    const scoredItems: TestItem[] = [
+      { candleIndex: 1, alert: { alertId: 'kept', siScore: 0.8 } },
+      { candleIndex: 2, alert: { alertId: 'blocked', siScore: 0.4 } },
+    ];
     const filtered = applyAiPolicyView(
-      items,
+      scoredItems,
       true,
       'passthrough',
-      new Map([
-        ['kept', { alertId: 'kept', passed: true, reasons: [] }],
-        ['blocked', { alertId: 'blocked', passed: false, reasons: ['si_score < 0.60'] }],
-      ]),
+      new Map(),
       0.6,
     );
     expect(filtered.visible.map(item => item.alert.alertId)).toEqual(['kept']);
-    expect(filtered.hidden[0]?.reasons).toEqual(['si_score < 0.60']);
+    expect(filtered.hidden[0]?.reasons).toEqual([
+      'SI score below 0.60 or unavailable for the selected model.',
+    ]);
     expect(applyAiPolicyView(items, true, 'passthrough', new Map(), 0).visible).toEqual(items);
   });
 });

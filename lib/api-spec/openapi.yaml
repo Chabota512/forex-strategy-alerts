@@ -1590,6 +1590,9 @@ components:
           type: number
           minimum: 0
           maximum: 1
+        tradeDirection:
+          type: string
+          enum: [BUY, SELL]
       required:
         - eventType
         - caseId
@@ -1608,11 +1611,51 @@ components:
       properties:
         trained:
           type: boolean
+        qualified:
+          type: boolean
         caseCount:
           type: integer
         requiredCaseCount:
           type: integer
-      required: [trained, caseCount, requiredCaseCount]
+        intercept:
+          type: number
+        weights:
+          type: object
+          additionalProperties:
+            type: number
+        effectiveWeights:
+          type: object
+          additionalProperties:
+            type: number
+        ownerWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+        evidenceWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+        hitRate:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        expectancyR:
+          type: [number, "null"]
+        resolvedTakenCount:
+          type: integer
+      required:
+        - trained
+        - qualified
+        - caseCount
+        - requiredCaseCount
+        - intercept
+        - weights
+        - effectiveWeights
+        - ownerWeight
+        - evidenceWeight
+        - hitRate
+        - expectancyR
+        - resolvedTakenCount
     ReplayManualDecisionResult:
       type: object
       properties:
@@ -1628,7 +1671,9 @@ components:
             $ref: "#/components/schemas/ManualDecision"
         simulation:
           $ref: "#/components/schemas/SimulationSnapshot"
-      required: [manualMode, manualDecisions, allManualDecisions, simulation]
+        ownerModel:
+          $ref: "#/components/schemas/SiOwnerModelSummary"
+      required: [manualMode, manualDecisions, allManualDecisions, simulation, ownerModel]
     ReplayAlert:
       type: object
       properties:
@@ -1741,6 +1786,8 @@ components:
           type: number
           minimum: 0
           maximum: 1
+        ownerModel:
+          $ref: "#/components/schemas/SiOwnerModelSummary"
       required:
         - sessionId
         - runId
@@ -1798,6 +1845,11 @@ components:
           type: boolean
         manual:
           type: boolean
+        source:
+          type: string
+          enum: [simulated, manual]
+        manualCaseId:
+          type: [string, "null"]
         comment:
           type: [string, "null"]
         alertType:
@@ -2060,7 +2112,7 @@ components:
           minimum: 0
           maximum: 1
         siEvidenceScore:
-          type: number
+          type: [number, "null"]
           minimum: 0
           maximum: 1
         siOwnerScore:

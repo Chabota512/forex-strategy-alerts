@@ -551,6 +551,10 @@ class _Trade:
     net_r: Decimal = ZERO
     price_move: Decimal = ZERO
     pip_pnl: Decimal = ZERO
+    source: str = "simulated"
+    manual: bool = False
+    comment: str | None = None
+    manual_case_id: str | None = None
 
     def to_dict(self, *, as_open: bool = False) -> dict[str, Any]:
         is_open = as_open or self.outcome == "OPEN"
@@ -566,6 +570,10 @@ class _Trade:
                 None if self.invert_score is None else float(self.invert_score)
             ),
             "inverted": self.is_inverted,
+            "source": self.source,
+            "manual": self.manual,
+            "comment": self.comment,
+            "manualCaseId": self.manual_case_id,
             "alertType": self.alert_type,
             "entryIndex": self.entry_index,
             "entryTime": self.entry_time,
@@ -662,6 +670,38 @@ class SimulationSession:
         if not self._matches_filters(alert, active_filters):
             return False
         self._pending_alerts.append((candle_index, alert))
+        return True
+
+    def queue_manual_alert(
+        self,
+        candle_index: int,
+        alert: Mapping[str, Any],
+        *,
+        comment: str | None,
+        case_id: str,
+        direction: str | None = None,
+    ) -> bool:
+        """Queue an owner-selected XAUUSD side for entry at the next candle open."""
+        if not self.settings.enabled:
+            return False
+        if self.symbol != "XAUUSD" or str(alert.get("symbol", "XAUUSD")).upper() != "XAUUSD":
+            raise ValueError("Manual trades are available for XAUUSD only.")
+        if candle_index < 0 or candle_index >= len(self.records):
+            raise ValueError("Alert index is outside the simulation candle window.")
+        if candle_index >= len(self.records) - 1:
+            raise ValueError("The last candle has no next candle for entry.")
+        direction = str(direction or alert.get("direction", "")).upper()
+        if direction not in {"BUY", "SELL"}:
+            raise ValueError("A manual alert must have BUY or SELL direction.")
+        queued_alert = {
+            **dict(alert),
+            "manual": True,
+            "source": "manual",
+            "manual_comment": comment,
+            "manual_case_id": case_id,
+            "manual_direction": direction,
+        }
+        self._pending_alerts.append((candle_index, queued_alert))
         return True
 
     def atr_at(self, index: int) -> Decimal | None:
@@ -813,9 +853,18 @@ class SimulationSession:
         entry_record: Mapping[str, Any],
         entry_index: int,
     ) -> None:
-        source_direction, direction, invert_score, is_inverted = (
-            resolve_simulation_direction(alert, self.settings)
-        )
+        is_manual = bool(alert.get("manual"))
+        if is_manual:
+            source_direction = str(
+                alert.get("manual_direction", alert.get("direction", ""))
+            ).upper()
+            direction = source_direction
+            invert_score = None
+            is_inverted = False
+        else:
+            source_direction, direction, invert_score, is_inverted = (
+                resolve_simulation_direction(alert, self.settings)
+            )
         if source_direction not in {"BUY", "SELL"}:
             return
         alert_candle = alert.get("candle")
@@ -895,6 +944,18 @@ class SimulationSession:
             ),
             invert_score=invert_score,
             is_inverted=is_inverted,
+            source="manual" if is_manual else "simulated",
+            manual=is_manual,
+            comment=(
+                str(alert.get("manual_comment"))
+                if is_manual and alert.get("manual_comment") is not None
+                else None
+            ),
+            manual_case_id=(
+                str(alert.get("manual_case_id"))
+                if is_manual and alert.get("manual_case_id")
+                else None
+            ),
         )
         if trade is None:
             return
@@ -934,6 +995,10 @@ class SimulationSession:
         invert_score: Decimal | None,
         is_inverted: bool,
         suffix: str = "sim",
+        source: str = "simulated",
+        manual: bool = False,
+        comment: str | None = None,
+        manual_case_id: str | None = None,
     ) -> _Trade | None:
         stop_distance = abs(entry - stop_price)
         if stop_distance <= ZERO:
@@ -976,6 +1041,10 @@ class SimulationSession:
             direction_mode=self.settings.direction_mode,
             invert_score=invert_score,
             is_inverted=is_inverted,
+            source=source,
+            manual=manual,
+            comment=comment,
+            manual_case_id=manual_case_id,
             geometry_weights=(
                 {
                     "bodyWeight": self.settings.stop_body_weight,

@@ -115,8 +115,7 @@
 .autoevolve-action.is-start { border-color: var(--accent-border); color: var(--accent-label); }
 .autoevolve-action.is-stop { border-color: var(--warning-border); color: var(--warning-text); }
 .autoevolve-action.is-restore { margin-top: 8px; }
-.autoevolve-persistent-alert,
-.autoevolve-inline-error {
+.autoevolve-persistent-alert {
   color: var(--warning-text);
   font-size: 8px;
 }
@@ -125,7 +124,10 @@
   padding-left: 8px;
   border-left: 2px solid var(--warning-border);
 }
-.autoevolve-inline-error { flex-basis: 100%; }
+.autoevolve-inline-error {
+  flex-basis: 100%;
+  color: var(--negative-text);
+}
 
 .policy-history {
   margin: 10px 0 20px;

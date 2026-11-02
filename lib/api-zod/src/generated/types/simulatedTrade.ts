@@ -14,6 +14,7 @@ import type { SimulatedTradeExitModel } from './simulatedTradeExitModel';
 import type { SimulatedTradeExitReason } from './simulatedTradeExitReason';
 import type { SimulatedTradeOutcome } from './simulatedTradeOutcome';
 import type { SimulatedTradeSizingMode } from './simulatedTradeSizingMode';
+import type { SimulatedTradeSource } from './simulatedTradeSource';
 import type { SimulatedTradeSourceDirection } from './simulatedTradeSourceDirection';
 import type { SimulatedTradeSymbol } from './simulatedTradeSymbol';
 
@@ -27,6 +28,12 @@ export interface SimulatedTrade {
   directionMode: SimulatedTradeDirectionMode;
   invertScore: number | null;
   inverted: boolean;
+  manual?: boolean;
+  source?: SimulatedTradeSource;
+  /** @nullable */
+  manualCaseId?: string | null;
+  /** @nullable */
+  comment?: string | null;
   alertType: SimulatedTradeAlertType;
   /** @minimum 0 */
   entryIndex: number;

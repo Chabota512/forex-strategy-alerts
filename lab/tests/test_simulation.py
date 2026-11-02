@@ -105,6 +105,43 @@ def test_position_sizing_uses_next_open_and_atr_minimum_stop() -> None:
     assert trade["outcome"] == "OPEN"
 
 
+def test_manual_buy_and_sell_enter_exact_side_at_next_open_with_standing_exits() -> None:
+    records = [
+        _record(0, "100", "101", "99", "100"),
+        _record(1, "100", "101", "99", "100"),
+    ]
+    for alert_direction, manual_direction, stop, target in (
+        ("SELL", "BUY", 98, 106),
+        ("BUY", "SELL", 102, 94),
+    ):
+        simulation = SimulationSession(
+            records,
+            settings=_settings(exit_model="candle_geometry"),
+        )
+        simulation.process_candle(0)
+        simulation.queue_manual_alert(
+            0,
+            _alert(f"manual-{manual_direction}", alert_direction),
+            comment="fixture decision",
+            case_id=f"case-{manual_direction}",
+            direction=manual_direction,
+        )
+        simulation.process_candle(1)
+
+        trade = simulation.trades_at(1)[0]
+        assert trade["direction"] == manual_direction
+        assert trade["entryIndex"] == 1
+        assert trade["entryPrice"] == 100
+        assert trade["entryTime"] == records[1]["time"]
+        assert trade["stopPrice"] == stop
+        assert trade["takeProfitPrice"] == target
+        assert trade["source"] == "manual"
+        assert trade["manual"] is True
+        assert trade["comment"] == "fixture decision"
+        assert trade["manualCaseId"] == f"case-{manual_direction}"
+        assert trade["outcome"] == "OPEN"
+
+
 def test_same_candle_stop_and_target_resolves_as_stop_first() -> None:
     records = [
         _record(0, "100", "101", "99", "100"),

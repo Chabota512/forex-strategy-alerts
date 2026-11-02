@@ -7,11 +7,14 @@
  */
 import type { Candle } from './candle';
 import type { ConfirmedSwingEvent } from './confirmedSwingEvent';
+import type { ManualDecision } from './manualDecision';
+import type { ReplayAdvanceResultSiModel } from './replayAdvanceResultSiModel';
 import type { ReplayAlert } from './replayAlert';
 import type { ReplayCandleState } from './replayCandleState';
 import type { ReplayPolicyDecision } from './replayPolicyDecision';
 import type { SimulatedTrade } from './simulatedTrade';
 import type { SimulationSnapshot } from './simulationSnapshot';
+import type { SiOwnerModelSummary } from './siOwnerModelSummary';
 import type { Timeframe } from './timeframe';
 import type { WickPressurePoint } from './wickPressurePoint';
 
@@ -42,4 +45,13 @@ export interface ReplayAdvanceResult {
   simulation: SimulationSnapshot;
   currentCandle: Candle;
   expiresInSeconds: number;
+  manualMode?: boolean;
+  manualDecisions?: ManualDecision[];
+  siModel?: ReplayAdvanceResultSiModel;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  siBlendWeight?: number;
+  ownerModel?: SiOwnerModelSummary;
 }

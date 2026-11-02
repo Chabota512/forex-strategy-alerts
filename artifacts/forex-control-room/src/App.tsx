@@ -144,6 +144,14 @@ const fmtMoneyPerTrade = (value: number | null | undefined) =>
   value == null || !Number.isFinite(value)
     ? '—'
     : `${value < 0 ? '−' : '+'}$${Math.abs(value).toFixed(2)}/trade`;
+const summarizeOwnerWeights = (weights?: Record<string, number>) => {
+  if (!weights) return '';
+  return Object.entries(weights)
+    .sort((left, right) => Math.abs(right[1]) - Math.abs(left[1]))
+    .slice(0, 4)
+    .map(([feature, value]) => `${feature} ${value >= 0 ? '+' : ''}${value.toFixed(2)}`)
+    .join(' · ');
+};
 const cctColor = (state?: string) => state === 'uptrend'
   ? 'var(--trend-up)' : state === 'downtrend' ? 'var(--trend-down)' : 'var(--trend-neutral)';
 const cstColor = (state?: string) => state === 'uptrend'
@@ -181,6 +189,7 @@ type ManualDecisionRecord = {
   formationFingerprint: string;
   featureContext: Record<string, unknown>;
   comment: string | null;
+  tradeDirection?: 'BUY' | 'SELL';
 };
 type AlertTapeItem = {
   candleIndex: number;
@@ -1980,6 +1989,17 @@ export function Home() {
         if (response.manualDecisions) {
           mergeManualDecisionLog(response.manualDecisions as ManualDecisionRecord[]);
         }
+      if (response.ownerModel) {
+        setReplaySession(previous => previous
+          ? { ...previous, ownerModel: response.ownerModel }
+          : previous);
+        if (replaySessionRef.current) {
+          replaySessionRef.current = {
+            ...replaySessionRef.current,
+            ownerModel: response.ownerModel,
+          };
+        }
+      }
         setPolicySimulationSnapshot(response.policySimulation);
         setPolicySimulatedTrades(response.policyTrades);
         setComputedThrough(response.computedThrough);
@@ -2088,10 +2108,22 @@ export function Home() {
         error?: string;
         allManualDecisions?: ManualDecisionRecord[];
         simulation?: SimulationSnapshot;
+        ownerModel?: ReplaySessionStartResult['ownerModel'];
       };
       if (!response.ok) throw new Error(result.error ?? `Request failed (${response.status}).`);
       mergeManualDecisionLog(result.allManualDecisions ?? []);
       if (result.simulation) setSimulationSnapshot(result.simulation);
+      if (result.ownerModel) {
+        setReplaySession(previous => previous
+          ? { ...previous, ownerModel: result.ownerModel }
+          : previous);
+        if (replaySessionRef.current) {
+          replaySessionRef.current = {
+            ...replaySessionRef.current,
+            ownerModel: result.ownerModel,
+          };
+        }
+      }
       if (action !== 'finalize') setManualComment('');
       return true;
     } catch (error) {
@@ -2895,10 +2927,28 @@ export function Home() {
                 />
               </label>}
               <small data-testid="si-owner-model-status">
-                {matchingSession?.ownerModel?.trained
+                {matchingSession?.ownerModel?.qualified
                   ? `OWNER MODEL READY · ${matchingSession.ownerModel.caseCount} CHOICES`
-                  : `OWNER MODEL NEEDS ${matchingSession?.ownerModel?.requiredCaseCount ?? 30} MANUAL CHOICES`}
+                  : `OWNER MODEL NEEDS ${Math.max(
+                    0,
+                    (matchingSession?.ownerModel?.requiredCaseCount ?? 30)
+                      - (matchingSession?.ownerModel?.caseCount ?? 0),
+                  )} MORE CHOICES`}
               </small>
+              {matchingSession?.ownerModel?.trained && <small
+                className="si-owner-model-weights"
+                data-testid="si-owner-model-weights"
+              >
+                EFFECTIVE W · {summarizeOwnerWeights(
+                  matchingSession.ownerModel.effectiveWeights,
+                )} · HIT {matchingSession.ownerModel.hitRate == null
+                  ? '—'
+                  : `${Math.round(matchingSession.ownerModel.hitRate * 100)}%`} · EXP {
+                  matchingSession.ownerModel.expectancyR == null
+                    ? '—'
+                    : `${matchingSession.ownerModel.expectancyR >= 0 ? '+' : ''}${matchingSession.ownerModel.expectancyR.toFixed(2)}R`
+                }
+              </small>}
             </div>
             {setMinSiScoreMutation.isError && <span role="alert" className="si-threshold-error">SAVE FAILED</span>}
           </>}
