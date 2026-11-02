@@ -1,0 +1,20 @@
+{
+  "active_job_id": "9cca3a3b-6f61-42c0-8a7e-8e52f87acb53",
+  "alerts": [],
+  "cooldown_seconds": 60,
+  "cooldown_until_utc": null,
+  "error": null,
+  "keys": {
+    "key1": "unknown",
+    "key2": "unknown"
+  },
+  "last_result_file": null,
+  "last_verdict": null,
+  "phase": "training",
+  "round": 1,
+  "running": true,
+  "state": "running",
+  "stop_requested": false,
+  "swing_version": "V2",
+  "updated_at_utc": "2026-11-02T14:55:03.968565Z"
+}
