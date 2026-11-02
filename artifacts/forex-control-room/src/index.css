@@ -448,10 +448,10 @@ button:disabled { opacity:.38; cursor:not-allowed!important; }
 .journal-entry-marker { stroke:var(--accent); stroke-width:1; stroke-dasharray:2 3; opacity:.8; }
 .sim-sizing-select { height:27px; padding:0 7px; border:1px solid var(--control-border); color:var(--text-input); background:var(--control-bg); font:9px var(--app-font-mono); }
 .sim-accounting-cell { display:block; margin-top:4px; color:var(--text-subtle); font-size:7px; }
-.swing-controls { min-height:28px; display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:3px 10px; border-bottom:1px solid var(--line-soft); }
-.swing-family-controls { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-.swing-family-controls label { display:inline-flex; align-items:center; gap:4px; color:var(--text-secondary); font:8px var(--app-font-mono); cursor:pointer; }
-.swing-family-controls input { width:11px; height:11px; margin:0; accent-color:var(--accent-line); cursor:pointer; }
+.swing-controls { min-height:0; display:inline-flex; flex:0 0 auto; align-items:center; flex-wrap:nowrap; gap:5px; margin-left:2px; padding-left:6px; border-left:1px solid var(--line-strong); }
+.swing-family-controls { display:flex; align-items:center; flex-wrap:nowrap; gap:5px; }
+.swing-family-controls label { display:inline-flex; align-items:center; gap:3px; color:var(--text-secondary); font:7px var(--app-font-mono); white-space:nowrap; cursor:pointer; }
+.swing-family-controls input { width:10px; height:10px; margin:0; accent-color:var(--accent-line); cursor:pointer; }
 .shadow-disclaimer { padding:4px 10px; color:var(--text-subtle); border-bottom:1px solid var(--line-soft); font:8px var(--app-font-mono); }
 .chart-nav-controls { display:flex; align-items:center; gap:5px; margin-left:auto; }
 .overlay-toggle { height:21px; padding:0 7px; color:var(--text-secondary); background:var(--control-soft); border:1px solid var(--control-border); font:8px var(--app-font-mono); cursor:pointer; }

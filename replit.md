@@ -20,7 +20,7 @@ GBPJPY, AUDJPY).
 
 ## Run & operate
 
-- `python -m unittest discover -s lab/tests -v` — full strategy + system suite
+- `uv run --group dev pytest lab/tests -q` — full strategy + system suite
 - `python -m lab.evolve --rounds 1` — run one guarded evolution round (terminal; owner approves promotions)
 - `python -m lab.resample --all` — regenerate all derived monthly files from raws
 - `python lab/populate_snapshots.py` — rebuild alert snapshots + digest from a full run

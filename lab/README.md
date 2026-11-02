@@ -7,7 +7,7 @@ place orders or fetch market prices.
 ## Run the lab
 
 ```sh
-python -m unittest discover -s lab/tests -v
+uv run --group dev pytest lab/tests -q
 python lab/generate_synthetic_data.py
 python lab/backtest.py
 ```

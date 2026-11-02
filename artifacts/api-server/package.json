@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cd ../.. && uv run --locked python -m lab.server",
     "build": "node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/index.mjs",
+    "start": "cd ../.. && uv run --locked --no-dev python -m lab.server",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

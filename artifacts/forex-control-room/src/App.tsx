@@ -2718,6 +2718,38 @@ export function Home() {
             <button type="button" className={`overlay-toggle${showDc ? ' active' : ''}`} aria-pressed={showDc} aria-label="Directional Change shadow overlay" onClick={() => setShowDc(value => !value)} data-testid="toggle-overlay-dc">DC</button>
             <button type="button" className={`overlay-toggle${showHier ? ' active' : ''}`} aria-pressed={showHier} aria-label="Hierarchical Swings shadow overlay" onClick={() => setShowHier(value => !value)} data-testid="toggle-overlay-hier">HIER</button>
           </>}
+          <div className="swing-controls" role="group" aria-label="Swing labels">
+            <button
+              type="button"
+              className={`overlay-toggle${showSwings ? ' active' : ''}`}
+              aria-pressed={showSwings}
+              aria-label="Show swing labels"
+              onClick={() => setShowSwings(value => !value)}
+              data-testid="toggle-overlay-swings"
+            >SWINGS</button>
+            {!isGoldV2 && (
+              <div className="swing-family-controls" aria-label="Swing families">
+                {SWING_FAMILY_CHOICES.map(({ family, label }) => (
+                  <label key={family}>
+                    <input
+                      type="checkbox"
+                      checked={swingFamilies[family]}
+                      aria-label={`${label} swing labels`}
+                      data-testid={`toggle-swing-family-${family.toLowerCase()}`}
+                      onChange={event => {
+                        const checked = event.currentTarget.checked;
+                        setSwingFamilies(current => ({
+                          ...current,
+                          [family]: checked,
+                        }));
+                      }}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <button type="button" className={`overlay-toggle${showAlertMarkers ? ' active' : ''}`} aria-pressed={showAlertMarkers} aria-label="Alert markers" onClick={() => setShowAlertMarkers(value => !value)} data-testid="toggle-overlay-alerts">ALERTS</button>
           <button type="button" className={`overlay-toggle${showStrengthLabels ? ' active' : ''}`} aria-pressed={showStrengthLabels} aria-label="S/N/W strength labels" onClick={() => setShowStrengthLabels(value => !value)} data-testid="toggle-overlay-strength">S/N/W</button>
           <button type="button" className={`overlay-toggle${showCrosshair ? ' active' : ''}`} aria-pressed={showCrosshair} aria-label="Crosshair" title="Toggle chart crosshair" onClick={() => setShowCrosshair(value => !value)} data-testid="toggle-crosshair">CROSSHAIR</button>
@@ -2743,38 +2775,6 @@ export function Home() {
               data-testid="button-chart-latest"
             >AUTO SCROLL</button>
           </div>
-        </div>
-        <div className="swing-controls" role="group" aria-label="Swing labels">
-          <button
-            type="button"
-            className={`overlay-toggle${showSwings ? ' active' : ''}`}
-            aria-pressed={showSwings}
-            aria-label="Show swing labels"
-            onClick={() => setShowSwings(value => !value)}
-            data-testid="toggle-overlay-swings"
-          >SWINGS</button>
-          {!isGoldV2 && (
-            <div className="swing-family-controls" aria-label="Swing families">
-              {SWING_FAMILY_CHOICES.map(({ family, label }) => (
-                <label key={family}>
-                  <input
-                    type="checkbox"
-                    checked={swingFamilies[family]}
-                    aria-label={`${label} swing labels`}
-                    data-testid={`toggle-swing-family-${family.toLowerCase()}`}
-                    onChange={event => {
-                      const checked = event.currentTarget.checked;
-                      setSwingFamilies(current => ({
-                        ...current,
-                        [family]: checked,
-                      }));
-                    }}
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-          )}
         </div>
         <div className="shadow-disclaimer" role="note" data-testid="shadow-overlay-disclaimer">
           DC and HIER are read-only shadows; they never affect alerts, strength, or simulation.
