@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import math
 import re
 import threading
 import time
@@ -23,6 +24,7 @@ from .versioning import atomic_write_json
 logger = logging.getLogger("forex_strategy_lab.autoevolve")
 
 COOLDOWN_SECONDS = 60
+RETRY_INCREMENT_SECONDS = 10
 POLL_SECONDS = 0.2
 DEFAULT_STATE_PATH = LAB_DIR / "output" / "autoevolve" / "status.json"
 DEFAULT_ACTIVE_ROUND_PATH = LAB_DIR / "output" / "autoevolve" / "active-round.json"
@@ -116,6 +118,33 @@ class AutoevolveManager:
     def _set_locked(self, **changes: Any) -> None:
         self._status.update(changes)
         self._persist_locked()
+
+    def _schedule_retry(
+        self,
+        delay_seconds: float,
+        *,
+        result_file: str,
+        last_verdict: str,
+        error: str | None,
+    ) -> float:
+        delay = max(float(RETRY_INCREMENT_SECONDS), delay_seconds)
+        retry_until = datetime.fromtimestamp(
+            datetime.now(timezone.utc).timestamp() + delay,
+            timezone.utc,
+        ).isoformat().replace("+00:00", "Z")
+        with self._lock:
+            self._set_locked(
+                state="cooldown",
+                running=True,
+                phase="retry-wait",
+                active_job_id=None,
+                last_verdict=last_verdict,
+                last_result_file=result_file,
+                error=error,
+                cooldown_seconds=math.ceil(delay),
+                cooldown_until_utc=retry_until,
+            )
+        return delay
 
     def _archive_path(self, round_number: int, stamp: str) -> Path:
         return self.proposals_dir / f"evolve_round_{round_number:02d}_{stamp}_result.json"
@@ -378,6 +407,7 @@ class AutoevolveManager:
         return result_path
 
     def _run_loop(self) -> None:
+        retry_delay_seconds = 0.0
         while not self._stop_event.is_set():
             with self._lock:
                 round_number = int(self._status.get("round", 0)) + 1
@@ -394,6 +424,8 @@ class AutoevolveManager:
                     round=round_number,
                     active_job_id=None,
                     cooldown_until_utc=None,
+                    cooldown_seconds=self.cooldown_seconds,
+                    error=None,
                 )
             try:
                 job = self.evolve_jobs.start(
@@ -525,57 +557,78 @@ class AutoevolveManager:
                     for item in attempts
                     if isinstance(item, dict)
                 }
-                delay = max(
-                    self.cooldown_seconds,
-                    retry_after if categories & RATE_LIMIT_CATEGORIES else 0.0,
+                failed_round = (
+                    decision in {"failed", "request_error"}
+                    or status.get("phase") == "failed"
                 )
-                with self._lock:
-                    self._set_locked(
-                        state="cooldown",
-                        running=True,
-                        phase="cooldown",
-                        cooldown_until_utc=(
-                            datetime.fromtimestamp(
-                                datetime.now(timezone.utc).timestamp() + delay,
-                                timezone.utc,
-                            ).isoformat().replace("+00:00", "Z")
-                            if delay > 0
-                            else None
-                        ),
+                if failed_round:
+                    retry_delay_seconds = max(
+                        retry_delay_seconds + RETRY_INCREMENT_SECONDS,
+                        retry_after if categories & RATE_LIMIT_CATEGORIES else 0.0,
                     )
+                    retry_error = status.get("error") or result.get("reason")
+                    delay = self._schedule_retry(
+                        retry_delay_seconds,
+                        result_file=archive_name,
+                        last_verdict=decision,
+                        error=str(retry_error) if retry_error else None,
+                    )
+                else:
+                    retry_delay_seconds = 0.0
+                    delay = max(
+                        self.cooldown_seconds,
+                        retry_after if categories & RATE_LIMIT_CATEGORIES else 0.0,
+                    )
+                    with self._lock:
+                        self._set_locked(
+                            state="cooldown",
+                            running=True,
+                            phase="cooldown",
+                            cooldown_seconds=math.ceil(delay),
+                            cooldown_until_utc=(
+                                datetime.fromtimestamp(
+                                    datetime.now(timezone.utc).timestamp() + delay,
+                                    timezone.utc,
+                                ).isoformat().replace("+00:00", "Z")
+                                if delay > 0
+                                else None
+                            ),
+                        )
                 if self._stop_event.wait(delay):
                     break
             except EvolveJobError as exc:
                 result_path = self._archive_failed_round(marker, str(exc))
                 self.active_round_path.unlink(missing_ok=True)
-                with self._lock:
-                    self._set_locked(
-                        state="failed",
-                        running=False,
-                        phase="failed",
-                        active_job_id=None,
-                        last_verdict="failed",
-                        last_result_file=result_path.name,
-                        error=str(exc),
-                    )
-                return
+                if self._stop_event.is_set():
+                    break
+                retry_delay_seconds += RETRY_INCREMENT_SECONDS
+                delay = self._schedule_retry(
+                    retry_delay_seconds,
+                    result_file=result_path.name,
+                    last_verdict="failed",
+                    error=str(exc),
+                )
+                if self._stop_event.wait(delay):
+                    break
+                continue
             except Exception as exc:
                 logger.exception("AUTOEVOLVE round failed")
                 result_path = self._archive_failed_round(
                     marker, f"{type(exc).__name__}: the round did not complete."
                 )
                 self.active_round_path.unlink(missing_ok=True)
-                with self._lock:
-                    self._set_locked(
-                        state="failed",
-                        running=False,
-                        phase="failed",
-                        active_job_id=None,
-                        last_verdict="failed",
-                        last_result_file=result_path.name,
-                        error="The round failed; its archive was saved.",
-                    )
-                return
+                if self._stop_event.is_set():
+                    break
+                retry_delay_seconds += RETRY_INCREMENT_SECONDS
+                delay = self._schedule_retry(
+                    retry_delay_seconds,
+                    result_file=result_path.name,
+                    last_verdict="failed",
+                    error="The round failed; its archive was saved.",
+                )
+                if self._stop_event.wait(delay):
+                    break
+                continue
 
         with self._lock:
             paused = self._status.get("state") == "paused-keys-depleted"
@@ -586,4 +639,5 @@ class AutoevolveManager:
                 active_job_id=None,
                 stop_requested=False,
                 cooldown_until_utc=None,
+                cooldown_seconds=self.cooldown_seconds,
             )

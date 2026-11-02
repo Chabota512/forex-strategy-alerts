@@ -79,6 +79,12 @@ export default function AutoevolveControl({
   const restoreMutation = useRestoreEvolvePolicy();
   const status = statusQuery.data;
   const versions = historyQuery.data?.versions ?? [];
+  const retryDeadline = status?.phase === 'retry-wait' && status.cooldown_until_utc
+    ? Date.parse(status.cooldown_until_utc)
+    : Number.NaN;
+  const retrySecondsLeft = Number.isFinite(retryDeadline)
+    ? Math.max(0, Math.ceil((retryDeadline - Date.now()) / 1000))
+    : null;
   const persistentAlert = useMemo(
     () => status?.alerts.find(alert => alert.persistent) ?? null,
     [status?.alerts],
@@ -166,6 +172,7 @@ export default function AutoevolveControl({
           {status?.round ?? 0}
         </button>
         <span>· {status?.phase ?? 'loading'} · {status?.last_verdict ?? 'no rounds'} · keys: g1 {keyLabel(status?.keys.key1)} g2 {keyLabel(status?.keys.key2)}</span>
+        {retrySecondsLeft !== null && <span data-testid="autoevolve-retry-countdown">· RETRY IN {retrySecondsLeft}s</span>}
       </div>
       {persistentAlert && <span className="autoevolve-persistent-alert" role="alert" data-testid="autoevolve-persistent-alert">
         {persistentAlert.message}

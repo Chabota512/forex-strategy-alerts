@@ -86,4 +86,24 @@ describe('AUTOEVOLVE dataset gate', () => {
       .toBe(false);
     expect(screen.queryByTestId('autoevolve-dataset-unavailable')).toBeNull();
   });
+
+  it('shows the retry countdown while AUTOEVOLVE waits to retry', () => {
+    const currentStatus = api.status();
+    api.status.mockReturnValue({
+      ...currentStatus,
+      data: {
+        ...currentStatus.data,
+        state: 'cooldown',
+        running: true,
+        phase: 'retry-wait',
+        cooldown_seconds: 20,
+        cooldown_until_utc: new Date(Date.now() + 20_000).toISOString(),
+      },
+    });
+
+    render(<AutoevolveControl datasetStatus="approved"/>);
+
+    expect(screen.getByTestId('autoevolve-retry-countdown').textContent)
+      .toMatch(/RETRY IN \d+s/);
+  });
 });
