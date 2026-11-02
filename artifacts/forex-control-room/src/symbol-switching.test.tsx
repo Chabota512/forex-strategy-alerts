@@ -393,7 +393,7 @@ describe('symbol switching session', () => {
     expect((screen.getByTestId('input-from-date') as HTMLInputElement).value)
       .toBe('2023-01-01');
     expect((screen.getByTestId('input-to-date') as HTMLInputElement).value)
-      .toBe('2023-01-31');
+      .toBe('2025-12-31');
     expect((screen.getByTestId('select-month') as HTMLSelectElement).value).toBe('2023-01');
     expect(screen.getByTestId('status-month-progress').textContent)
       .toContain('Month 1/36');
@@ -486,7 +486,7 @@ describe('symbol switching session', () => {
       expect((screen.getByTestId('input-from-date') as HTMLInputElement).value)
         .toBe('2024-01-01');
       expect((screen.getByTestId('input-to-date') as HTMLInputElement).value)
-        .toBe('2024-01-31');
+        .toBe('2025-12-31');
     });
   });
 
@@ -1156,8 +1156,60 @@ describe('symbol switching session', () => {
     fireEvent.change(screen.getByTestId('select-month'), { target: { value: '2023-02' } });
     expect(screen.getByTestId('status-month-progress').textContent)
       .toContain('Month 2/36 · 2023-02');
+    expect((screen.getByTestId('input-from-date') as HTMLInputElement).value)
+      .toBe('2023-02-01');
+    expect((screen.getByTestId('input-to-date') as HTMLInputElement).value)
+      .toBe('2025-12-31');
     await waitFor(() => expect(api.candles.mock.calls.some(
-      ([params]) => params.chunkMonth === '2023-02',
+      ([params]) => params.chunkMonth === '2023-02'
+        && params.from === '2023-02-01'
+        && params.to === '2025-12-31',
+    )).toBe(true));
+  });
+
+  it('keeps a manually selected simulation end while moving the chart month', () => {
+    render(<TooltipProvider><Home /></TooltipProvider>);
+
+    fireEvent.change(screen.getByTestId('input-to-date'), {
+      target: { value: '2023-03-15' },
+    });
+    fireEvent.change(screen.getByTestId('select-month'), { target: { value: '2023-02' } });
+
+    expect((screen.getByTestId('input-from-date') as HTMLInputElement).value)
+      .toBe('2023-02-01');
+    expect((screen.getByTestId('input-to-date') as HTMLInputElement).value)
+      .toBe('2023-03-15');
+    expect((screen.getByTestId('select-month') as HTMLSelectElement).value)
+      .toBe('2023-02');
+  });
+
+  it('resets the simulation end to latest when the chart start passes it', () => {
+    render(<TooltipProvider><Home /></TooltipProvider>);
+
+    fireEvent.change(screen.getByTestId('input-to-date'), {
+      target: { value: '2023-02-15' },
+    });
+    fireEvent.change(screen.getByTestId('select-month'), { target: { value: '2023-03' } });
+
+    expect((screen.getByTestId('input-from-date') as HTMLInputElement).value)
+      .toBe('2023-03-01');
+    expect((screen.getByTestId('input-to-date') as HTMLInputElement).value)
+      .toBe('2025-12-31');
+  });
+
+  it('updates the selected month from a manually chosen chart start and keeps latest data', async () => {
+    render(<TooltipProvider><Home /></TooltipProvider>);
+
+    fireEvent.change(screen.getByTestId('input-from-date'), {
+      target: { value: '2023-02-05' },
+    });
+
+    expect((screen.getByTestId('select-month') as HTMLSelectElement).value)
+      .toBe('2023-02');
+    expect((screen.getByTestId('input-to-date') as HTMLInputElement).value)
+      .toBe('2025-12-31');
+    await waitFor(() => expect(api.candles.mock.calls.some(
+      ([params]) => params.from === '2023-02-05' && params.to === '2025-12-31',
     )).toBe(true));
   });
 

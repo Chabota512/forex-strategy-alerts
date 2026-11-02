@@ -1061,7 +1061,9 @@ export function Home() {
   }, [incomingInstrumentReviews]);
   const [timeframe, setTimeframe] = useState<Timeframe>('M15');
   const [from, setFrom] = useState(() => defaultDateWindow('XAUUSD').from);
-  const [to, setTo] = useState(() => defaultDateWindow('XAUUSD').to);
+  const [to, setTo] = useState(() =>
+    activeDataset?.endDate.slice(0, 10) ?? defaultDateWindow('XAUUSD').to,
+  );
   const [hasCustomSimulationEnd, setHasCustomSimulationEnd] = useState(false);
   const [swingDirectionVersion, setSwingDirectionVersion] = useState<SwingDirectionVersion>('V2');
   const [viewMonth, setViewMonth] = useState('2023-01');
@@ -2458,19 +2460,23 @@ export function Home() {
     }
     void startReplay(false, true);
   };
+  const updateChartStart = (nextFrom: string, nextMonth: string) => {
+    if (!nextFrom || nextFrom < boundsStart || nextFrom > boundsEnd) return;
+    setFrom(nextFrom);
+    setViewMonth(nextMonth);
+    if (!hasCustomSimulationEnd || nextFrom > to) {
+      setTo(boundsEnd);
+      setHasCustomSimulationEnd(false);
+    }
+    clearReplay();
+    anchorChartAtWindowStart();
+  };
   const selectMonth = (month: string) => {
     if (!XAU_MONTHS.includes(month)) return;
     const monthStart = `${month}-01`;
     const nextFrom = monthStart < boundsStart ? boundsStart : monthStart;
     if (nextFrom > boundsEnd) return;
-    setFrom(nextFrom);
-    if (nextFrom > to) {
-      setTo(boundsEnd);
-      setHasCustomSimulationEnd(false);
-    }
-    setViewMonth(month);
-    clearReplay();
-    anchorChartAtWindowStart();
+    updateChartStart(nextFrom, month);
   };
   const focusTrade = (trade: SimulatedTrade) => {
     if (focusedTrade?.tradeId === trade.tradeId) {
@@ -2626,11 +2632,11 @@ export function Home() {
     <section className="querybar" aria-label="Historical review settings">
       <label className="compact-field" title="Chart display starts on this date and continues through the latest available data.">
         <span>FROM · CHART START · UTC</span>
-        <input type="date" aria-label="From date: chart display start" min={boundsStart} max={boundsEnd} value={from} onChange={e => { const value = e.target.value; setFrom(value); if (value > to) { setTo(boundsEnd); setHasCustomSimulationEnd(false); } setViewMonth(value.slice(0, 7)); clearReplay(); anchorChartAtWindowStart(); }} data-testid="input-from-date"/>
+        <input type="date" aria-label="From date: chart display start" min={boundsStart} max={boundsEnd} value={from} onChange={e => { const value = e.target.value; updateChartStart(value, value.slice(0, 7)); }} data-testid="input-from-date"/>
       </label>
       <label className="compact-field" title="Replay, generated alerts, and simulated trades stop on this date.">
         <span>TO · SIMULATION END · UTC</span>
-        <input type="date" aria-label="To date: simulation end" min={from} max={boundsEnd} value={to} onChange={e => { const value = e.target.value; setTo(value); setHasCustomSimulationEnd(true); if (value && viewMonth > displayTo.slice(0, 7)) setViewMonth(displayTo.slice(0, 7)); clearReplay(); anchorChartAtWindowStart(); }} data-testid="input-to-date"/>
+        <input type="date" aria-label="To date: simulation end" min={from} max={boundsEnd} value={to} onChange={e => { const value = e.target.value; setTo(value || boundsEnd); setHasCustomSimulationEnd(Boolean(value)); if (value && viewMonth > displayTo.slice(0, 7)) setViewMonth(displayTo.slice(0, 7)); clearReplay(); anchorChartAtWindowStart(); }} data-testid="input-to-date"/>
       </label>
       <SymbolSelect symbol={selectedSymbol} reviews={instrumentReviews} onChange={selectSymbol}/>
       {selectedSymbol === 'XAUUSD' && <>
