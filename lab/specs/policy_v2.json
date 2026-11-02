@@ -1,0 +1,22 @@
+{
+  "created_at_utc": "2026-11-02T03:42:09.341660Z",
+  "mode": "passthrough",
+  "promoted_at_utc": "2026-11-02T03:42:09.341643Z",
+  "schema_version": 1,
+  "settings": {
+    "cooldown_candles": 0,
+    "exit_model": "swept_level_atr",
+    "min_si_score": 0.0,
+    "min_si_score_mode": "override",
+    "min_si_score_override": 0.0,
+    "min_strength": "NONE",
+    "require_engulf": false,
+    "require_wp_agree": false,
+    "timeframes": [
+      "M5",
+      "M15"
+    ]
+  },
+  "source_champion_version": null,
+  "version": 2
+}
