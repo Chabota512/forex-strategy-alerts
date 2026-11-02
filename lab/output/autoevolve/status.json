@@ -1,0 +1,29 @@
+{
+  "active_job_id": "de6793fd-4015-43b1-8078-4ff856942910",
+  "alerts": [
+    {
+      "created_at_utc": "2026-11-01T21:03:44.407616Z",
+      "id": "bd0234ac-8f3b-47b7-a593-32e58cda4a38",
+      "job_id": null,
+      "kind": "round-interrupted",
+      "message": "An unfinished AUTOEVOLVE round was archived as failed after restart.",
+      "persistent": true
+    }
+  ],
+  "cooldown_seconds": 60,
+  "cooldown_until_utc": null,
+  "error": null,
+  "keys": {
+    "key1": "unknown",
+    "key2": "unknown"
+  },
+  "last_result_file": "evolve_round_06_20261102T025424515425Z_result.json",
+  "last_verdict": "failed",
+  "phase": "training",
+  "round": 7,
+  "running": true,
+  "state": "running",
+  "stop_requested": false,
+  "swing_version": "V2",
+  "updated_at_utc": "2026-11-02T03:44:51.692784Z"
+}
