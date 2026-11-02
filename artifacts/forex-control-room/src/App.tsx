@@ -1045,6 +1045,12 @@ export function Home() {
   const incomingInstrumentReviews = dataset.data?.instrumentReviews;
   const instrumentReviews = incomingInstrumentReviews?.length
     ? incomingInstrumentReviews : knownInstrumentReviews;
+  const xauusdReview = instrumentReviews.find(review => review.symbol === 'XAUUSD');
+  const autoevolveDatasetStatus = xauusdReview?.ownerApproved
+    ? 'approved'
+    : dataset.isLoading && !xauusdReview
+      ? 'checking'
+      : 'unavailable';
   useEffect(() => {
     if (incomingInstrumentReviews?.length) setKnownInstrumentReviews(incomingInstrumentReviews);
   }, [incomingInstrumentReviews]);
@@ -1989,14 +1995,15 @@ export function Home() {
         if (response.manualDecisions) {
           mergeManualDecisionLog(response.manualDecisions as ManualDecisionRecord[]);
         }
-      if (response.ownerModel) {
+      const ownerModel = response.ownerModel;
+      if (ownerModel) {
         setReplaySession(previous => previous
-          ? { ...previous, ownerModel: response.ownerModel }
+          ? { ...previous, ownerModel }
           : previous);
         if (replaySessionRef.current) {
           replaySessionRef.current = {
             ...replaySessionRef.current,
-            ownerModel: response.ownerModel,
+            ownerModel,
           };
         }
       }
@@ -3024,7 +3031,7 @@ export function Home() {
       sessionActive={Boolean(matchingSession)}
     />
     <EvolveControl symbol={selectedSymbol} symbolApproved={Boolean(activeDataset?.ownerApproved)} swingVersion={swingDirectionVersion} />
-    <AutoevolveControl/>
+    <AutoevolveControl datasetStatus={autoevolveDatasetStatus}/>
     {selectedSymbol === 'XAUUSD' && <SystemIntelligence enabled={aiFilterEnabled}/>}
     <footer className="disclaimer" data-testid="persistent-disclaimer">{DISCLAIMER}</footer>
   </main>;

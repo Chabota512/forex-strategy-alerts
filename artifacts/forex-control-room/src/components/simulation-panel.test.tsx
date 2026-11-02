@@ -76,6 +76,24 @@ function renderPanel(onSettingsChange = vi.fn()) {
 afterEach(cleanup);
 
 describe('equity curve expansion', () => {
+  it('collapses and restores the simulation surface without hiding its header controls', () => {
+    renderPanel();
+
+    const content = screen.getByTestId('simulation-surface-content') as HTMLDivElement;
+    const toggle = screen.getByTestId('toggle-simulation-surface') as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(content.hidden).toBe(false);
+    expect(screen.getByTestId('toggle-simulation-enabled')).not.toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(content.hidden).toBe(true);
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(content.hidden).toBe(false);
+  });
+
   it('updates the simulation scope label when the active filters change', () => {
     const onSettingsChange = vi.fn();
     const renderWithScope = (filterScopeLabel: string) => (
@@ -117,6 +135,20 @@ describe('equity curve expansion', () => {
     expect(onSettingsChange).toHaveBeenCalledWith(
       expect.objectContaining({ directionMode: 'inverted' }),
     );
+  });
+
+  it('groups position settings in a disclosure and shows their current values', () => {
+    renderPanel();
+
+    const positionGroup = screen.getByTestId('simulation-position-risk') as HTMLDetailsElement;
+    const positionSummary = screen.getByTestId('toggle-simulation-position-risk');
+    expect(positionGroup.open).toBe(false);
+    expect(positionSummary.textContent).toContain('LOTS');
+    expect(screen.getByTestId('select-simulation-direction-mode')).not.toBeNull();
+
+    fireEvent.click(positionSummary);
+    expect(positionGroup.open).toBe(true);
+    expect(screen.getByTestId('input-simulation-balance')).not.toBeNull();
   });
 
   it('opens the full curve and closes from the close button', async () => {

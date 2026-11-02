@@ -26,6 +26,13 @@
   background: var(--topbar-bg, #191e24);
 }
 .evolve-bar-copy { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.evolve-bar-toggle {
+  flex: 1 1 auto; padding: 0; border: 0; color: inherit; background: transparent;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.evolve-bar-toggle:focus-visible { outline: 1px solid var(--evolve-accent); outline-offset: 3px; }
+.evolve-collapse-icon { flex: 0 0 auto; margin-left: 2px; color: var(--evolve-muted); transition: transform .18s ease; }
+.evolve-collapse-icon.is-collapsed { transform: rotate(-90deg); }
 .evolve-bar-mark {
   width: 29px; height: 29px; display: grid; place-items: center;
   color: var(--evolve-accent); border: 1px solid var(--accent-border, #756848);

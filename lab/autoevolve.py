@@ -15,6 +15,7 @@ from typing import Any
 
 from . import llm_client
 from .candle_data import LAB_DIR
+from .evolve import load_approved_market_data
 from .evolve_jobs import EvolveJobError, EvolveJobManager, TERMINAL_PHASES
 from .llm_client import LLMRequestError
 from .versioning import atomic_write_json
@@ -220,6 +221,14 @@ class AutoevolveManager:
         swing_version = swing_version.upper() if isinstance(swing_version, str) else ""
         if swing_version not in {"V1", "V2"}:
             raise EvolveJobError(400, "swingVersion must be V1 or V2.")
+        try:
+            load_approved_market_data(self.data_root, symbol="XAUUSD")
+        except (OSError, ValueError) as exc:
+            raise EvolveJobError(
+                409,
+                "AUTOEVOLVE requires an available, owner-approved XAUUSD dataset. "
+                f"Load and approve the dataset before starting: {exc}",
+            ) from exc
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
                 raise EvolveJobError(409, "AUTOEVOLVE is already running.")
@@ -259,16 +268,11 @@ class AutoevolveManager:
                 )
                 return copy.deepcopy(self._status)
             self._stop_event.set()
-            waiting_for_owner = self._status.get("state") == "awaiting-owner-approval"
             self._set_locked(
-                state="awaiting-owner-approval" if waiting_for_owner else "stopping",
+                state="stopping",
                 running=True,
                 stop_requested=True,
-                phase=(
-                    "awaiting-owner-decision"
-                    if waiting_for_owner
-                    else "stopping-after-current-round"
-                ),
+                phase="stopping-after-current-round",
             )
             return copy.deepcopy(self._status)
 
@@ -415,19 +419,42 @@ class AutoevolveManager:
                     status = self.evolve_jobs.get_status(job_id)
                     phase = status.get("phase")
                     if phase == "awaiting-owner-decision":
-                        with self._lock:
-                            self._add_alert_locked(
-                                "candidate-awaiting-approval",
-                                "CANDIDATE AWAITING APPROVAL — review the existing owner gate.",
-                                persistent=True,
-                                job_id=job_id,
-                            )
-                            self._set_locked(
-                                state="awaiting-owner-approval",
-                                running=True,
-                                phase="awaiting-owner-decision",
-                                active_job_id=job_id,
-                            )
+                        if self._stop_event.is_set():
+                            try:
+                                self.evolve_jobs.decide(job_id, promote=False)
+                            except EvolveJobError as exc:
+                                if exc.status != 409:
+                                    raise
+                            with self._lock:
+                                self._status["alerts"] = [
+                                    alert
+                                    for alert in self._status.get("alerts", [])
+                                    if not (
+                                        isinstance(alert, dict)
+                                        and alert.get("kind") == "candidate-awaiting-approval"
+                                        and alert.get("job_id") == job_id
+                                    )
+                                ]
+                                self._set_locked(
+                                    state="stopping",
+                                    running=True,
+                                    phase="stopping-after-current-round",
+                                    active_job_id=job_id,
+                                )
+                        else:
+                            with self._lock:
+                                self._add_alert_locked(
+                                    "candidate-awaiting-approval",
+                                    "CANDIDATE AWAITING APPROVAL — review the existing owner gate.",
+                                    persistent=True,
+                                    job_id=job_id,
+                                )
+                                self._set_locked(
+                                    state="awaiting-owner-approval",
+                                    running=True,
+                                    phase="awaiting-owner-decision",
+                                    active_job_id=job_id,
+                                )
                     elif phase not in TERMINAL_PHASES:
                         with self._lock:
                             current_state = self._status.get("state")

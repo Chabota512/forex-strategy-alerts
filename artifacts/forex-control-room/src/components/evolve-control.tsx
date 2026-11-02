@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import {
   getGetEvolveStatusQueryKey,
   useDecideEvolveJob,
@@ -226,6 +227,8 @@ export default function EvolveControl({
   const [localStatus, setLocalStatus] = useState<EvolveJobStatus | null>(null);
   const [confirmPromote, setConfirmPromote] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const contentId = useId();
 
   useEffect(() => {
     const handleAutoevolveJob = (event: Event) => {
@@ -326,13 +329,22 @@ export default function EvolveControl({
   return <>
     <section className="evolve-control" aria-label="Evolution round control">
     <div className="evolve-bar">
-      <div className="evolve-bar-copy">
+      <button
+        type="button"
+        className="evolve-bar-copy evolve-bar-toggle"
+        aria-expanded={!collapsed}
+        aria-controls={contentId}
+        aria-label={`${collapsed ? 'Expand' : 'Collapse'} evolution round section`}
+        onClick={() => setCollapsed(current => !current)}
+        data-testid="toggle-evolve-round-section"
+      >
         <span className="evolve-bar-mark" aria-hidden="true">EV</span>
         <div>
           <strong>EVOLUTION ROUND</strong>
           <small>FROZEN STRATEGY · HISTORICAL {symbol} · SWING {swingVersion} · RESEARCH ONLY</small>
         </div>
-      </div>
+        <ChevronDown className={`evolve-collapse-icon${collapsed ? ' is-collapsed' : ''}`} size={14} aria-hidden="true"/>
+      </button>
       <div className="evolve-bar-state" data-testid="evolve-job-state" role="status">
         {status ? <><i className={active ? 'is-active' : status.phase === 'failed' ? 'is-failed' : 'is-done'}/>{status.phase.toUpperCase()}</>
           : runMutation.isPending ? 'SUBMITTING ROUND…' : 'NO ROUND LOADED'}
@@ -342,6 +354,7 @@ export default function EvolveControl({
       </button>
     </div>
 
+    <div id={contentId} hidden={collapsed} data-testid="evolve-round-content">
     {runMutation.isPending && <div className="evolve-loading" role="status" data-testid="evolve-loading">
       <span/><span/><span/> Submitting a research round…
     </div>}
@@ -400,6 +413,7 @@ export default function EvolveControl({
         </button>
       </div>}
     </div>}
+    </div>
 
     {confirmPromote && <div className="evolve-dialog-backdrop" role="presentation">
       <div className="evolve-dialog" role="dialog" aria-modal="true" aria-labelledby="evolve-confirm-title" aria-describedby="evolve-confirm-copy" data-testid="dialog-confirm-evolve-promotion">

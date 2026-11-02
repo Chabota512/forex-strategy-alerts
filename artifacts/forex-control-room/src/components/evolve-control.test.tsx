@@ -169,6 +169,23 @@ afterEach(() => {
 });
 
 describe('evolution round controls', () => {
+  it('collapses and restores the evolution round details from its header', () => {
+    render(<EvolveControl symbol={'XAUUSD' as InstrumentSymbol} symbolApproved swingVersion="V2" />);
+
+    const toggle = screen.getByTestId('toggle-evolve-round-section') as HTMLButtonElement;
+    const content = screen.getByTestId('evolve-round-content') as HTMLDivElement;
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(content.hidden).toBe(false);
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(content.hidden).toBe(true);
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(content.hidden).toBe(false);
+  });
+
   it('re-enables Run immediately after COMPLETE while keeping the verdict visible', async () => {
     api.start.mockImplementation((_request, callbacks) => {
       callbacks.onSuccess(completeStatus());

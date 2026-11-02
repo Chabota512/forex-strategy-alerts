@@ -116,8 +116,10 @@ export function SimulationPanel({
     stopWickMultiplier: String(settings.stopWickMultiplier),
     targetRangeMultiplier: String(settings.targetRangeMultiplier),
   });
+  const [collapsed, setCollapsed] = useState(false);
   const [tradesExpanded, setTradesExpanded] = useState(true);
   const tradesTableId = useId();
+  const contentId = useId();
   useEffect(() => {
     setDraftSettings(settings);
     setGeometryMultiplierInputs({
@@ -178,12 +180,40 @@ export function SimulationPanel({
     { label: 'MAX DRAWDOWN', value: stats ? money(stats.maxDrawdown) : '—', note: stats ? `${stats.maxDrawdownPct.toFixed(2)}%` : 'peak-to-trough' },
     { label: 'PROFIT FACTOR', value: stats?.profitFactor === null || stats?.profitFactor === undefined ? '—' : stats.profitFactor.toFixed(2), note: 'net wins / losses' },
   ];
+  const directionSummary = `${symbol === 'XAUUSD' ? `${draftSettings.directionMode.toUpperCase()} · ` : ''}${draftSettings.tradeDirection.replace(/_/g, ' ').toUpperCase()}`;
+  const exitModelSummary = draftSettings.exitModel === 'candle_geometry'
+    ? 'SWEEP CANDLE BRACKET'
+    : `SWEPT LEVEL ATR · ${draftSettings.rewardMultiple}R`;
+  const sizingSummary = draftSettings.sizingMode === 'LOTS'
+    ? `LOTS · ${(draftSettings.lotSize || DEFAULT_LOT_SIZES[symbol]).toFixed(2)}`
+    : `RISK · ${draftSettings.riskPercent}%`;
 
   return <section className="simulation-panel" aria-label="Historical risk reward simulation">
     <div className="sim-head">
-      <div>
+      <div className="sim-head-title">
         <div className="sim-eyebrow"><span className={`sim-indicator${snapshot?.enabled ? ' is-on' : ''}`}/>{snapshot?.enabled ? 'SIMULATION ACTIVE' : 'SIMULATION SURFACE'}</div>
         <h2>Risk / reward replay</h2>
+      </div>
+      <div className="sim-head-actions">
+        <button
+          type="button"
+          className="sim-collapse-toggle"
+          aria-label={`${collapsed ? 'Expand' : 'Collapse'} simulation surface`}
+          aria-expanded={!collapsed}
+          aria-controls={contentId}
+          onClick={() => setCollapsed(current => !current)}
+          data-testid="toggle-simulation-surface"
+        >
+          <ChevronDown className={collapsed ? 'is-collapsed' : ''} size={14} aria-hidden="true"/>
+        </button>
+        <label className="sim-enable">
+          <span>SIM ENABLED</span>
+          <input type="checkbox" checked={draftSettings.enabled} onChange={event => change({ enabled: event.target.checked })} data-testid="toggle-simulation-enabled"/>
+        </label>
+      </div>
+    </div>
+    <div id={contentId} className="sim-content" hidden={collapsed} data-testid="simulation-surface-content">
+    <div className="sim-intro">
         <p>Results are calculated from the historical candle sequence shown above.</p>
         <p className="sim-active-mode" data-testid="simulation-active-mode">
           MODE · {settings.directionMode.toUpperCase()} · TRADE SIDE · {settings.tradeDirection.toUpperCase()} · SWING {settings.swingVersion}
@@ -196,95 +226,144 @@ export function SimulationPanel({
             Changes apply to newly processed alerts; existing trades remain. Rewinding rebuilds with current filters.
           </p>
         </>}
-      </div>
-      <label className="sim-enable">
-        <span>SIM ENABLED</span>
-        <input type="checkbox" checked={draftSettings.enabled} onChange={event => change({ enabled: event.target.checked })} data-testid="toggle-simulation-enabled"/>
-      </label>
     </div>
-    <div className={`sim-settings${draftSettings.exitModel === 'candle_geometry' ? ' is-geometry' : ' is-swept'}`}>
-      {symbol === 'XAUUSD' && <label><span>DIRECTION</span><select
-        value={draftSettings.directionMode}
-        onChange={event => change({ directionMode: event.target.value as SimulationSettings['directionMode'] })}
-        data-testid="select-simulation-direction-mode"
-      >
-        <option value="normal">NORMAL</option>
-        <option value="inverted">INVERTED</option>
-        <option value="adaptive">ADAPTIVE</option>
-      </select></label>}
-      <label><span>TRADE DIRECTION</span><select
-        value={draftSettings.tradeDirection}
-        onChange={event => change({ tradeDirection: event.target.value as SimulationSettings['tradeDirection'] })}
-        data-testid="select-simulation-trade-direction"
-      >
-        <option value="both">BOTH</option>
-        <option value="buy_only">BUY ONLY</option>
-        <option value="sell_only">SELL ONLY</option>
-      </select></label>
-      <div className="sim-exit-settings">
-        <label className="sim-exit-model-label">
-          <span>EXIT MODEL</span>
-          <select
-            value={draftSettings.exitModel}
-            onChange={event => change({ exitModel: event.target.value as SimulationSettings['exitModel'] })}
-            data-testid="select-simulation-exit-model"
-          >
-            <option value="candle_geometry">candle_geometry · Sweep candle bracket</option>
-            <option value="swept_level_atr">swept_level_atr</option>
-          </select>
-        </label>
-        {draftSettings.exitModel === 'candle_geometry'
-          ? <div className="sim-method-panel">
-              <strong className="sim-method-title">Sweep candle bracket</strong>
-              <div className="sim-geometry-equations">
-                <div className="sim-formula-row">
-                  <span>Stop = body ×</span>
-                  <input
-                    type="number" min="0.01" step="any"
-                    aria-label="Stop body weight"
-                    value={geometryMultiplierInputs.stopBodyWeight}
-                    onChange={event => setGeometryMultiplierInputs(current => ({ ...current, stopBodyWeight: event.target.value }))}
-                    data-testid="input-simulation-stop-body-weight"
-                  />
-                  <span>+ sweep wick ×</span>
-                  <input
-                    type="number" min="0.01" step="any"
-                    aria-label="Stop wick multiplier"
-                    value={geometryMultiplierInputs.stopWickMultiplier}
-                    onChange={event => setGeometryMultiplierInputs(current => ({ ...current, stopWickMultiplier: event.target.value }))}
-                    data-testid="input-simulation-stop-wick-multiplier"
-                  />
-                </div>
-                <div className="sim-formula-row">
-                  <span>Target = candle range ×</span>
-                  <input
-                    type="number" min="0.01" step="any"
-                    aria-label="Target range multiplier"
-                    value={geometryMultiplierInputs.targetRangeMultiplier}
-                    onChange={event => setGeometryMultiplierInputs(current => ({ ...current, targetRangeMultiplier: event.target.value }))}
-                    data-testid="input-simulation-target-range-multiplier"
-                  />
-                </div>
-              </div>
-              <div className="sim-entry-fixed" data-testid="text-simulation-entry-fixed">
-                Entry: next candle open <b>FIXED</b>
-              </div>
+    <div className="sim-settings-tree" data-testid="simulation-settings-tree">
+      <details className="sim-settings-branch" open>
+        <summary className="sim-settings-summary">
+          <span className="sim-settings-summary-title">TRADE RULES</span>
+          <span className="sim-settings-summary-value">{directionSummary} · {exitModelSummary}</span>
+          <ChevronDown size={13} aria-hidden="true"/>
+        </summary>
+        <div className="sim-settings-branch-content">
+          <details className="sim-settings-subbranch" open>
+            <summary className="sim-settings-subsummary">
+              <span className="sim-settings-summary-title">DIRECTION FILTER</span>
+              <span className="sim-settings-summary-value">{directionSummary}</span>
+              <ChevronDown size={12} aria-hidden="true"/>
+            </summary>
+            <div className="sim-settings-controls sim-settings-direction">
+              {symbol === 'XAUUSD' && <label><span>DIRECTION</span><select
+                value={draftSettings.directionMode}
+                onChange={event => change({ directionMode: event.target.value as SimulationSettings['directionMode'] })}
+                data-testid="select-simulation-direction-mode"
+              >
+                <option value="normal">NORMAL</option>
+                <option value="inverted">INVERTED</option>
+                <option value="adaptive">ADAPTIVE</option>
+              </select></label>}
+              <label><span>TRADE DIRECTION</span><select
+                value={draftSettings.tradeDirection}
+                onChange={event => change({ tradeDirection: event.target.value as SimulationSettings['tradeDirection'] })}
+                data-testid="select-simulation-trade-direction"
+              >
+                <option value="both">BOTH</option>
+                <option value="buy_only">BUY ONLY</option>
+                <option value="sell_only">SELL ONLY</option>
+              </select></label>
             </div>
-          : <p className="sim-swept-note">
-              Stop distance is floored at ATR(14); reward multiple sets the target distance.
-            </p>}
-      </div>
-      <label><span>STARTING BALANCE</span><div className="sim-input-wrap"><b>$</b><input type="number" min="1" step="100" value={draftSettings.startingBalance} onChange={event => change({ startingBalance: Math.max(1, Number(event.target.value)) })} data-testid="input-simulation-balance"/></div></label>
-      {draftSettings.exitModel === 'swept_level_atr' && <label><span>REWARD MULTIPLE</span><div className="sim-input-wrap"><input type="number" min="0.01" max="100" step="0.1" value={draftSettings.rewardMultiple} onChange={event => change({ rewardMultiple: Math.max(0.01, Math.min(100, Number(event.target.value))) })} data-testid="input-simulation-reward"/><b>R</b></div></label>}
-      <label><span>POSITION SIZING</span><select
-        className="sim-sizing-select"
-        value={draftSettings.sizingMode}
-        onChange={event => change({ sizingMode: event.target.value as SimulationSettings['sizingMode'] })}
-        data-testid="select-sizing-mode"
-      ><option value="LOTS">LOTS</option><option value="RISK_PERCENT">RISK%</option></select></label>
-      {draftSettings.sizingMode === 'LOTS'
-        ? <label><span>LOT SIZE · {symbol}</span><div className="sim-input-wrap"><input type="number" min="0.01" step="0.01" value={draftSettings.lotSize || DEFAULT_LOT_SIZES[symbol]} onChange={event => change({ lotSize: Math.max(0.01, Number(event.target.value) || DEFAULT_LOT_SIZES[symbol]) })} data-testid="input-simulation-lot-size"/><b>LOT</b></div></label>
-        : <label><span>RISK / TRADE</span><div className="sim-input-wrap"><input type="number" min="0.01" max="100" step="0.1" value={draftSettings.riskPercent} onChange={event => change({ riskPercent: Math.max(0.01, Math.min(100, Number(event.target.value))) })} data-testid="input-simulation-risk"/><b>%</b></div></label>}
+          </details>
+          <details className="sim-settings-subbranch" open>
+            <summary className="sim-settings-subsummary">
+              <span className="sim-settings-summary-title">EXIT &amp; BRACKET</span>
+              <span className="sim-settings-summary-value">{exitModelSummary}</span>
+              <ChevronDown size={12} aria-hidden="true"/>
+            </summary>
+            <div className="sim-settings-controls sim-settings-exit">
+              <label className="sim-exit-model-label">
+                <span>EXIT MODEL</span>
+                <select
+                  value={draftSettings.exitModel}
+                  onChange={event => change({ exitModel: event.target.value as SimulationSettings['exitModel'] })}
+                  data-testid="select-simulation-exit-model"
+                >
+                  <option value="candle_geometry">candle_geometry · Sweep candle bracket</option>
+                  <option value="swept_level_atr">swept_level_atr</option>
+                </select>
+              </label>
+              {draftSettings.exitModel === 'candle_geometry'
+                ? <div className="sim-method-panel">
+                    <strong className="sim-method-title">Sweep candle bracket</strong>
+                    <div className="sim-geometry-equations">
+                      <div className="sim-formula-row">
+                        <span>Stop = body ×</span>
+                        <input
+                          type="number" min="0.01" step="any"
+                          aria-label="Stop body weight"
+                          value={geometryMultiplierInputs.stopBodyWeight}
+                          onChange={event => setGeometryMultiplierInputs(current => ({ ...current, stopBodyWeight: event.target.value }))}
+                          data-testid="input-simulation-stop-body-weight"
+                        />
+                        <span>+ sweep wick ×</span>
+                        <input
+                          type="number" min="0.01" step="any"
+                          aria-label="Stop wick multiplier"
+                          value={geometryMultiplierInputs.stopWickMultiplier}
+                          onChange={event => setGeometryMultiplierInputs(current => ({ ...current, stopWickMultiplier: event.target.value }))}
+                          data-testid="input-simulation-stop-wick-multiplier"
+                        />
+                      </div>
+                      <div className="sim-formula-row">
+                        <span>Target = candle range ×</span>
+                        <input
+                          type="number" min="0.01" step="any"
+                          aria-label="Target range multiplier"
+                          value={geometryMultiplierInputs.targetRangeMultiplier}
+                          onChange={event => setGeometryMultiplierInputs(current => ({ ...current, targetRangeMultiplier: event.target.value }))}
+                          data-testid="input-simulation-target-range-multiplier"
+                        />
+                      </div>
+                    </div>
+                    <div className="sim-entry-fixed" data-testid="text-simulation-entry-fixed">
+                      Entry: next candle open <b>FIXED</b>
+                    </div>
+                  </div>
+                : <div className="sim-swept-controls">
+                    <p className="sim-swept-note">
+                      Stop distance is floored at ATR(14); reward multiple sets the target distance.
+                    </p>
+                    <label><span>REWARD MULTIPLE</span><div className="sim-input-wrap"><input type="number" min="0.01" max="100" step="0.1" value={draftSettings.rewardMultiple} onChange={event => change({ rewardMultiple: Math.max(0.01, Math.min(100, Number(event.target.value))) })} data-testid="input-simulation-reward"/><b>R</b></div></label>
+                  </div>}
+            </div>
+          </details>
+        </div>
+      </details>
+      <details className="sim-settings-branch" data-testid="simulation-position-risk">
+        <summary className="sim-settings-summary" data-testid="toggle-simulation-position-risk">
+          <span className="sim-settings-summary-title">POSITION &amp; RISK</span>
+          <span className="sim-settings-summary-value">{money(draftSettings.startingBalance)} · {sizingSummary}</span>
+          <ChevronDown size={13} aria-hidden="true"/>
+        </summary>
+        <div className="sim-settings-branch-content">
+          <details className="sim-settings-subbranch" open>
+            <summary className="sim-settings-subsummary">
+              <span className="sim-settings-summary-title">ACCOUNT SIZE</span>
+              <span className="sim-settings-summary-value">{money(draftSettings.startingBalance)}</span>
+              <ChevronDown size={12} aria-hidden="true"/>
+            </summary>
+            <div className="sim-settings-controls sim-settings-account">
+              <label><span>STARTING BALANCE</span><div className="sim-input-wrap"><b>$</b><input type="number" min="1" step="100" value={draftSettings.startingBalance} onChange={event => change({ startingBalance: Math.max(1, Number(event.target.value)) })} data-testid="input-simulation-balance"/></div></label>
+            </div>
+          </details>
+          <details className="sim-settings-subbranch" open>
+            <summary className="sim-settings-subsummary">
+              <span className="sim-settings-summary-title">POSITION SIZING</span>
+              <span className="sim-settings-summary-value">{sizingSummary}</span>
+              <ChevronDown size={12} aria-hidden="true"/>
+            </summary>
+            <div className="sim-settings-controls sim-settings-position">
+              <label><span>POSITION SIZING</span><select
+                className="sim-sizing-select"
+                value={draftSettings.sizingMode}
+                onChange={event => change({ sizingMode: event.target.value as SimulationSettings['sizingMode'] })}
+                data-testid="select-sizing-mode"
+              ><option value="LOTS">LOTS</option><option value="RISK_PERCENT">RISK%</option></select></label>
+              {draftSettings.sizingMode === 'LOTS'
+                ? <label><span>LOT SIZE · {symbol}</span><div className="sim-input-wrap"><input type="number" min="0.01" step="0.01" value={draftSettings.lotSize || DEFAULT_LOT_SIZES[symbol]} onChange={event => change({ lotSize: Math.max(0.01, Number(event.target.value) || DEFAULT_LOT_SIZES[symbol]) })} data-testid="input-simulation-lot-size"/><b>LOT</b></div></label>
+                : <label><span>RISK / TRADE</span><div className="sim-input-wrap"><input type="number" min="0.01" max="100" step="0.1" value={draftSettings.riskPercent} onChange={event => change({ riskPercent: Math.max(0.01, Math.min(100, Number(event.target.value))) })} data-testid="input-simulation-risk"/><b>%</b></div></label>}
+            </div>
+          </details>
+        </div>
+      </details>
       <div className="sim-settings-action">
         <button type="button" onClick={() => onSettingsChange({ ...draftSettings, ...geometryMultipliers })} disabled={!settingsChanged} data-testid="button-apply-simulation-settings">APPLY &amp; RESET REPLAY</button>
         <div className="sim-reset-note" role="status" data-testid="status-simulation-settings">
@@ -394,5 +473,6 @@ export function SimulationPanel({
       </table>
     </div>
     <div className="sim-footer-note">Simulation only. No orders are placed. Historical outcomes do not establish future performance.</div>
+    </div>
   </section>;
 }

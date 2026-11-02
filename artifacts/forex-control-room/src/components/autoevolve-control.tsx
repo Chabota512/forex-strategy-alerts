@@ -50,7 +50,15 @@ function policySettings(version: EvolvePolicyVersion): string {
   return JSON.stringify(version.settings);
 }
 
-export default function AutoevolveControl() {
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+export default function AutoevolveControl({
+  datasetStatus,
+}: {
+  datasetStatus: 'checking' | 'approved' | 'unavailable';
+}) {
   const queryClient = useQueryClient();
   const [swingVersion, setSwingVersion] = useState<SwingVersion>('V2');
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>(readDismissedAlerts);
@@ -81,7 +89,8 @@ export default function AutoevolveControl() {
   );
   const currentVersion = versions.find(version => version.is_current)?.version;
   const isRunning = Boolean(status?.running);
-  const startDisabled = isRunning || startMutation.isPending || statusQuery.isError;
+  const startDisabled = datasetStatus !== 'approved'
+    || isRunning || startMutation.isPending || statusQuery.isError;
   const showStart = !isRunning;
 
   useEffect(() => {
@@ -187,8 +196,18 @@ export default function AutoevolveControl() {
         : <button type="button" className="autoevolve-action is-stop" onClick={stop} disabled={stopMutation.isPending || status?.stop_requested} data-testid="button-stop-autoevolve">
             {status?.stop_requested ? 'STOPPING…' : 'STOP'}
           </button>}
+      {showStart && datasetStatus === 'checking' && <span className="autoevolve-dataset-note" role="status" data-testid="autoevolve-dataset-checking">
+        CHECKING XAUUSD DATASET…
+      </span>}
+      {showStart && datasetStatus === 'unavailable' && <span className="autoevolve-dataset-note" role="status" data-testid="autoevolve-dataset-unavailable">
+        AUTOEVOLVE needs an owner-approved XAUUSD dataset before it can start.
+      </span>}
       {(statusQuery.isError || startMutation.isError || stopMutation.isError) && <span className="autoevolve-inline-error" role="alert">
-        AUTOEVOLVE status or action failed.
+        {startMutation.isError
+          ? errorMessage(startMutation.error, 'AUTOEVOLVE could not start.')
+          : stopMutation.isError
+            ? errorMessage(stopMutation.error, 'AUTOEVOLVE could not stop.')
+            : errorMessage(statusQuery.error, 'AUTOEVOLVE status could not be loaded.')}
       </span>}
     </section>
 

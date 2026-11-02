@@ -128,6 +128,11 @@
   flex-basis: 100%;
   color: var(--negative-text);
 }
+.autoevolve-dataset-note {
+  flex-basis: 100%;
+  color: var(--warning-text);
+  font-size: 8px;
+}
 
 .policy-history {
   margin: 10px 0 20px;
