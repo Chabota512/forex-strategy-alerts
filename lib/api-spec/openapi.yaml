@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Forex Strategy Lab read-only data and unscored review operations
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: lab
+    description: Real XAUUSD research data and unscored smoke review
+  - name: evolve
+    description: Owner-gated single-round strategy evolution
 paths:
   /healthz:
     get:
@@ -24,6 +28,525 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /lab/dataset:
+    get:
+      operationId: getLabDataset
+      tags: [lab]
+      summary: Get local dataset metadata and owner review status
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/InstrumentSymbol"
+            default: XAUUSD
+      responses:
+        "200":
+          description: Dataset details, instrument review status, and review timeframes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetInfo"
+  /lab/candles:
+    get:
+      operationId: getLabCandles
+      tags: [lab]
+      summary: Read a bounded candle window or one monthly chunk
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/InstrumentSymbol"
+            default: XAUUSD
+        - name: timeframe
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Timeframe"
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100000
+            default: 100000
+        - name: chunkMonth
+          in: query
+          required: false
+          description: Return only this UTC calendar month while including the full selected-window index metadata.
+          schema:
+            type: string
+            pattern: "^\\d{4}-(0[1-9]|1[0-2])$"
+        - name: chunkOffset
+          in: query
+          required: false
+          description: Zero-based local offset within the selected UTC calendar month.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Candle window, with an explicit truncation indicator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandleWindow"
+        "400":
+          description: Invalid timeframe or date window
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /lab/backtest:
+    post:
+      operationId: runLabBacktest
+      tags: [lab]
+      summary: Run an unscored smoke backtest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BacktestInput"
+      responses:
+        "200":
+          description: Candles and informational alerts from the frozen engine
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestResult"
+        "400":
+          description: Invalid request or empty date window
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Requested window exceeds the review cap
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /lab/replay/sessions:
+    post:
+      operationId: startLabReplaySession
+      tags: [lab]
+      summary: Start a paused incremental replay session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaySessionStartInput"
+      responses:
+        "201":
+          description: Session initialized at candle zero
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplaySessionStartResult"
+        "400":
+          description: Invalid or empty replay window
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /lab/replay/sessions/{sessionId}/advance:
+    post:
+      operationId: advanceLabReplaySession
+      tags: [lab]
+      summary: Process the next uncached replay candles up to an index
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplayAdvanceInput"
+      responses:
+        "200":
+          description: New alerts, newly calculated states, and cached visible states
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplayAdvanceResult"
+        "400":
+          description: Invalid replay or visible-window index
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Replay session not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /lab/replay/sessions/{sessionId}/manual-decision:
+    post:
+      operationId: submitLabReplayManualDecision
+      tags: [lab]
+      summary: Record a take, skip, or finalize decision in manual replay
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplayManualDecisionInput"
+      responses:
+        "200":
+          description: Updated manual decision ledger and simulation snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplayManualDecisionResult"
+        "400":
+          description: Invalid manual decision or replay state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Replay session not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /lab/trades/comment:
+    post:
+      operationId: getTradeComment
+      tags: [lab]
+      summary: Generate or retrieve an objective journal comment for a simulated trade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TradeCommentInput"
+      responses:
+        "200":
+          description: Cached comment, generated comment, or graceful unavailable state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeCommentResult"
+  /lab/alerts/comment:
+    post:
+      operationId: getAlertComment
+      tags: [lab]
+      summary: Generate or retrieve an objective alert journal comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertCommentInput"
+      responses:
+        "200":
+          description: Cached comment, generated comment, or graceful unavailable state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AICommentResult"
+  /evolve/run:
+    post:
+      operationId: runEvolveRound
+      tags: [evolve]
+      summary: Start one background evolution round
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvolveRunInput"
+      responses:
+        "202":
+          description: Evolution job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvolveJobStatus"
+        "409":
+          description: Another evolution job is still running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /evolve/cancel:
+    post:
+      operationId: cancelEvolveJob
+      tags: [evolve]
+      summary: Request cancellation of an active evolution round
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvolveCancelInput"
+      responses:
+        "202":
+          description: Cancellation accepted; the job will stop at a safe checkpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvolveJobStatus"
+        "400":
+          description: Invalid cancellation input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Evolution job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The evolution job has already finished
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /evolve/history:
+    get:
+      operationId: getEvolveHistory
+      tags: [evolve]
+      summary: List archived evolution round results
+      responses:
+        "200":
+          description: Archived evolution results, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvolveRoundHistory"
+  /evolve/policy:
+    get:
+      operationId: getEvolvePolicy
+      tags: [evolve]
+      summary: Get the current owner-promoted alert policy
+      responses:
+        "200":
+          description: Current versioned alert policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvolvePolicy"
+  /evolve/system-intelligence:
+    get:
+      operationId: getSystemIntelligence
+      tags: [evolve]
+      summary: Read the XAUUSD case-learning dashboard
+      responses:
+        "200":
+          description: Informational case history, seeded beliefs, and bounded tunables
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemIntelligence"
+  /evolve/policy/history:
+    get:
+      operationId: getEvolvePolicyHistory
+      tags: [evolve]
+      summary: List immutable SYSTEM INTELLIGENCE policy versions
+      responses:
+        "200":
+          description: Policy versions, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvolvePolicyHistory"
+  /evolve/policy/restore:
+    post:
+      operationId: restoreEvolvePolicy
+      tags: [evolve]
+      summary: Restore a past policy as a new current version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvolvePolicyRestoreInput"
+      responses:
+        "200":
+          description: Restored policy now pointed to by policy_current.json
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvolvePolicy"
+        "404":
+          description: The requested policy version does not exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /evolve/policy/min-si-score:
+    post:
+      operationId: setEvolvePolicyMinSiScore
+      tags: [evolve]
+      summary: Set the owner-controlled SYSTEM INTELLIGENCE score threshold
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvolvePolicyMinSiScoreInput"
+      responses:
+        "200":
+          description: New immutable policy version with the requested score threshold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvolvePolicy"
+        "400":
+          description: The requested score threshold is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /evolve/autoevolve/status:
+    get:
+      operationId: getAutoevolveStatus
+      tags: [evolve]
+      summary: Read AUTOEVOLVE daemon status and persistent alerts
+      responses:
+        "200":
+          description: Current daemon phase, key state, and latest archive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutoevolveStatus"
+  /evolve/autoevolve/start:
+    post:
+      operationId: startAutoevolve
+      tags: [evolve]
+      summary: Start the Groq-only XAUUSD daemon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutoevolveStartInput"
+      responses:
+        "202":
+          description: AUTOEVOLVE start accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutoevolveStatus"
+        "409":
+          description: AUTOEVOLVE or another evolution round is already running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /evolve/autoevolve/stop:
+    post:
+      operationId: stopAutoevolve
+      tags: [evolve]
+      summary: Stop AUTOEVOLVE after the current safe checkpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutoevolveStopInput"
+      responses:
+        "202":
+          description: AUTOEVOLVE stop requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutoevolveStatus"
+  /evolve/status/{job_id}:
+    get:
+      operationId: getEvolveStatus
+      tags: [evolve]
+      summary: Poll an evolution job and its live log
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Current job state, logs, and round result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvolveJobStatus"
+        "404":
+          description: Evolution job not found in this server process
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /evolve/decide:
+    post:
+      operationId: decideEvolveJob
+      tags: [evolve]
+      summary: Promote or reject an eligible candidate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvolveDecisionInput"
+      responses:
+        "202":
+          description: Owner decision accepted and round finalization resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvolveJobStatus"
+        "400":
+          description: Invalid decision input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Evolution job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Job is not awaiting an owner decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +556,2181 @@ components:
           type: string
       required:
         - status
+    Timeframe:
+      type: string
+      enum: [M1, M5, M15, H1, H4, D1]
+    ReviewTimeframe:
+      type: string
+      enum: [M5, M15]
+    EvolvePolicySettings:
+      type: object
+      properties:
+        min_strength:
+          type: string
+          enum: [NONE, NEUTRAL, STRONG]
+        require_wp_agree:
+          type: boolean
+        require_engulf:
+          type: boolean
+        timeframes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ReviewTimeframe"
+        exit_model:
+          type: string
+          enum: [swept_level_atr, candle_geometry]
+        cooldown_candles:
+          type: integer
+          minimum: 0
+          maximum: 48
+        min_si_score:
+          type: number
+          minimum: 0
+          maximum: 0.8
+        min_si_score_mode:
+          type: string
+          enum: [auto, override]
+        min_si_score_override:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 0.8
+      required:
+        - min_strength
+        - require_wp_agree
+        - require_engulf
+        - timeframes
+        - exit_model
+        - cooldown_candles
+        - min_si_score
+        - min_si_score_mode
+        - min_si_score_override
+    EvolvePolicyMinSiScoreEvidence:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [calibrating, calibrated]
+        caseCount:
+          type: integer
+          minimum: 0
+        totalScoredCases:
+          type: integer
+          minimum: 0
+        requiredCaseCount:
+          type: integer
+          minimum: 1
+        casesNeeded:
+          type: integer
+          minimum: 0
+        windowSize:
+          type: integer
+          minimum: 1
+        minimumRetention:
+          type: number
+          minimum: 0
+          maximum: 1
+        gridStep:
+          type: number
+          minimum: 0
+        maxThreshold:
+          type: number
+          minimum: 0
+          maximum: 0.8
+        windowStartUtc:
+          type: ["string", "null"]
+        windowEndUtc:
+          type: ["string", "null"]
+        threshold:
+          type: number
+          minimum: 0
+          maximum: 0.8
+        filteredCaseCount:
+          type: integer
+          minimum: 0
+        retention:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 1
+        baselineExpectancyR:
+          type: ["number", "null"]
+        filteredExpectancyR:
+          type: ["number", "null"]
+        message:
+          type: string
+      required:
+        - status
+        - caseCount
+        - totalScoredCases
+        - requiredCaseCount
+        - casesNeeded
+        - windowSize
+        - minimumRetention
+        - gridStep
+        - maxThreshold
+        - windowStartUtc
+        - windowEndUtc
+        - threshold
+        - filteredCaseCount
+        - retention
+        - baselineExpectancyR
+        - filteredExpectancyR
+        - message
+      additionalProperties: false
+    EvolvePolicy:
+      type: object
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+        version:
+          type: integer
+          minimum: 1
+        mode:
+          type: string
+          enum: [passthrough, active]
+        settings:
+          $ref: "#/components/schemas/EvolvePolicySettings"
+        promoted_at_utc:
+          type: ["string", "null"]
+        source_champion_version:
+          type: ["string", "null"]
+        min_si_score_auto:
+          type: number
+          minimum: 0
+          maximum: 0.8
+        min_si_score_evidence:
+          $ref: "#/components/schemas/EvolvePolicyMinSiScoreEvidence"
+      required:
+        - schema_version
+        - version
+        - mode
+        - settings
+        - promoted_at_utc
+        - source_champion_version
+    EvolvePolicyRestoreInput:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+      required: [version]
+      additionalProperties: false
+    EvolvePolicyMinSiScoreInput:
+      type: object
+      properties:
+        min_si_score:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 0.8
+      required: [min_si_score]
+      additionalProperties: false
+    EvolvePolicyVersion:
+      type: object
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+        version:
+          type: integer
+          minimum: 1
+        mode:
+          type: string
+          enum: [passthrough, active]
+        settings:
+          $ref: "#/components/schemas/EvolvePolicySettings"
+        promoted_at_utc:
+          type: ["string", "null"]
+        source_champion_version:
+          type: ["string", "null"]
+        created_at_utc:
+          type: ["string", "null"]
+          format: date-time
+        restored_from_version:
+          type: ["integer", "null"]
+        is_current:
+          type: boolean
+      required:
+        - schema_version
+        - version
+        - mode
+        - settings
+        - promoted_at_utc
+        - source_champion_version
+        - created_at_utc
+        - restored_from_version
+        - is_current
+    EvolvePolicyHistory:
+      type: object
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvolvePolicyVersion"
+      required: [versions]
+    AutoevolveKeyState:
+      type: string
+      enum: [unknown, available, depleted, rate-limited, unavailable]
+    AutoevolveAlert:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        message:
+          type: string
+        persistent:
+          type: boolean
+        created_at_utc:
+          type: string
+          format: date-time
+        job_id:
+          type: ["string", "null"]
+      required: [id, kind, message, persistent, created_at_utc, job_id]
+    AutoevolveStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          enum:
+            - stopped
+            - running
+            - awaiting-owner-approval
+            - cooldown
+            - paused-keys-depleted
+            - stopping
+            - failed
+        running:
+          type: boolean
+        phase:
+          type: ["string", "null"]
+        round:
+          type: integer
+          minimum: 0
+        last_verdict:
+          type: ["string", "null"]
+        last_result_file:
+          type: ["string", "null"]
+        active_job_id:
+          type: ["string", "null"]
+          format: uuid
+        swing_version:
+          type: string
+          enum: [V1, V2]
+        cooldown_seconds:
+          type: integer
+          minimum: 0
+        cooldown_until_utc:
+          type: ["string", "null"]
+          format: date-time
+        stop_requested:
+          type: boolean
+        keys:
+          type: object
+          properties:
+            key1:
+              $ref: "#/components/schemas/AutoevolveKeyState"
+            key2:
+              $ref: "#/components/schemas/AutoevolveKeyState"
+          required: [key1, key2]
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AutoevolveAlert"
+        error:
+          type: ["string", "null"]
+        updated_at_utc:
+          type: string
+          format: date-time
+      required:
+        - state
+        - running
+        - phase
+        - round
+        - last_verdict
+        - last_result_file
+        - active_job_id
+        - swing_version
+        - cooldown_seconds
+        - cooldown_until_utc
+        - stop_requested
+        - keys
+        - alerts
+        - error
+        - updated_at_utc
+    AutoevolveStartInput:
+      type: object
+      properties:
+        swingVersion:
+          type: string
+          enum: [V1, V2]
+          default: V2
+      additionalProperties: false
+    AutoevolveStopInput:
+      type: object
+      additionalProperties: false
+    Candle:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        cct:
+          type: string
+        cst:
+          type: string
+        cstV1State:
+          type: string
+        cstV2State:
+          type: [string, "null"]
+        swingVersionAgreementPct:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 100
+        swingReversal:
+          type: boolean
+        cctLegacy:
+          type: string
+        cstLegacy:
+          type: string
+        legacyAgreementPct:
+          type: integer
+          minimum: 0
+          maximum: 100
+        dcState:
+          type: string
+          enum: [undefined, uptrend, downtrend]
+        hierState:
+          type: string
+          enum: [undefined, uptrend, downtrend, transition]
+        wickPressure:
+          $ref: "#/components/schemas/WickPressure"
+      required: [time, open, high, low, close]
+    OwnerAttestedSanityMetrics:
+      type: object
+      properties:
+        provenance:
+          type: string
+          enum: [owner_reported]
+        levelCorrelation:
+          type: number
+        hourlyChangeCorrelation:
+          type: number
+        medianFuturesOverSpotOffsetUsd:
+          type: number
+        note:
+          type: string
+      required:
+        - provenance
+        - levelCorrelation
+        - hourlyChangeCorrelation
+        - medianFuturesOverSpotOffsetUsd
+        - note
+    InstrumentSymbol:
+      type: string
+      enum: [XAUUSD, GBPUSD, USDJPY, GBPJPY, AUDJPY]
+    DatasetInfo:
+      type: object
+      properties:
+        symbol:
+          $ref: "#/components/schemas/InstrumentSymbol"
+        source:
+          type: string
+        sourceSha256:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        candleCount:
+          type: integer
+        reviewStatus:
+          type: string
+        ownerApproved:
+          type: boolean
+        scoringEnabled:
+          type: boolean
+        simulationCost:
+          type: number
+        instrumentReviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/InstrumentReviewInfo"
+        availableTimeframes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Timeframe"
+        defaultReviewTimeframes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewTimeframe"
+        m1ReviewNotice:
+          type: string
+        ownerAttestedSanityMetrics:
+          $ref: "#/components/schemas/OwnerAttestedSanityMetrics"
+      required:
+        - symbol
+        - source
+        - sourceSha256
+        - startDate
+        - endDate
+        - candleCount
+        - reviewStatus
+        - ownerApproved
+        - scoringEnabled
+        - simulationCost
+        - instrumentReviews
+        - availableTimeframes
+        - defaultReviewTimeframes
+        - m1ReviewNotice
+        - ownerAttestedSanityMetrics
+    InstrumentReviewInfo:
+      type: object
+      properties:
+        symbol:
+          type: string
+        status:
+          type: string
+        ownerApproved:
+          type: boolean
+        dataAvailable:
+          type: boolean
+        dataComplete:
+          type: boolean
+        requiredYears:
+          type: array
+          items:
+            type: integer
+        availableYears:
+          type: array
+          items:
+            type: integer
+        rowCount:
+          type: integer
+          minimum: 0
+        startDate:
+          type: [string, "null"]
+          format: date
+        endDate:
+          type: [string, "null"]
+          format: date
+      required:
+        - symbol
+        - status
+        - ownerApproved
+        - dataAvailable
+        - dataComplete
+        - requiredYears
+        - availableYears
+        - rowCount
+        - startDate
+        - endDate
+    CandleMonthChunk:
+      type: object
+      properties:
+        month:
+          type: string
+          pattern: "^\\d{4}-(0[1-9]|1[0-2])$"
+        startIndex:
+          type: integer
+          minimum: 0
+        count:
+          type: integer
+          minimum: 1
+      required:
+        - month
+        - startIndex
+        - count
+    CandleWindow:
+      type: object
+      properties:
+        symbol:
+          $ref: "#/components/schemas/InstrumentSymbol"
+        timeframe:
+          $ref: "#/components/schemas/Timeframe"
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        candles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Candle"
+        swingEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfirmedSwingEvent"
+        totalCandles:
+          type: integer
+        limit:
+          type: integer
+        truncated:
+          type: boolean
+        chunks:
+          type: array
+          items:
+            $ref: "#/components/schemas/CandleMonthChunk"
+        chunkMonth:
+          type: string
+          nullable: true
+        chunkOffset:
+          type: integer
+          minimum: 0
+        chunkLocalOffset:
+          type: integer
+          minimum: 0
+        chunkCount:
+          type: integer
+          minimum: 0
+        source:
+          type: string
+        sourceSha256:
+          type: string
+      required:
+        - symbol
+        - timeframe
+        - from
+        - to
+        - candles
+        - swingEvents
+        - totalCandles
+        - limit
+        - truncated
+        - chunks
+        - chunkMonth
+        - chunkOffset
+        - chunkLocalOffset
+        - chunkCount
+        - source
+        - sourceSha256
+    BacktestInput:
+      type: object
+      properties:
+        symbol:
+          $ref: "#/components/schemas/InstrumentSymbol"
+        timeframe:
+          $ref: "#/components/schemas/Timeframe"
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        simulationSettings:
+          $ref: "#/components/schemas/SimulationSettings"
+        simulationFilters:
+          $ref: "#/components/schemas/SimulationFilters"
+      required: [timeframe, from, to]
+    ReplaySessionStartInput:
+      type: object
+      properties:
+        symbol:
+          $ref: "#/components/schemas/InstrumentSymbol"
+        timeframe:
+          $ref: "#/components/schemas/Timeframe"
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        simulationSettings:
+          $ref: "#/components/schemas/SimulationSettings"
+        swingDirectionVersion:
+          type: string
+          enum: [V1, V2]
+          default: V2
+        manualMode:
+          type: boolean
+          default: false
+        siModel:
+          type: string
+          enum: [evidence, owner, blend]
+          default: evidence
+        siBlendWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.5
+      required: [timeframe, from, to]
+    SimulationSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: true
+        startingBalance:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 1000000000000
+          default: 1000
+        riskPercent:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100
+          default: 1
+          description: Percent of current realized balance risked by each trade.
+        sizingMode:
+          type: string
+          enum: [LOTS, RISK_PERCENT]
+          default: RISK_PERCENT
+          description: Use fixed lot size or percent-risk position sizing.
+        lotSize:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 1000000
+          default: 0.01
+          description: Fixed lot size used when sizingMode is LOTS.
+        rewardMultiple:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100
+          default: 2
+        stopBodyWeight:
+          type: number
+          exclusiveMinimum: 0
+          default: 1
+          description: Candle-geometry weight applied to the alert-candle body.
+        stopWickMultiplier:
+          type: number
+          exclusiveMinimum: 0
+          default: 2
+          description: Candle-geometry multiplier applied to the sweep-side wick.
+        targetRangeMultiplier:
+          type: number
+          exclusiveMinimum: 0
+          default: 3
+          description: Candle-geometry multiplier applied to the alert-candle range.
+        exitModel:
+          type: string
+          enum: [swept_level_atr, candle_geometry]
+          default: swept_level_atr
+          description: Candle geometry uses the configured body and sweep-wick stop weights and alert-candle range target; rewardMultiple applies only to swept_level_atr.
+        geometryWeights:
+          anyOf:
+            - $ref: "#/components/schemas/GeometryWeights"
+            - type: "null"
+          description: Active candle-geometry multipliers; null when swept_level_atr is selected.
+        directionMode:
+          type: string
+          enum: [normal, inverted, adaptive]
+          default: normal
+          description: XAUUSD-only direction handling. Normal preserves the source alert side.
+        tradeDirection:
+          type: string
+          enum: [both, buy_only, sell_only]
+          default: both
+          description: Limit simulated entries to both sides, buys only, or sells only.
+        invertWeights:
+          $ref: "#/components/schemas/InvertWeights"
+        invertThreshold:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.5
+          description: Adaptive mode inverts when the normalized score is greater than or equal to this threshold.
+        swingVersion:
+          type: string
+          enum: [V1, V2]
+          default: V2
+      required: [enabled, startingBalance, riskPercent, sizingMode, lotSize, rewardMultiple, stopBodyWeight, stopWickMultiplier, targetRangeMultiplier, exitModel, geometryWeights, directionMode, tradeDirection, invertWeights, invertThreshold, swingVersion]
+    GeometryWeights:
+      type: object
+      properties:
+        bodyWeight:
+          type: number
+          minimum: 0.5
+          maximum: 2
+        wickMultiplier:
+          type: number
+          minimum: 1
+          maximum: 4
+        rangeMultiplier:
+          type: number
+          minimum: 2
+          maximum: 6
+      required: [bodyWeight, wickMultiplier, rangeMultiplier]
+    InvertWeights:
+      type: object
+      description: Signed weights normalized by their absolute sum before scoring.
+      properties:
+        direction:
+          type: number
+          minimum: -1
+          maximum: 1
+        variant:
+          type: number
+          minimum: -1
+          maximum: 1
+        cctState:
+          type: number
+          minimum: -1
+          maximum: 1
+        cctAlignment:
+          type: number
+          minimum: -1
+          maximum: 1
+        cstState:
+          type: number
+          minimum: -1
+          maximum: 1
+        cstAlignment:
+          type: number
+          minimum: -1
+          maximum: 1
+        wpState:
+          type: number
+          minimum: -1
+          maximum: 1
+        mtfTrendAgree:
+          type: number
+          minimum: -1
+          maximum: 1
+        mtfWpAgree:
+          type: number
+          minimum: -1
+          maximum: 1
+        engulf:
+          type: number
+          minimum: -1
+          maximum: 1
+        dualTfAlert:
+          type: number
+          minimum: -1
+          maximum: 1
+        strengthScore:
+          type: number
+          minimum: -1
+          maximum: 1
+      required: [direction, variant, cctState, cctAlignment, cstState, cstAlignment, wpState, mtfTrendAgree, mtfWpAgree, engulf, dualTfAlert, strengthScore]
+    SimulationFilters:
+      type: object
+      properties:
+        direction:
+          type: string
+          enum: [ALL, BUY, SELL]
+          default: ALL
+        tradeDirection:
+          type: string
+          enum: [both, buy_only, sell_only]
+          default: both
+        strength:
+          type: string
+          enum: [ALL, STRONG, NEUTRAL, WEAK]
+          default: ALL
+        variant:
+          type: string
+          enum: [ALL, A, B]
+          default: ALL
+        wickPressure:
+          type: string
+          enum: [ALL, up-pressure, balanced, down-pressure]
+          default: ALL
+        engulfingOnly:
+          type: boolean
+          default: false
+        mtfAgreementOnly:
+          type: boolean
+          default: false
+      required: [direction, strength, engulfingOnly]
+    ReplayCandleState:
+      type: object
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        cct:
+          type: string
+        cst:
+          type: string
+        cstV1State:
+          type: string
+        cstV2State:
+          type: [string, "null"]
+        swingVersionAgreementPct:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 100
+        swingReversal:
+          type: boolean
+        cctLegacy:
+          type: string
+        cstLegacy:
+          type: string
+        legacyAgreementPct:
+          type: integer
+          minimum: 0
+          maximum: 100
+        dcState:
+          type: string
+          enum: [undefined, uptrend, downtrend]
+        hierState:
+          type: string
+          enum: [undefined, uptrend, downtrend, transition]
+      required:
+        - index
+        - cct
+        - cst
+        - cstV1State
+        - cstV2State
+        - swingVersionAgreementPct
+        - swingReversal
+        - cctLegacy
+        - cstLegacy
+        - legacyAgreementPct
+        - dcState
+        - hierState
+    WickPressure:
+      type: string
+      enum: [up-pressure, balanced, down-pressure]
+    WickPressurePoint:
+      type: object
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        state:
+          $ref: "#/components/schemas/WickPressure"
+      required: [index, state]
+    ConfirmedSwingEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [swing_high, swing_low]
+        pivot_time:
+          type: string
+          format: date-time
+        confirmed_time:
+          type: string
+          format: date-time
+        price:
+          type: number
+        strength_atr:
+          type: number
+          minimum: 0
+        source:
+          type: string
+          enum: [cct_minor, cst_major, dc, hier]
+        pivot_index:
+          type: integer
+          minimum: 0
+        confirmed_index:
+          type: integer
+          minimum: 0
+        level:
+          type: integer
+          minimum: 1
+          maximum: 3
+      required: [type, pivot_time, confirmed_time, price, source, pivot_index, confirmed_index]
+    ReplaySessionStartResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        symbol:
+          $ref: "#/components/schemas/InstrumentSymbol"
+        runId:
+          type: string
+        timeframe:
+          $ref: "#/components/schemas/Timeframe"
+        swingDirectionVersion:
+          type: string
+          enum: [V1, V2]
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        totalCandles:
+          type: integer
+        cursor:
+          type: integer
+          const: 0
+        computedThrough:
+          type: integer
+          const: 0
+        states:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReplayCandleState"
+        wickPressureStates:
+          type: array
+          items:
+            $ref: "#/components/schemas/WickPressurePoint"
+        swingEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfirmedSwingEvent"
+        simulation:
+          $ref: "#/components/schemas/SimulationSnapshot"
+        policyVersion:
+          type: integer
+          minimum: 1
+        policySimulation:
+          anyOf:
+            - $ref: "#/components/schemas/SimulationSnapshot"
+            - type: "null"
+        policyTrades:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimulatedTrade"
+        currentCandle:
+          $ref: "#/components/schemas/Candle"
+        manualMode:
+          type: boolean
+        siModel:
+          type: string
+          enum: [evidence, owner, blend]
+        siBlendWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+        ownerModel:
+          $ref: "#/components/schemas/SiOwnerModelSummary"
+      required:
+        - sessionId
+        - symbol
+        - runId
+        - timeframe
+        - swingDirectionVersion
+        - from
+        - to
+        - totalCandles
+        - cursor
+        - computedThrough
+        - states
+        - wickPressureStates
+        - swingEvents
+        - simulation
+        - policyVersion
+        - policySimulation
+        - policyTrades
+        - currentCandle
+    ReplayAdvanceInput:
+      type: object
+      properties:
+        toIndex:
+          type: integer
+          minimum: 0
+        viewStart:
+          type: integer
+          minimum: 0
+        viewEnd:
+          type: integer
+          minimum: 0
+        simulationFilters:
+          $ref: "#/components/schemas/SimulationFilters"
+      required: [toIndex, viewStart, viewEnd]
+    ReplayManualDecisionInput:
+      type: object
+      properties:
+        candleIndex:
+          type: integer
+          minimum: 0
+        action:
+          type: string
+          enum: [take, skip, finalize]
+        alertId:
+          type: string
+        direction:
+          type: string
+          enum: [BUY, SELL]
+        comment:
+          type: string
+          maxLength: 500
+      required: [candleIndex, action]
+    ManualDecision:
+      type: object
+      properties:
+        eventType:
+          type: string
+          enum: [manual_decision]
+        caseId:
+          type: string
+        sessionId:
+          type: string
+        alertId:
+          type: string
+        candleIndex:
+          type: integer
+        source:
+          type: string
+          enum: [manual]
+        decision:
+          type: string
+          enum: [take, skip]
+        comment:
+          type: [string, "null"]
+        formationFingerprint:
+          type: string
+        featureContext:
+          type: object
+          additionalProperties: true
+        scoreModel:
+          type: string
+          enum: [evidence, owner, blend]
+        blendWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+        tradeDirection:
+          type: string
+          enum: [BUY, SELL]
+      required:
+        - eventType
+        - caseId
+        - sessionId
+        - alertId
+        - candleIndex
+        - source
+        - decision
+        - comment
+        - formationFingerprint
+        - featureContext
+        - scoreModel
+        - blendWeight
+    SiOwnerModelSummary:
+      type: object
+      properties:
+        trained:
+          type: boolean
+        qualified:
+          type: boolean
+        caseCount:
+          type: integer
+        requiredCaseCount:
+          type: integer
+        intercept:
+          type: number
+        weights:
+          type: object
+          additionalProperties:
+            type: number
+        effectiveWeights:
+          type: object
+          additionalProperties:
+            type: number
+        ownerWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+        evidenceWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+        hitRate:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        expectancyR:
+          type: [number, "null"]
+        resolvedTakenCount:
+          type: integer
+      required:
+        - trained
+        - qualified
+        - caseCount
+        - requiredCaseCount
+        - intercept
+        - weights
+        - effectiveWeights
+        - ownerWeight
+        - evidenceWeight
+        - hitRate
+        - expectancyR
+        - resolvedTakenCount
+    ReplayManualDecisionResult:
+      type: object
+      properties:
+        manualMode:
+          type: boolean
+        manualDecisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManualDecision"
+        allManualDecisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManualDecision"
+        simulation:
+          $ref: "#/components/schemas/SimulationSnapshot"
+        ownerModel:
+          $ref: "#/components/schemas/SiOwnerModelSummary"
+      required: [manualMode, manualDecisions, allManualDecisions, simulation, ownerModel]
+    ReplayAlert:
+      type: object
+      properties:
+        candleIndex:
+          type: integer
+          minimum: 0
+        alert:
+          $ref: "#/components/schemas/Alert"
+      required: [candleIndex, alert]
+    ReplayPolicyDecision:
+      type: object
+      properties:
+        alertId:
+          type: string
+        candleIndex:
+          type: integer
+          minimum: 0
+        passed:
+          type: boolean
+        reasons:
+          type: array
+          items:
+            type: string
+      required: [alertId, candleIndex, passed, reasons]
+    ReplayAdvanceResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        runId:
+          type: string
+        timeframe:
+          $ref: "#/components/schemas/Timeframe"
+        cursor:
+          type: integer
+        requestedIndex:
+          type: integer
+        computedFrom:
+          type: [integer, "null"]
+        computedThrough:
+          type: integer
+        totalCandles:
+          type: integer
+        hasMore:
+          type: boolean
+        newStates:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReplayCandleState"
+        visibleStates:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReplayCandleState"
+        newWickPressureStates:
+          type: array
+          items:
+            $ref: "#/components/schemas/WickPressurePoint"
+        visibleWickPressureStates:
+          type: array
+          items:
+            $ref: "#/components/schemas/WickPressurePoint"
+        newSwingEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfirmedSwingEvent"
+        newAlerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReplayAlert"
+        policyVersion:
+          type: integer
+          minimum: 1
+        policyDecisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReplayPolicyDecision"
+        policySimulation:
+          anyOf:
+            - $ref: "#/components/schemas/SimulationSnapshot"
+            - type: "null"
+        policyTrades:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimulatedTrade"
+        newlyOpenedTrades:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimulatedTrade"
+        newlyResolvedTrades:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimulatedTrade"
+        simulation:
+          $ref: "#/components/schemas/SimulationSnapshot"
+        currentCandle:
+          $ref: "#/components/schemas/Candle"
+        expiresInSeconds:
+          type: integer
+        manualMode:
+          type: boolean
+        manualDecisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManualDecision"
+        siModel:
+          type: string
+          enum: [evidence, owner, blend]
+        siBlendWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+        ownerModel:
+          $ref: "#/components/schemas/SiOwnerModelSummary"
+      required:
+        - sessionId
+        - runId
+        - timeframe
+        - cursor
+        - requestedIndex
+        - computedFrom
+        - computedThrough
+        - totalCandles
+        - hasMore
+        - newStates
+        - visibleStates
+        - newWickPressureStates
+        - visibleWickPressureStates
+        - policyVersion
+        - policyDecisions
+        - policySimulation
+        - policyTrades
+        - newSwingEvents
+        - newAlerts
+        - newlyOpenedTrades
+        - newlyResolvedTrades
+        - simulation
+        - currentCandle
+        - expiresInSeconds
+    SimulatedTrade:
+      type: object
+      properties:
+        tradeId:
+          type: string
+        alertId:
+          type: string
+        symbol:
+          type: string
+          enum: [GBPUSD, USDJPY, GBPJPY, AUDJPY, XAUUSD]
+        direction:
+          type: string
+          enum: [BUY, SELL]
+        sourceDirection:
+          type: string
+          enum: [BUY, SELL]
+        appliedDirection:
+          type: string
+          enum: [BUY, SELL]
+        directionMode:
+          type: string
+          enum: [normal, inverted, adaptive]
+        invertScore:
+          anyOf:
+            - type: number
+              minimum: -1
+              maximum: 1
+            - type: "null"
+        inverted:
+          type: boolean
+        manual:
+          type: boolean
+        source:
+          type: string
+          enum: [simulated, manual]
+        manualCaseId:
+          type: [string, "null"]
+        comment:
+          type: [string, "null"]
+        alertType:
+          type: string
+          enum: [BUY-A, SELL-A, BUY-B, SELL-B]
+        entryIndex:
+          type: integer
+          minimum: 0
+        entryTime:
+          type: string
+          format: date-time
+        entryPrice:
+          type: number
+        positionSize:
+          type: number
+          exclusiveMinimum: 0
+        lotSize:
+          type: number
+          exclusiveMinimum: 0
+        sizingMode:
+          type: string
+          enum: [LOTS, RISK_PERCENT]
+        contractSize:
+          type: number
+          exclusiveMinimum: 0
+        pipSize:
+          type: number
+          exclusiveMinimum: 0
+        pnlCurrency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        priceMove:
+          type: number
+        pipPnl:
+          type: number
+        riskAmount:
+          type: number
+          exclusiveMinimum: 0
+        stopPrice:
+          type: number
+        takeProfitPrice:
+          type: number
+        exitModel:
+          type: string
+          enum: [swept_level_atr, candle_geometry]
+        geometryWeights:
+          anyOf:
+            - $ref: "#/components/schemas/GeometryWeights"
+            - type: "null"
+        slInsideSweepTip:
+          type: boolean
+        exitIndex:
+          type: [integer, "null"]
+        exitTime:
+          type: ["string", "null"]
+          format: date-time
+        exitPrice:
+          type: [number, "null"]
+        outcome:
+          type: string
+          enum: [OPEN, WIN, LOSS]
+        exitReason:
+          type: [string, "null"]
+          enum: [SL, TP, null]
+        grossPnl:
+          type: number
+        cost:
+          type: number
+        netPnl:
+          type: number
+        realizedR:
+          type: number
+        netR:
+          type: number
+      required:
+        - tradeId
+        - alertId
+        - symbol
+        - direction
+        - sourceDirection
+        - appliedDirection
+        - directionMode
+        - invertScore
+        - inverted
+        - alertType
+        - entryIndex
+        - entryTime
+        - entryPrice
+        - positionSize
+        - lotSize
+        - sizingMode
+        - contractSize
+        - pipSize
+        - pnlCurrency
+        - priceMove
+        - pipPnl
+        - riskAmount
+        - stopPrice
+        - takeProfitPrice
+        - exitModel
+        - geometryWeights
+        - slInsideSweepTip
+        - exitIndex
+        - exitTime
+        - exitPrice
+        - outcome
+        - exitReason
+        - grossPnl
+        - cost
+        - netPnl
+        - realizedR
+        - netR
+    SimulationEquityPoint:
+      type: object
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        time:
+          type: string
+          format: date-time
+        equity:
+          type: number
+      required: [index, time, equity]
+    SimulationStats:
+      type: object
+      properties:
+        closedTradeCount:
+          type: integer
+          minimum: 0
+        wins:
+          type: integer
+          minimum: 0
+        losses:
+          type: integer
+          minimum: 0
+        winRatePct:
+          type: number
+          minimum: 0
+          maximum: 100
+        avgR:
+          type: number
+        expectancyAfterCosts:
+          type: number
+        expectancyMoneyAfterCosts:
+          type: number
+        maxDrawdown:
+          type: number
+          minimum: 0
+        maxDrawdownPct:
+          type: number
+          minimum: 0
+        profitFactor:
+          type: [number, "null"]
+      required:
+        - closedTradeCount
+        - wins
+        - losses
+        - winRatePct
+        - avgR
+        - expectancyAfterCosts
+        - expectancyMoneyAfterCosts
+        - maxDrawdown
+        - maxDrawdownPct
+        - profitFactor
+    SimulationSnapshot:
+      type: object
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        enabled:
+          type: boolean
+        balance:
+          type: number
+        openTradeCount:
+          type: integer
+          minimum: 0
+        closedTradeCount:
+          type: integer
+          minimum: 0
+        settings:
+          $ref: "#/components/schemas/SimulationSettings"
+        stats:
+          $ref: "#/components/schemas/SimulationStats"
+        equityCurve:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimulationEquityPoint"
+      required:
+        - index
+        - enabled
+        - balance
+        - openTradeCount
+        - closedTradeCount
+        - settings
+        - stats
+        - equityCurve
+    Alert:
+      type: object
+      properties:
+        alertId:
+          type: string
+        time:
+          type: string
+          format: date-time
+        symbol:
+          $ref: "#/components/schemas/InstrumentSymbol"
+        timeframe:
+          $ref: "#/components/schemas/Timeframe"
+        direction:
+          type: string
+          enum: [BUY, SELL]
+        alertType:
+          type: string
+          enum: [BUY-A, SELL-A, BUY-B, SELL-B]
+        engulfing:
+          type: boolean
+        cct:
+          type: string
+        cst:
+          type: string
+        cstV1State:
+          type: string
+        cstV2State:
+          type: [string, "null"]
+        swingVersionAgreementPct:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 100
+        swingDirectionVersion:
+          type: string
+          enum: [V1, V2]
+        swingReversal:
+          type: boolean
+        cctLegacy:
+          type: string
+        cstLegacy:
+          type: string
+        legacyAgreementPct:
+          type: integer
+          minimum: 0
+          maximum: 100
+        dcState:
+          type: string
+          enum: [undefined, uptrend, downtrend]
+        hierState:
+          type: string
+          enum: [undefined, uptrend, downtrend, transition]
+        strengthLabel:
+          type: string
+          enum: [STRONG, NEUTRAL, WEAK]
+        strengthScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        siScore:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        siEvidenceScore:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        siOwnerScore:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        strengthFeatures:
+          type: object
+          properties:
+            cst_alignment:
+              type: integer
+              enum: [-1, 0, 1]
+            cct_alignment:
+              type: integer
+              enum: [-1, 0, 1]
+            wp_agree:
+              type: integer
+              enum: [-1, 0, 1]
+            engulf:
+              type: integer
+              enum: [0, 1]
+            mtf_trend_agree:
+              type: integer
+              enum: [-1, 0, 1]
+            mtf_wp_agree:
+              type: integer
+              enum: [-1, 0, 1]
+            dual_tf_alert:
+              type: integer
+              enum: [0, 1]
+          required:
+            - cst_alignment
+            - cct_alignment
+            - wp_agree
+            - engulf
+            - mtf_trend_agree
+            - mtf_wp_agree
+            - dual_tf_alert
+        note:
+          type: ["string", "null"]
+        candle:
+          $ref: "#/components/schemas/Candle"
+        previousCandle:
+          $ref: "#/components/schemas/Candle"
+        scored:
+          type: boolean
+          const: false
+      required:
+        - alertId
+        - time
+        - symbol
+        - timeframe
+        - direction
+        - cct
+        - cst
+        - dcState
+        - hierState
+        - strengthLabel
+        - strengthScore
+        - strengthFeatures
+        - note
+        - candle
+        - previousCandle
+        - scored
+    AlertCounts:
+      type: object
+      properties:
+        buy:
+          type: integer
+        sell:
+          type: integer
+        strong:
+          type: integer
+        neutral:
+          type: integer
+        weak:
+          type: integer
+      required: [buy, sell, strong, neutral, weak]
+    BacktestResult:
+      type: object
+      properties:
+        symbol:
+          $ref: "#/components/schemas/InstrumentSymbol"
+        timeframe:
+          $ref: "#/components/schemas/Timeframe"
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        candles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Candle"
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+        counts:
+          $ref: "#/components/schemas/AlertCounts"
+        totalCandles:
+          type: integer
+        truncated:
+          type: boolean
+        status:
+          type: string
+          enum: [SMOKE_NOT_SCORED]
+        runId:
+          type: string
+        specVersion:
+          type: string
+        source:
+          type: string
+        sourceSha256:
+          type: string
+        ownerAttestedSanityMetrics:
+          $ref: "#/components/schemas/OwnerAttestedSanityMetrics"
+        simulation:
+          $ref: "#/components/schemas/SimulationSnapshot"
+        simulatedTrades:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimulatedTrade"
+        durationMs:
+          type: integer
+      required:
+        - symbol
+        - timeframe
+        - from
+        - to
+        - candles
+        - alerts
+        - counts
+        - totalCandles
+        - truncated
+        - status
+        - runId
+        - specVersion
+        - source
+        - sourceSha256
+        - ownerAttestedSanityMetrics
+        - simulation
+        - simulatedTrades
+        - durationMs
+    AlertCommentInput:
+      type: object
+      properties:
+        alert:
+          $ref: "#/components/schemas/Alert"
+      required: [alert]
+    TradeCommentInput:
+      type: object
+      properties:
+        tradeId:
+          type: string
+          minLength: 1
+      required: [tradeId]
+    TokenUsage:
+      type: object
+      properties:
+        promptTokens:
+          type: integer
+        responseTokens:
+          type: integer
+        totalTokens:
+          type: integer
+      required: [promptTokens, responseTokens, totalTokens]
+    AICommentResult:
+      type: object
+      properties:
+        available:
+          type: boolean
+        alertId:
+          type: string
+        comment:
+          type: ["string", "null"]
+        cached:
+          type: boolean
+        tokenUsage:
+          anyOf:
+            - $ref: "#/components/schemas/TokenUsage"
+            - type: "null"
+        message:
+          type: ["string", "null"]
+        failureCategory:
+          type: ["string", "null"]
+          enum: [auth, quota, rate_limit, network, model_not_found, unknown, null]
+      required: [available, alertId, comment, cached, tokenUsage, message, failureCategory]
+    TradeCommentResult:
+      type: object
+      properties:
+        available:
+          type: boolean
+        tradeId:
+          type: string
+        comment:
+          type: ["string", "null"]
+        cached:
+          type: boolean
+        tokenUsage:
+          anyOf:
+            - $ref: "#/components/schemas/TokenUsage"
+            - type: "null"
+        message:
+          type: ["string", "null"]
+        failureCategory:
+          type: ["string", "null"]
+          enum: [auth, quota, rate_limit, network, model_not_found, unknown, null]
+      required: [available, tradeId, comment, cached, tokenUsage, message, failureCategory]
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        failureCategory:
+          type: ["string", "null"]
+          enum: [auth, quota, rate_limit, network, model_not_found, unknown, null]
+      required: [error, failureCategory]
+    EvolveRunInput:
+      type: object
+      properties:
+        symbol:
+          $ref: "#/components/schemas/InstrumentSymbol"
+        swingVersion:
+          type: string
+          enum: [V1, V2]
+          default: V2
+      additionalProperties: false
+    EvolveDecisionInput:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        promote:
+          type: boolean
+      required: [job_id, promote]
+    EvolveCancelInput:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+      required: [job_id]
+      additionalProperties: false
+    EvolveRoundHistory:
+      type: object
+      properties:
+        rounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvolveArchivedRound"
+      required: [rounds]
+    SystemIntelligence:
+      type: object
+      properties:
+        symbol:
+          type: string
+          enum: [XAUUSD]
+        informationalOnly:
+          type: boolean
+        caseCount:
+          type: integer
+        overall:
+          $ref: "#/components/schemas/SystemIntelligenceOverall"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/SystemIntelligenceRule"
+        hitRateOverTime:
+          type: array
+          items:
+            $ref: "#/components/schemas/SystemIntelligenceHistoryPoint"
+        lessons:
+          type: array
+          items:
+            $ref: "#/components/schemas/SystemIntelligenceLesson"
+        tunables:
+          $ref: "#/components/schemas/SystemIntelligenceTunables"
+      required:
+        - symbol
+        - informationalOnly
+        - caseCount
+        - overall
+        - rules
+        - hitRateOverTime
+        - lessons
+        - tunables
+    SystemIntelligenceOverall:
+      type: object
+      properties:
+        hits:
+          type: integer
+        misses:
+          type: integer
+        hitRate:
+          type: ["number", "null"]
+        expectancy:
+          type: ["number", "null"]
+        expectancyMoney:
+          type: ["number", "null"]
+        capitalContext:
+          $ref: "#/components/schemas/CapitalContext"
+      required: [hits, misses, hitRate, expectancy, expectancyMoney, capitalContext]
+    SystemIntelligenceRule:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        samples:
+          type: integer
+        hits:
+          type: integer
+        misses:
+          type: integer
+        hitRate:
+          type: ["number", "null"]
+        expectancy:
+          type: ["number", "null"]
+        expectancyMoney:
+          type: ["number", "null"]
+        capitalContext:
+          $ref: "#/components/schemas/CapitalContext"
+        baselineHitRate:
+          type: ["number", "null"]
+        weight:
+          type: number
+        flagged:
+          type: boolean
+        custom:
+          type: boolean
+      required:
+        - id
+        - name
+        - description
+        - samples
+        - hits
+        - misses
+        - hitRate
+        - expectancy
+        - expectancyMoney
+        - capitalContext
+        - baselineHitRate
+        - weight
+        - flagged
+    SystemIntelligenceHistoryPoint:
+      type: object
+      properties:
+        at:
+          type: string
+        caseCount:
+          type: integer
+        hitRate:
+          type: number
+        expectancy:
+          type: number
+        expectancyMoney:
+          type: ["number", "null"]
+        capitalContext:
+          $ref: "#/components/schemas/CapitalContext"
+      required: [at, caseCount, hitRate, expectancy, expectancyMoney, capitalContext]
+    SystemIntelligenceLesson:
+      type: object
+      properties:
+        id:
+          type: string
+        ruleId:
+          type: string
+        ruleName:
+          type: string
+        action:
+          type: string
+        evidence:
+          type: object
+          additionalProperties: true
+        createdAtUtc:
+          type: string
+      required: [id, ruleId, ruleName, action, evidence, createdAtUtc]
+    CapitalContext:
+      type: object
+      properties:
+        balance_usd:
+          type: number
+          exclusiveMinimum: 0
+        sizing:
+          type: string
+          enum: [LOTS, RISK_PERCENT]
+        lots:
+          type: object
+          additionalProperties:
+            type: number
+            exclusiveMinimum: 0
+      required: [balance_usd, sizing, lots]
+    SystemIntelligenceTunables:
+      type: object
+      properties:
+        strengthWeights:
+          type: object
+          additionalProperties:
+            type: number
+        strengthThresholds:
+          type: object
+          additionalProperties:
+            type: number
+        invertWeights:
+          type: object
+          additionalProperties:
+            type: number
+      required: [strengthWeights, strengthThresholds, invertWeights]
+    EvolveArchivedRound:
+      type: object
+      additionalProperties: false
+      properties:
+        file:
+          type: string
+        timestamp_utc:
+          type: string
+          format: date-time
+        round:
+          type: integer
+        decision:
+          type: string
+        eligible:
+          type: boolean
+        diff_summary:
+          type: string
+        validation_expectancy:
+          type: ["number", "null"]
+        provider:
+          anyOf:
+            - $ref: "#/components/schemas/LLMProvider"
+            - type: "null"
+        key_index:
+          type: ["integer", "null"]
+        token_usage:
+          type: ["object", "null"]
+          additionalProperties:
+            type: integer
+        detail:
+          type: object
+          additionalProperties: true
+      required:
+        - file
+        - timestamp_utc
+        - round
+        - decision
+        - eligible
+        - diff_summary
+        - validation_expectancy
+        - provider
+        - key_index
+        - token_usage
+        - detail
+    EvolveJobPhase:
+      type: string
+      enum:
+        - training
+        - awaiting-proposal
+        - simulating
+        - awaiting-owner-decision
+        - cancelling
+        - cancelled
+        - complete
+        - failed
+    EvolveLogLine:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        phase:
+          $ref: "#/components/schemas/EvolveJobPhase"
+        message:
+          type: string
+      required: [at, phase, message]
+    LLMProvider:
+      type: string
+      enum: [gemini, groq]
+    LLMRequestErrorCategory:
+      type: string
+      enum: [auth, quota, rate_limit, network, model_not_found, unknown]
+    LLMProviderAttempt:
+      type: object
+      properties:
+        attempt:
+          type: integer
+        provider:
+          $ref: "#/components/schemas/LLMProvider"
+        key_index:
+          type: integer
+          minimum: 1
+          maximum: 3
+        status:
+          type: string
+          enum: [failed, succeeded]
+        category:
+          anyOf:
+            - $ref: "#/components/schemas/LLMRequestErrorCategory"
+            - type: "null"
+        message:
+          type: ["string", "null"]
+      required: [attempt, provider, key_index, status]
+    EvolveRequestErrorDetail:
+      type: object
+      properties:
+        category:
+          $ref: "#/components/schemas/LLMRequestErrorCategory"
+        message:
+          type: string
+        provider:
+          anyOf:
+            - $ref: "#/components/schemas/LLMProvider"
+            - type: "null"
+        key_index:
+          type: ["integer", "null"]
+        attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/LLMProviderAttempt"
+      required: [category, message, provider, key_index, attempts]
+    EvolveRoundResult:
+      type: object
+      additionalProperties: true
+      properties:
+        round:
+          type: integer
+        timestamp_utc:
+          type: string
+          format: date-time
+        baseline_version:
+          type: string
+        decision:
+          type: string
+        reason:
+          type: ["string", "null"]
+        eligible:
+          type: boolean
+        reason_codes:
+          type: array
+          items:
+            type: string
+        proposal:
+          type: ["object", "null"]
+          additionalProperties: true
+        champion_training:
+          type: object
+          additionalProperties: true
+        candidate_training:
+          type: ["object", "null"]
+          additionalProperties: true
+        champion_validation:
+          type: object
+          additionalProperties: true
+        candidate_validation:
+          type: ["object", "null"]
+          additionalProperties: true
+        comparison:
+          type: ["object", "null"]
+          additionalProperties: true
+        token_usage:
+          type: ["object", "null"]
+          additionalProperties:
+            type: integer
+        provider:
+          anyOf:
+            - $ref: "#/components/schemas/LLMProvider"
+            - type: "null"
+        key_index:
+          type: ["integer", "null"]
+        provider_attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/LLMProviderAttempt"
+        request_error_detail:
+          anyOf:
+            - $ref: "#/components/schemas/EvolveRequestErrorDetail"
+            - type: "null"
+        proposal_file:
+          type: string
+        candidate_file:
+          type: ["string", "null"]
+        result_file:
+          type: ["string", "null"]
+        archived_baseline:
+          type: ["string", "null"]
+    EvolveJobStatus:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        symbol:
+          $ref: "#/components/schemas/InstrumentSymbol"
+        swing_version:
+          type: string
+          enum: [V1, V2]
+        phase:
+          $ref: "#/components/schemas/EvolveJobPhase"
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvolveLogLine"
+        result:
+          anyOf:
+            - $ref: "#/components/schemas/EvolveRoundResult"
+            - type: "null"
+        error:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [job_id, symbol, swing_version, phase, logs, result, error, created_at, updated_at]
 

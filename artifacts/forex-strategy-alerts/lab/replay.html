@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Strategy Lab — Replay</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        color: #17212b;
+        background: #f3f6f8;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+      }
+
+      * { box-sizing: border-box; }
+
+      body { margin: 0; }
+
+      header {
+        padding: 1.4rem clamp(1rem, 3vw, 2.5rem) 1.1rem;
+        background: #fff;
+        border-bottom: 1px solid #dce3e8;
+      }
+
+      .eyebrow {
+        margin: 0 0 .45rem;
+        color: #546473;
+        font-size: .74rem;
+        font-weight: 750;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.4rem, 3vw, 2rem);
+        letter-spacing: -.035em;
+      }
+
+      .intro {
+        max-width: 68rem;
+        margin: .55rem 0 0;
+        color: #536373;
+        line-height: 1.5;
+      }
+
+      main {
+        display: grid;
+        gap: 1rem;
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 1rem clamp(.75rem, 2vw, 1.5rem) 2rem;
+      }
+
+      .panel {
+        min-width: 0;
+        padding: 1rem;
+        background: #fff;
+        border: 1px solid #dce3e8;
+        border-radius: .65rem;
+      }
+
+      .file-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+      }
+
+      label {
+        display: grid;
+        gap: .42rem;
+        color: #344554;
+        font-size: .85rem;
+        font-weight: 650;
+      }
+
+      input[type="file"], select, button {
+        min-height: 2.65rem;
+        font: inherit;
+      }
+
+      input[type="file"], select {
+        width: 100%;
+        padding: .55rem .65rem;
+        color: #17212b;
+        background: #fff;
+        border: 1px solid #b8c4cd;
+        border-radius: .4rem;
+      }
+
+      button {
+        padding: .55rem .85rem;
+        color: #fff;
+        background: #173c57;
+        border: 1px solid #173c57;
+        border-radius: .4rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        color: #173c57;
+        background: #fff;
+      }
+
+      button:disabled, select:disabled, input:disabled {
+        opacity: .52;
+        cursor: not-allowed;
+      }
+
+      :focus-visible {
+        outline: 3px solid #2a83b9;
+        outline-offset: 2px;
+      }
+
+      .help, .muted {
+        color: #61717e;
+        font-size: .8rem;
+        line-height: 1.45;
+      }
+
+      .help { margin: .8rem 0 0; }
+
+      .status-line {
+        min-height: 1.35rem;
+        margin: .8rem 0 0;
+        color: #3e4e5b;
+        font-size: .85rem;
+      }
+
+      progress {
+        display: block;
+        width: 100%;
+        height: .5rem;
+        margin-top: .4rem;
+        accent-color: #26754c;
+      }
+
+      .warning {
+        margin: .75rem 0 0;
+        padding: .7rem .8rem;
+        color: #6b3d00;
+        background: #fff4dc;
+        border: 1px solid #e6c477;
+        border-radius: .4rem;
+        font-size: .86rem;
+        font-weight: 700;
+      }
+
+      [hidden] { display: none !important; }
+
+      .toolbar {
+        display: flex;
+        align-items: end;
+        flex-wrap: wrap;
+        gap: .75rem;
+      }
+
+      .toolbar label { min-width: 10rem; }
+      .toolbar .spacer { flex: 1; }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin: .8rem 0 0;
+        color: #52616e;
+        font-size: .8rem;
+      }
+
+      .legend span { display: inline-flex; align-items: center; gap: .4rem; }
+      .swatch { width: .75rem; height: .75rem; border-radius: 2px; }
+      .swatch.up { background: #19754b; }
+      .swatch.down { background: #b44942; }
+      .swatch.buy { background: #087e8b; transform: rotate(45deg); }
+      .swatch.sell { background: #a94a31; transform: rotate(45deg); }
+
+      .canvas-wrap {
+        position: relative;
+        width: 100%;
+        height: clamp(300px, 56vw, 560px);
+        margin-top: .6rem;
+        overflow: hidden;
+        background: #fbfcfd;
+        border: 1px solid #e1e7eb;
+        border-radius: .45rem;
+      }
+
+      canvas { display: block; width: 100%; height: 100%; }
+
+      .controls {
+        display: grid;
+        grid-template-columns: auto auto auto minmax(180px, 1fr) minmax(150px, .5fr);
+        align-items: center;
+        gap: .7rem;
+        margin-top: 1rem;
+      }
+
+      .controls label { min-width: 0; }
+      input[type="range"] { width: 100%; accent-color: #173c57; }
+
+      .position-readout {
+        color: #50606d;
+        font-size: .78rem;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .details {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .75rem;
+        margin-top: 1rem;
+      }
+
+      .detail {
+        min-width: 0;
+        padding: .7rem;
+        background: #f5f8fa;
+        border: 1px solid #e3e9ed;
+        border-radius: .4rem;
+      }
+
+      .detail dt {
+        color: #60707c;
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+
+      .detail dd {
+        margin: .3rem 0 0;
+        overflow-wrap: anywhere;
+        font-size: .9rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      @media (max-width: 760px) {
+        .file-grid { grid-template-columns: 1fr; }
+        .controls {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .controls .timeline { grid-column: 1 / -1; }
+        .controls .speed { grid-column: 1 / -1; }
+        .details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+
+      @media (max-width: 430px) {
+        .panel { padding: .75rem; }
+        .toolbar { align-items: stretch; }
+        .toolbar label { flex: 1 1 100%; }
+        .controls { gap: .45rem; }
+        .position-readout { grid-column: 1 / -1; text-align: left; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="eyebrow">Forex Strategy Lab / Phase 4</p>
+      <h1>Replay a precomputed run</h1>
+      <p class="intro">
+        Load one local candle CSV and a Strategy Lab alert log. This page only
+        displays those files; it does not fetch prices, run the strategy, or place
+        trades.
+      </p>
+      <p id="syntheticWarning" class="warning" role="alert" hidden>
+        SYNTHETIC DATA ONLY — this replay is a software check, not market history
+        or evidence of profitability.
+      </p>
+    </header>
+
+    <main>
+      <section class="panel" aria-label="Load replay files">
+        <div class="file-grid">
+          <label for="candleFile">
+            Candle CSV
+            <input id="candleFile" type="file" accept=".csv,text/csv">
+          </label>
+          <label for="alertFile">
+            Precomputed alert log CSV
+            <input id="alertFile" type="file" accept=".csv,.csv.gz,text/csv,application/gzip">
+          </label>
+        </div>
+        <p class="help">
+          Candle columns: <code>time,open,high,low,close</code>. The alert log is
+          produced by <code>lab/backtest.py</code> and may be plain CSV or gzip
+          (<code>.csv.gz</code>). Files stay in your browser and are not uploaded.
+        </p>
+        <progress id="loadProgress" max="1" value="0" aria-label="File loading progress" hidden></progress>
+        <p id="loadStatus" class="status-line" role="status" aria-live="polite">
+          Choose the candle file and alert log to start.
+        </p>
+      </section>
+
+      <section class="panel" aria-label="Replay chart and controls">
+        <div class="toolbar">
+          <label for="pairSelect">
+            Instrument and timeframe
+            <select id="pairSelect" disabled>
+              <option value="">Load files first</option>
+            </select>
+          </label>
+          <span class="spacer"></span>
+          <span id="alertCount" class="muted">No alerts loaded</span>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="chart" aria-label="Candlestick chart with precomputed alert markers">
+            Canvas charts are not supported in this browser.
+          </canvas>
+        </div>
+
+        <div class="legend" aria-label="Chart legend">
+          <span><i class="swatch up"></i> Up candle</span>
+          <span><i class="swatch down"></i> Down candle</span>
+          <span><i class="swatch buy"></i> BUY alert</span>
+          <span><i class="swatch sell"></i> SELL alert</span>
+        </div>
+
+        <div class="controls" aria-label="Replay controls">
+          <button id="previousButton" class="secondary" type="button" disabled>Previous</button>
+          <button id="playButton" type="button" disabled>Play</button>
+          <button id="nextButton" class="secondary" type="button" disabled>Next</button>
+          <label class="timeline" for="position">
+            Replay position
+            <input id="position" type="range" min="0" max="0" value="0" disabled>
+          </label>
+          <label class="speed" for="speed">
+            Speed: <span id="speedValue">2</span> candles/sec
+            <input id="speed" type="range" min="1" max="10" step="1" value="2" disabled>
+          </label>
+          <span id="positionReadout" class="position-readout">No candles</span>
+        </div>
+
+        <dl class="details">
+          <div class="detail"><dt>Time (UTC)</dt><dd id="detailTime">—</dd></div>
+          <div class="detail"><dt>OHLC</dt><dd id="detailOhlc">—</dd></div>
+          <div class="detail"><dt>Alert</dt><dd id="detailAlert">—</dd></div>
+          <div class="detail"><dt>Context / strength</dt><dd id="detailContext">—</dd></div>
+        </dl>
+      </section>
+    </main>
+
+    <script>
+      "use strict";
+
+      const WINDOW_SIZE = 120;
+      const state = {
+        candles: [],
+        candleSource: "unknown",
+        candleHint: "",
+        alertIndexes: new Map(),
+        alertSources: new Map(),
+        cursor: 0,
+        timer: null,
+      };
+
+      function parseCsvLine(line) {
+        const cells = [];
+        let field = "";
+        let inQuotes = false;
+        for (let index = 0; index < line.length; index += 1) {
+          const character = line[index];
+          if (inQuotes) {
+            if (character === '"') {
+              if (line[index + 1] === '"') {
+                field += '"';
+                index += 1;
+              } else {
+                inQuotes = false;
+              }
+            } else {
+              field += character;
+            }
+          } else if (character === "," && !inQuotes) {
+            cells.push(field);
+            field = "";
+          } else if (character === '"' && field.length === 0) {
+            inQuotes = true;
+          } else {
+            field += character;
+          }
+        }
+        if (inQuotes) throw new Error("CSV contains an unterminated quoted field.");
+        cells.push(field);
+        return cells;
+      }
+
+      function makeColumnMap(headers, required) {
+        const cleaned = headers.map((header, index) =>
+          index === 0 ? header.replace(/^\uFEFF/, "").trim() : header.trim()
+        );
+        const indexes = new Map(cleaned.map((header, index) => [header, index]));
+        const missing = required.filter((name) => !indexes.has(name));
+        if (missing.length) {
+          throw new Error(`CSV is missing required columns: ${missing.join(", ")}.`);
+        }
+        return indexes;
+      }
+
+      function csvValue(cells, indexes, name) {
+        const column = indexes.get(name);
+        return column === undefined ? "" : (cells[column] ?? "").trim();
+      }
+
+      async function readCsvFile(file, requiredColumns, onRow, onComplete) {
+        if (!file || typeof file.stream !== "function") {
+          throw new Error("This browser cannot stream local files.");
+        }
+        let fileStream = file.stream();
+        const isGzip = file.name.toLowerCase().endsWith(".gz");
+        if (isGzip) {
+          if (typeof DecompressionStream === "undefined") {
+            throw new Error("This browser cannot decompress .gz alert logs.");
+          }
+          fileStream = fileStream.pipeThrough(new DecompressionStream("gzip"));
+        }
+        const reader = fileStream.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let headers = null;
+        let indexes = null;
+        let rows = 0;
+        let bytesRead = 0;
+        const progress = document.getElementById("loadProgress");
+        progress.hidden = false;
+        progress.max = Math.max(file.size, 1);
+        progress.value = 0;
+
+        const processLine = (rawLine) => {
+          const line = rawLine.replace(/\r$/, "");
+          if (!line) return;
+          const cells = parseCsvLine(line);
+          if (!headers) {
+            headers = cells;
+            indexes = makeColumnMap(headers, requiredColumns);
+            if (onComplete) onComplete(headers, indexes);
+            return;
+          }
+          onRow(cells, indexes);
+          rows += 1;
+        };
+
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            bytesRead += value.byteLength;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
+            for (const line of lines) processLine(line);
+            progress.value = Math.min(bytesRead, progress.max);
+            document.getElementById("loadStatus").textContent = isGzip
+              ? `Decompressing and reading ${file.name}...`
+              : `Reading ${file.name}: ${Math.round((bytesRead / Math.max(file.size, 1)) * 100)}%`;
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+          buffer += decoder.decode();
+          if (buffer) processLine(buffer);
+        } finally {
+          progress.hidden = true;
+          reader.releaseLock();
+        }
+        if (!headers) throw new Error(`${file.name} is empty.`);
+        if (rows === 0) throw new Error(`${file.name} contains no data rows.`);
+        return { headers, rows };
+      }
+
+      function parseCandleRow(cells, indexes) {
+        const time = csvValue(cells, indexes, "time");
+        const epoch = Date.parse(time);
+        if (!Number.isFinite(epoch)) throw new Error(`Invalid candle time: ${time}`);
+        const candle = { time, epoch };
+        for (const key of ["open", "high", "low", "close"]) {
+          candle[key] = Number(csvValue(cells, indexes, key));
+          if (!Number.isFinite(candle[key]) || candle[key] <= 0) {
+            throw new Error(`Invalid ${key} price at ${time}.`);
+          }
+        }
+        if (
+          candle.high < Math.max(candle.open, candle.close) ||
+          candle.low > Math.min(candle.open, candle.close) ||
+          candle.high < candle.low
+        ) {
+          throw new Error(`Invalid OHLC range at ${time}.`);
+        }
+        return candle;
+      }
+
+      function addAlert(alertIndexes, alertSources, cells, indexes) {
+        const time = csvValue(cells, indexes, "time");
+        const epoch = Date.parse(time);
+        const symbol = csvValue(cells, indexes, "symbol");
+        const timeframe = csvValue(cells, indexes, "tf");
+        const direction = csvValue(cells, indexes, "direction");
+        if (!Number.isFinite(epoch) || !symbol || !timeframe) {
+          throw new Error("Alert log contains an invalid time, symbol, or timeframe.");
+        }
+        if (direction !== "BUY" && direction !== "SELL") {
+          throw new Error(`Alert log contains an invalid direction at ${time}.`);
+        }
+        const key = `${symbol}_${timeframe}`;
+        if (!alertIndexes.has(key)) alertIndexes.set(key, new Map());
+        const byTime = alertIndexes.get(key);
+        if (!byTime.has(epoch)) byTime.set(epoch, []);
+        byTime.get(epoch).push({
+          direction,
+          cct: csvValue(cells, indexes, "cct"),
+          cst: csvValue(cells, indexes, "cst"),
+          strength: csvValue(cells, indexes, "strength_label"),
+          source: csvValue(cells, indexes, "input_source"),
+        });
+        if (!alertSources.has(key)) alertSources.set(key, new Set());
+        const source = csvValue(cells, indexes, "input_source");
+        if (source) alertSources.get(key).add(source);
+      }
+
+      function parseCsvTextForTests(text) {
+        return text
+          .replace(/^\uFEFF/, "")
+          .split(/\r?\n/)
+          .filter((line) => line.length > 0)
+          .map(parseCsvLine);
+      }
+
+      function indexAlertsForTests(rows) {
+        if (!rows.length) return new Map();
+        const indexes = makeColumnMap(rows[0], [
+          "time", "symbol", "tf", "direction", "cct", "cst", "strength_label",
+        ]);
+        const result = new Map();
+        for (const cells of rows.slice(1)) addAlert(result, new Map(), cells, indexes);
+        return result;
+      }
+
+      function filenamePairHint(fileName) {
+        const match = fileName.match(/([A-Z]{6})_(M\d+)\.csv$/i);
+        return match ? `${match[1].toUpperCase()}_${match[2].toUpperCase()}` : "";
+      }
+
+      if (typeof document !== "undefined") {
+        const candleInput = document.getElementById("candleFile");
+        const alertInput = document.getElementById("alertFile");
+        const pairSelect = document.getElementById("pairSelect");
+        const chart = document.getElementById("chart");
+        const context = chart.getContext("2d");
+        const position = document.getElementById("position");
+        const speed = document.getElementById("speed");
+        const playButton = document.getElementById("playButton");
+
+        function selectedPair() {
+          return pairSelect.value;
+        }
+
+        function selectedAlerts() {
+          return state.alertIndexes.get(selectedPair()) ?? new Map();
+        }
+
+        function updateSyntheticWarning() {
+        const selectedSources = state.alertSources.get(selectedPair()) ?? new Set();
+        const synthetic =
+          state.candleSource.toLowerCase() === "synthetic" ||
+          selectedSources.has("synthetic");
+        document.getElementById("syntheticWarning").hidden = !synthetic;
+      }
+
+        function updatePairControls() {
+        const pairs = new Set(state.alertIndexes.keys());
+        if (state.candleHint) pairs.add(state.candleHint);
+        const values = [...pairs].sort();
+        pairSelect.replaceChildren();
+        for (const pair of values) {
+          const option = document.createElement("option");
+          option.value = pair;
+          option.textContent = pair.replace("_", " · ");
+          pairSelect.append(option);
+        }
+        pairSelect.disabled = values.length === 0;
+        if (values.length) {
+          pairSelect.value = values.includes(state.candleHint)
+            ? state.candleHint
+            : values[0];
+        }
+        const hasCandles = state.candles.length > 0;
+        for (const id of ["previousButton", "nextButton", "position", "speed"]) {
+          document.getElementById(id).disabled = !hasCandles;
+        }
+        playButton.disabled = !hasCandles;
+        document.getElementById("alertCount").textContent =
+          `${[...state.alertIndexes.values()].reduce((total, map) => total + [...map.values()].reduce((n, rows) => n + rows.length, 0), 0).toLocaleString()} alerts loaded`;
+        updateSyntheticWarning();
+      }
+
+        function setStatus(message) {
+        document.getElementById("loadStatus").textContent = message;
+      }
+
+        async function loadCandles(file) {
+        state.candles = [];
+        state.candleSource = "unknown";
+        state.candleHint = filenamePairHint(file.name);
+        let previousEpoch = -Infinity;
+        const result = await readCsvFile(
+          file,
+          ["time", "open", "high", "low", "close"],
+          (cells, indexes) => {
+            const candle = parseCandleRow(cells, indexes);
+            if (candle.epoch <= previousEpoch) {
+              throw new Error("Candle times must be strictly chronological.");
+            }
+            previousEpoch = candle.epoch;
+            state.candles.push(candle);
+            const source = csvValue(cells, indexes, "source");
+            if (source) state.candleSource = source;
+          },
+          (_headers, indexes) => {
+            if (indexes.has("source")) state.candleSource = "unknown";
+          },
+        );
+        position.max = String(Math.max(0, state.candles.length - 1));
+        state.cursor = Math.min(WINDOW_SIZE - 1, state.candles.length - 1);
+        position.value = String(state.cursor);
+        setStatus(`Loaded ${result.rows.toLocaleString()} candles from ${file.name}.`);
+      }
+
+        async function loadAlerts(file) {
+        state.alertIndexes = new Map();
+        state.alertSources = new Map();
+        const result = await readCsvFile(
+          file,
+          ["time", "symbol", "tf", "direction", "cct", "cst", "strength_label"],
+          (cells, indexes) =>
+            addAlert(state.alertIndexes, state.alertSources, cells, indexes),
+        );
+        setStatus(
+          `Loaded ${result.rows.toLocaleString()} alert rows from ${file.name}.`,
+        );
+      }
+
+        function formatPrice(value) {
+        return Number(value).toPrecision(8).replace(/\.?0+$/, "");
+      }
+
+        function updateDetails() {
+        const candle = state.candles[state.cursor];
+        if (!candle) {
+          document.getElementById("detailTime").textContent = "—";
+          document.getElementById("detailOhlc").textContent = "—";
+          document.getElementById("detailAlert").textContent = "—";
+          document.getElementById("detailContext").textContent = "—";
+          return;
+        }
+        document.getElementById("detailTime").textContent =
+          new Date(candle.epoch).toISOString();
+        document.getElementById("detailOhlc").textContent =
+          `O ${formatPrice(candle.open)} · H ${formatPrice(candle.high)} · ` +
+          `L ${formatPrice(candle.low)} · C ${formatPrice(candle.close)}`;
+        const alerts = selectedAlerts().get(candle.epoch) ?? [];
+        document.getElementById("detailAlert").textContent = alerts.length
+          ? alerts.map((alert) => alert.direction).join(", ")
+          : "No alert";
+        document.getElementById("detailContext").textContent = alerts.length
+          ? alerts.map((alert) =>
+              `${alert.cct || "—"} / ${alert.cst || "—"} / ${alert.strength || "—"}`
+            ).join("; ")
+          : "—";
+        document.getElementById("positionReadout").textContent =
+          `${state.cursor + 1} / ${state.candles.length.toLocaleString()} candles`;
+      }
+
+        function drawChart() {
+        const width = chart.clientWidth;
+        const height = chart.clientHeight;
+        if (!width || !height) return;
+        const ratio = window.devicePixelRatio || 1;
+        chart.width = Math.round(width * ratio);
+        chart.height = Math.round(height * ratio);
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        context.clearRect(0, 0, width, height);
+        context.fillStyle = "#fbfcfd";
+        context.fillRect(0, 0, width, height);
+
+        if (!state.candles.length) {
+          context.fillStyle = "#63727f";
+          context.font = "15px system-ui, sans-serif";
+          context.textAlign = "center";
+          context.fillText("Load local CSV files to view a replay.", width / 2, height / 2);
+          return;
+        }
+
+        const start = Math.max(0, state.cursor - WINDOW_SIZE + 1);
+        const visible = state.candles.slice(start, state.cursor + 1);
+        const left = 72;
+        const right = 16;
+        const top = 18;
+        const bottom = 30;
+        const plotWidth = Math.max(1, width - left - right);
+        const plotHeight = Math.max(1, height - top - bottom);
+        const high = Math.max(...visible.map((candle) => candle.high));
+        const low = Math.min(...visible.map((candle) => candle.low));
+        const spread = Math.max(high - low, Math.abs(high) * 0.000001, 0.00000001);
+        const maxPrice = high + spread * 0.08;
+        const minPrice = low - spread * 0.08;
+        const yFor = (price) =>
+          top + ((maxPrice - price) / (maxPrice - minPrice)) * plotHeight;
+        const step = plotWidth / Math.max(visible.length, 1);
+
+        context.font = "11px system-ui, sans-serif";
+        context.textAlign = "right";
+        context.textBaseline = "middle";
+        for (let line = 0; line <= 4; line += 1) {
+          const y = top + (plotHeight * line) / 4;
+          const price = maxPrice - ((maxPrice - minPrice) * line) / 4;
+          context.strokeStyle = "#e5eaee";
+          context.lineWidth = 1;
+          context.beginPath();
+          context.moveTo(left, y);
+          context.lineTo(width - right, y);
+          context.stroke();
+          context.fillStyle = "#647380";
+          context.fillText(formatPrice(price), left - 8, y);
+        }
+
+        const alerts = selectedAlerts();
+        visible.forEach((candle, visibleIndex) => {
+          const x = left + step * (visibleIndex + 0.5);
+          const isUp = candle.close >= candle.open;
+          const color = isUp ? "#19754b" : "#b44942";
+          const bodyTop = yFor(Math.max(candle.open, candle.close));
+          const bodyBottom = yFor(Math.min(candle.open, candle.close));
+          const bodyWidth = Math.max(1, Math.min(10, step * 0.62));
+          context.strokeStyle = color;
+          context.lineWidth = 1;
+          context.beginPath();
+          context.moveTo(x, yFor(candle.high));
+          context.lineTo(x, yFor(candle.low));
+          context.stroke();
+          context.fillStyle = color;
+          context.fillRect(
+            x - bodyWidth / 2,
+            bodyTop,
+            bodyWidth,
+            Math.max(1, bodyBottom - bodyTop),
+          );
+
+          const candleAlerts = alerts.get(candle.epoch) ?? [];
+          candleAlerts.forEach((alert, alertIndex) => {
+            const buy = alert.direction === "BUY";
+            const markerY = buy
+              ? yFor(candle.low) + 8 + alertIndex * 10
+              : yFor(candle.high) - 8 - alertIndex * 10;
+            context.fillStyle = buy ? "#087e8b" : "#a94a31";
+            context.beginPath();
+            context.moveTo(x, markerY + (buy ? 4 : -4));
+            context.lineTo(x - 4, markerY + (buy ? -3 : 3));
+            context.lineTo(x + 4, markerY + (buy ? -3 : 3));
+            context.closePath();
+            context.fill();
+          });
+        });
+
+        const labels = [
+          [visible[0], left],
+          [visible[Math.floor((visible.length - 1) / 2)], left + plotWidth / 2],
+          [visible[visible.length - 1], width - right],
+        ];
+        context.fillStyle = "#647380";
+        context.textBaseline = "alphabetic";
+        labels.forEach(([candle, x], index) => {
+          if (!candle) return;
+          context.textAlign = index === 0 ? "left" : index === 2 ? "right" : "center";
+          context.fillText(
+            new Date(candle.epoch).toISOString().slice(0, 16).replace("T", " "),
+            x,
+            height - 8,
+          );
+        });
+        updateDetails();
+      }
+
+        function stopPlayback() {
+        if (state.timer !== null) window.clearInterval(state.timer);
+        state.timer = null;
+        playButton.textContent = "Play";
+      }
+
+        function startPlayback() {
+        stopPlayback();
+        if (state.cursor >= state.candles.length - 1) {
+          state.cursor = 0;
+          position.value = "0";
+        }
+        playButton.textContent = "Pause";
+        const interval = Math.max(80, 1000 / Number(speed.value));
+        state.timer = window.setInterval(() => {
+          if (state.cursor >= state.candles.length - 1) {
+            stopPlayback();
+            return;
+          }
+          state.cursor += 1;
+          position.value = String(state.cursor);
+          drawChart();
+        }, interval);
+      }
+
+        candleInput.addEventListener("change", async () => {
+        const file = candleInput.files?.[0];
+        if (!file) return;
+        stopPlayback();
+        try {
+          await loadCandles(file);
+          updatePairControls();
+          drawChart();
+        } catch (error) {
+          state.candles = [];
+          updatePairControls();
+          drawChart();
+          setStatus(`Could not load candle CSV: ${error.message}`);
+        }
+      });
+
+        alertInput.addEventListener("change", async () => {
+        const file = alertInput.files?.[0];
+        if (!file) return;
+        stopPlayback();
+        try {
+          await loadAlerts(file);
+          updatePairControls();
+          drawChart();
+        } catch (error) {
+          state.alertIndexes = new Map();
+          state.alertSources = new Map();
+          updatePairControls();
+          drawChart();
+          setStatus(`Could not load alert log: ${error.message}`);
+        }
+      });
+
+        pairSelect.addEventListener("change", () => {
+        updateSyntheticWarning();
+        drawChart();
+      });
+
+        document.getElementById("previousButton").addEventListener("click", () => {
+        stopPlayback();
+        state.cursor = Math.max(0, state.cursor - 1);
+        position.value = String(state.cursor);
+        drawChart();
+      });
+
+        document.getElementById("nextButton").addEventListener("click", () => {
+        stopPlayback();
+        state.cursor = Math.min(state.candles.length - 1, state.cursor + 1);
+        position.value = String(state.cursor);
+        drawChart();
+      });
+
+        playButton.addEventListener("click", () => {
+        if (state.timer === null) startPlayback();
+        else stopPlayback();
+      });
+
+        position.addEventListener("input", () => {
+        stopPlayback();
+        state.cursor = Number(position.value);
+        drawChart();
+      });
+
+        speed.addEventListener("input", () => {
+        document.getElementById("speedValue").textContent = speed.value;
+        if (state.timer !== null) startPlayback();
+      });
+
+        window.addEventListener("resize", drawChart);
+        drawChart();
+      }
+
+      if (typeof module !== "undefined" && module.exports) {
+        module.exports = {
+          parseCsvLine,
+          parseCsvTextForTests,
+          indexAlertsForTests,
+          filenamePairHint,
+        };
+      }
+    </script>
+  </body>
+</html>
