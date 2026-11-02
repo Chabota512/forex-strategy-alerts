@@ -2,3 +2,4 @@
 - [Public repository downloads](github-imports.md) — direct GitHub clones may hit the Replit connection proxy; public codeload archives worked without GitHub MCP.
 - [Replay settings parity](replay-settings-parity.md) — batch and session snapshots must share normalized simulation settings.
 - [myFXtool UI direction](myfxtool-ui-direction.md) — preserve the current visual language; refine inconsistent sections and grouping rather than redesigning the whole interface.
+- [Workspace testing preference](workspace-testing-preference.md) — do not run project test suites here; use faster non-test checks instead.

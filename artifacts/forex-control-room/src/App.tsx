@@ -28,6 +28,7 @@ import {
 import { SimulationPanel } from '@/components/simulation-panel';
 import { DrawingLayer, DrawingToolbar, requestClearSelectedDrawings } from '@/components/drawing-tools';
 import { TradeJournal } from '@/components/trade-journal';
+import { ManualDecisionLog, type ManualDecisionRecord } from '@/components/manual-decision-log';
 import EvolveControl from '@/components/evolve-control';
 import AutoevolveControl from '@/components/autoevolve-control';
 import SystemIntelligence from '@/components/system-intelligence';
@@ -187,15 +188,6 @@ type MtfAlert = Alert & {
   siOwnerScore?: number | null;
 };
 type SiModelName = 'evidence' | 'owner' | 'blend';
-type ManualDecisionRecord = {
-  caseId: string;
-  alertId: string;
-  decision: 'take' | 'skip';
-  formationFingerprint: string;
-  featureContext: Record<string, unknown>;
-  comment: string | null;
-  tradeDirection?: 'BUY' | 'SELL';
-};
 type AlertTapeItem = {
   candleIndex: number;
   alert: MtfAlert;
@@ -1401,14 +1393,23 @@ export function Home() {
     loadedMonthChunks,
     monthWindowKey,
   );
+  const chartHasCandles = chartCandles.some(Boolean);
   const symbolDataLoading = !activeDataset && (dataset.isLoading || dataset.isFetching);
   const candleWindowLoading = Boolean(activeDataset)
-    && candlesQuery.isFetching && !candleData && !chartCandles.some(Boolean);
+    && candlesQuery.isFetching && !candleData && !chartHasCandles;
   const chartLoadingMessage = symbolDataLoading
     ? `Loading ${selectedSymbol} market data…`
+    : windowStream.active && !chartHasCandles
+      ? `Loading ${selectedSymbol} ${timeframe} candles · ${compactCandleCount(windowStream.loaded)}/${compactCandleCount(windowStream.total)}`
     : candleWindowLoading
       ? `Loading ${selectedSymbol} ${timeframe} candles…`
-      : null;
+      : startReplayMutation.isPending && !chartHasCandles
+        ? `Starting ${selectedSymbol} replay…`
+        : matchingSession && advanceReplayMutation.isPending && !chartHasCandles
+          ? `Loading ${selectedSymbol} replay candles…`
+          : null;
+  const chartIsLoading = Boolean(chartLoadingMessage)
+    || (candlesQuery.isLoading && !candleData && !chartHasCandles);
   const loadStatus = windowStream.active
     ? `Loading ${compactCandleCount(windowStream.loaded)}/${compactCandleCount(windowStream.total)} · chunk ${windowStream.chunkIndex}/${windowStream.chunkCount}`
     : symbolDataLoading
@@ -1788,6 +1789,12 @@ export function Home() {
   const revealedAlerts = useMemo(() => streamAlerts
     .filter(item => item.candleIndex <= cursor)
     .map(item => item.alert), [streamAlerts, cursor]);
+  const manualAlertsAtCursor = useMemo(() => {
+    const decidedAlertIds = new Set(manualDecisionLog.map(decision => decision.alertId));
+    return streamAlerts
+      .filter(item => item.candleIndex === cursor && !decidedAlertIds.has(item.alert.alertId))
+      .map(item => item.alert);
+  }, [streamAlerts, cursor, manualDecisionLog]);
   const displayedRevealedAlerts = useMemo(() => applyAiPolicyView(
     streamAlerts.filter(item => item.candleIndex <= cursor),
     aiFilterEnabled,
@@ -2209,9 +2216,9 @@ export function Home() {
     });
   };
 
-  const manualSelectedAlert = selected
-    ? revealedAlerts.find(alert => alert.alertId === selected.alertId) ?? null
-    : null;
+  const manualSelectedAlert = manualAlertsAtCursor.find(
+    alert => alert.alertId === selected?.alertId,
+  ) ?? manualAlertsAtCursor[0] ?? null;
   const takeManualSide = (side: 'BUY' | 'SELL') => {
     if (!manualSelectedAlert || manualSelectedAlert.direction !== side) return;
     void submitManualDecision('take', manualSelectedAlert.alertId, side);
@@ -2680,29 +2687,6 @@ export function Home() {
       {replayFailed && <button className="inline-error retry" onClick={retryReplay} data-testid="button-retry-smoke">Replay failed · Retry</button>}
     </section>
 
-    <section className="replay-bar" aria-label="Replay controls">
-      <span className="replay-control-label">PLAYBACK</span>
-      <div className="replay-buttons">
-        <button className="transport" disabled={!replayReady} onClick={resetWindow} aria-label="Reset replay to first candle" title="Reset to first candle"><SkipBack size={15}/></button>
-        <button className="transport" disabled={!replayReady || cursor <= 0 || advanceReplayMutation.isPending} data-advance-busy={advanceReplayMutation.isPending && replayReady && cursor > 0 ? 'true' : undefined} onClick={() => { void stepTo(cursor - 1); }} aria-label="Previous candle" data-testid="button-previous-candle"><ChevronLeft size={17}/></button>
-        <button
-          className="transport play-toggle"
-          disabled={manualMode || !activeDataset?.ownerApproved || !validDates || dataset.isLoading || dataset.isError || startReplayMutation.isPending || advanceReplayMutation.isPending || replayLimitExceeded || (candlesQuery.isLoading && !replayReady)}
-          data-advance-busy={advanceReplayMutation.isPending && replayReady ? 'true' : undefined}
-          onClick={togglePlayback}
-          aria-label={playing ? 'Pause replay' : !replayReady ? 'Run replay' : atEnd ? 'Replay from start' : 'Play replay'}
-          title={playing ? 'Pause replay' : !replayReady ? 'Run replay' : atEnd ? 'Replay from start' : 'Play replay'}
-          data-testid="button-play-pause"
-        >{playing ? <Pause size={15} fill="currentColor"/> : <Play size={15} fill="currentColor"/>}</button>
-        <button className="transport" disabled={!replayReady || atEnd || advanceReplayMutation.isPending} data-advance-busy={advanceReplayMutation.isPending && replayReady && !atEnd ? 'true' : undefined} onClick={() => { void stepTo(cursor + 1); }} aria-label="Next candle" data-testid="button-next-candle"><ChevronRight size={17}/></button>
-        <button className="transport" disabled={!replayReady} onClick={resetWindow} aria-label="Reset to first candle" title="Reset"><RotateCcw size={14}/></button>
-      </div>
-      <label className="seek-control"><span className="seek-label">SEEK</span><input type="range" min="0" max={Math.max(0, totalCandles - 1)} value={replayReady ? (scrubbing ? scrubPosition : cursor) : Math.max(0, totalCandles - 1)} disabled={!replayReady} aria-disabled={advanceReplayMutation.isPending} onPointerDown={e => { if (advanceInFlightRef.current) { e.preventDefault(); return; } beginScrub(); }} onPointerUp={endScrub} onPointerCancel={endScrub} onBlur={endScrub} onKeyDown={e => { if (advanceInFlightRef.current) { e.preventDefault(); return; } beginScrub(); }} onKeyUp={endScrub} onChange={e => { if (advanceInFlightRef.current) return; const next = Number(e.target.value); scrubPositionRef.current = next; setScrubPosition(next); }} data-testid="slider-replay-position"/></label>
-      <div className="playback-rate" role="group" aria-label="Playback speed">
-        {[0.5, 1, 2, 5].map(rate => <button key={rate} className={speed === rate ? 'rate selected' : 'rate'} disabled={!replayReady} onClick={() => setSpeed(rate)} data-testid={`button-speed-${String(rate).replace('.', '-')}`}>{rate}×</button>)}
-      </div>
-      <div className="time-readout"><span>{fmtTime(activeCandle?.time)}</span><b>{replayReady ? `${Math.min(cursor + 1, totalCandles).toLocaleString()} / ${totalCandles.toLocaleString()}` : `— / ${totalCandles.toLocaleString()}`}</b></div>
-    </section>
     {selectedSymbol === 'XAUUSD' && <section
       className={`manual-replay-controls${manualMode ? ' is-active' : ''}`}
       aria-label="Manual replay controls"
@@ -2718,7 +2702,7 @@ export function Home() {
         <span>MANUAL MODE</span>
       </label>
       {manualMode ? <>
-        <p>Paused replay · N next · P previous · B/S take the matching alert side · K skip the selected alert · entries use the next candle open.</p>
+        <p>Paused replay · N next · P previous · B/S take the matching alert side · K skip. Moving past a candle records undecided alerts there as skipped.</p>
         <div className="manual-decision-actions">
           <textarea
             value={manualComment}
@@ -2730,32 +2714,35 @@ export function Home() {
           />
           <button
             type="button"
-            disabled={!matchingSession || manualSelectedAlert?.direction !== 'BUY'}
+            disabled={!matchingSession || !manualSelectedAlert || manualSelectedAlert.direction !== 'BUY'}
+            title={!matchingSession ? 'Start a manual replay to enable decisions.' : manualSelectedAlert?.direction !== 'BUY' ? 'TAKE BUY is available for a current BUY alert.' : 'Take the current BUY alert.'}
             onClick={() => takeManualSide('BUY')}
             data-testid="button-manual-take-buy"
           >TAKE BUY · B</button>
           <button
             type="button"
-            disabled={!matchingSession || manualSelectedAlert?.direction !== 'SELL'}
+            disabled={!matchingSession || !manualSelectedAlert || manualSelectedAlert.direction !== 'SELL'}
+            title={!matchingSession ? 'Start a manual replay to enable decisions.' : manualSelectedAlert?.direction !== 'SELL' ? 'TAKE SELL is available for a current SELL alert.' : 'Take the current SELL alert.'}
             onClick={() => takeManualSide('SELL')}
             data-testid="button-manual-take-sell"
           >TAKE SELL · S</button>
           <button
             type="button"
             disabled={!matchingSession || !manualSelectedAlert}
+            title={!matchingSession ? 'Start a manual replay to enable decisions.' : !manualSelectedAlert ? 'No undecided alert at the current candle.' : 'Skip the current alert.'}
             onClick={skipManualSelection}
             data-testid="button-manual-skip"
           >SKIP ALERT · K</button>
         </div>
-        {manualActionError && <div role="alert" className="inline-error" data-testid="error-manual-decision">{manualActionError}</div>}
-        <div className="manual-decision-log" aria-label="Manual decision log" data-testid="manual-decision-log">
-          {manualDecisionLog.slice(-8).reverse().map(decision => <div key={decision.caseId}>
-            <strong>{decision.decision.toUpperCase()}</strong>
-            <span>{decision.alertId.slice(0, 10)} · {String(decision.featureContext.cct ?? '—')} / {String(decision.featureContext.cst ?? '—')} / {String(decision.featureContext.wick_pressure ?? '—')}</span>
-            <code>{decision.formationFingerprint.slice(0, 16)}</code>
-          </div>)}
-          {!manualDecisionLog.length && <span>No manual decisions recorded in this replay.</span>}
+        <div className="manual-decision-status" role="status" data-testid="manual-decision-status">
+          {!matchingSession
+            ? 'RUN ENGINE TO START A MANUAL REPLAY.'
+            : manualSelectedAlert
+              ? `CURRENT ${manualSelectedAlert.direction} ALERT · ${fmtTime(manualSelectedAlert.time)} · ${manualAlertsAtCursor.length} UNDECIDED`
+              : 'NO UNDECIDED ALERT AT THIS CANDLE · ADVANCE TO THE NEXT ALERT.'}
         </div>
+        {manualActionError && <div role="alert" className="inline-error" data-testid="error-manual-decision">{manualActionError}</div>}
+        <ManualDecisionLog records={manualDecisionLog}/>
       </> : <p>Manual replay is paused by default when enabled. Automated playback remains unchanged otherwise.</p>}
     </section>}
 
@@ -2857,11 +2844,11 @@ export function Home() {
         <div className="shadow-disclaimer" role="note" data-testid="shadow-overlay-disclaimer">
           DC and HIER are read-only shadows; they never affect alerts, strength, or simulation.
         </div>
-        {chartLoadingMessage || ((candlesQuery.isLoading && !candleData && !chartCandles.some(Boolean)) || (m1DataReplay && !activeCandle && !chartCandles.some(Boolean))) ? <div className="chart-loading" role="status" aria-live="polite" data-testid="status-chart-loading">
+        {chartIsLoading ? <div className="chart-loading" role="status" aria-live="polite" data-testid="status-chart-loading">
           <div className="chart-loading-card">
             <span className="chart-loading-spinner" aria-hidden="true"/>
-            <strong>{chartLoadingMessage ?? `Preparing ${selectedSymbol} chart…`}</strong>
-            <span>You can switch symbols while this loads.</span>
+            <strong>{chartLoadingMessage ?? `Loading ${selectedSymbol} ${timeframe} candles…`}</strong>
+            <span>{loadStatus ?? 'Waiting for the replay request to finish.'}</span>
           </div>
         </div> :
           <Chart
@@ -2907,6 +2894,29 @@ export function Home() {
         </div>
         {candleData?.truncated && <div className="truncation">Window truncated · {candleData.candles.length.toLocaleString()} of {candleData.totalCandles.toLocaleString()} candles.</div>}
         {matchingSession && <div className="run-stamp" data-testid="status-run">INCREMENTAL SESSION · {Math.max(0, computedThrough + 1).toLocaleString()} / {totalCandles.toLocaleString()} COMPUTED · {matchingSession.runId}</div>}
+        <section className="replay-bar" aria-label="Replay controls">
+          <span className="replay-control-label">PLAYBACK</span>
+          <div className="replay-buttons">
+            <button className="transport" disabled={!replayReady} onClick={resetWindow} aria-label="Reset replay to first candle" title="Reset to first candle"><SkipBack size={15}/></button>
+            <button className="transport" disabled={!replayReady || cursor <= 0 || advanceReplayMutation.isPending} data-advance-busy={advanceReplayMutation.isPending && replayReady && cursor > 0 ? 'true' : undefined} onClick={() => { void stepTo(cursor - 1); }} aria-label="Previous candle" data-testid="button-previous-candle"><ChevronLeft size={17}/></button>
+            <button
+              className="transport play-toggle"
+              disabled={manualMode || !activeDataset?.ownerApproved || !validDates || dataset.isLoading || dataset.isError || startReplayMutation.isPending || advanceReplayMutation.isPending || replayLimitExceeded || (candlesQuery.isLoading && !replayReady)}
+              data-advance-busy={advanceReplayMutation.isPending && replayReady ? 'true' : undefined}
+              onClick={togglePlayback}
+              aria-label={playing ? 'Pause replay' : !replayReady ? 'Run replay' : atEnd ? 'Replay from start' : 'Play replay'}
+              title={playing ? 'Pause replay' : !replayReady ? 'Run replay' : atEnd ? 'Replay from start' : 'Play replay'}
+              data-testid="button-play-pause"
+            >{playing ? <Pause size={15} fill="currentColor"/> : <Play size={15} fill="currentColor"/>}</button>
+            <button className="transport" disabled={!replayReady || atEnd || advanceReplayMutation.isPending} data-advance-busy={advanceReplayMutation.isPending && replayReady && !atEnd ? 'true' : undefined} onClick={() => { void stepTo(cursor + 1); }} aria-label="Next candle" data-testid="button-next-candle"><ChevronRight size={17}/></button>
+            <button className="transport" disabled={!replayReady} onClick={resetWindow} aria-label="Reset to first candle" title="Reset"><RotateCcw size={14}/></button>
+          </div>
+          <label className="seek-control"><span className="seek-label">SEEK</span><input type="range" min="0" max={Math.max(0, totalCandles - 1)} value={replayReady ? (scrubbing ? scrubPosition : cursor) : Math.max(0, totalCandles - 1)} disabled={!replayReady} aria-disabled={advanceReplayMutation.isPending} onPointerDown={e => { if (advanceInFlightRef.current) { e.preventDefault(); return; } beginScrub(); }} onPointerUp={endScrub} onPointerCancel={endScrub} onBlur={endScrub} onKeyDown={e => { if (advanceInFlightRef.current) { e.preventDefault(); return; } beginScrub(); }} onKeyUp={endScrub} onChange={e => { if (advanceInFlightRef.current) return; const next = Number(e.target.value); scrubPositionRef.current = next; setScrubPosition(next); }} data-testid="slider-replay-position"/></label>
+          <div className="playback-rate" role="group" aria-label="Playback speed">
+            {[0.5, 1, 2, 5].map(rate => <button key={rate} className={speed === rate ? 'rate selected' : 'rate'} disabled={!replayReady} onClick={() => setSpeed(rate)} data-testid={`button-speed-${String(rate).replace('.', '-')}`}>{rate}×</button>)}
+          </div>
+          <div className="time-readout"><span>{fmtTime(activeCandle?.time)}</span><b>{replayReady ? `${Math.min(cursor + 1, totalCandles).toLocaleString()} / ${totalCandles.toLocaleString()}` : `— / ${totalCandles.toLocaleString()}`}</b></div>
+        </section>
       </section>
 
       <div className="right-panel">
