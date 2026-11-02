@@ -17,9 +17,14 @@ import {
   useStartLabReplaySession,
 } from '@workspace/api-client-react';
 import type { AICommentResult, Alert, Candle, CandleMonthChunk, ConfirmedSwingEvent, EvolvePolicy, InstrumentReviewInfo, InstrumentSymbol, ReplayAlert, ReplayCandleState, ReplayPolicyDecision, ReplaySessionStartResult, SimulatedTrade, SimulationSettings, SimulationSnapshot, Timeframe, WickPressure, WickPressurePoint } from '@workspace/api-client-react';
-import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Moon, Pause, Play, RotateCcw, SkipBack, Square, Sun } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Pause, Play, RotateCcw, SkipBack, Square } from 'lucide-react';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { streamCandleWindow as runCandleWindowStream } from './lib/candle-stream';
+import {
+  normalizeThemePreference,
+  resolveThemePreference,
+  type ThemePreference,
+} from './lib/theme-preference';
 import { SimulationPanel } from '@/components/simulation-panel';
 import { DrawingLayer, DrawingToolbar, requestClearSelectedDrawings } from '@/components/drawing-tools';
 import { TradeJournal } from '@/components/trade-journal';
@@ -1093,13 +1098,21 @@ export function Home() {
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
     try {
-      return window.localStorage.getItem('forex-strategy-lab-theme') === 'light' ? 'light' : 'dark';
+      return normalizeThemePreference(window.localStorage.getItem('forex-strategy-lab-theme'));
     } catch {
-      return 'dark';
+      return 'system';
     }
   });
+  const [systemDark, setSystemDark] = useState(() => {
+    try {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch {
+      return false;
+    }
+  });
+  const theme = resolveThemePreference(themePreference, systemDark);
   const [direction, setDirection] = useState('ALL');
   const [strength, setStrength] = useState('ALL');
   const [engulfingOnly, setEngulfingOnly] = useState(false);
@@ -1683,12 +1696,24 @@ export function Home() {
     }
   }, [focusedTrade, candleData, viewMonth]);
   useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const updateSystemTheme = () => setSystemDark(media.matches);
+    updateSystemTheme();
+    if (media.addEventListener) media.addEventListener('change', updateSystemTheme);
+    else media.addListener(updateSystemTheme);
+    return () => {
+      if (media.removeEventListener) media.removeEventListener('change', updateSystemTheme);
+      else media.removeListener(updateSystemTheme);
+    };
+  }, []);
+  useEffect(() => {
     try {
-      window.localStorage.setItem('forex-strategy-lab-theme', theme);
+      window.localStorage.setItem('forex-strategy-lab-theme', themePreference);
     } catch {
       // Keep the chosen theme for this session when storage is unavailable.
     }
-  }, [theme]);
+  }, [themePreference]);
   useEffect(() => {
     try {
       window.localStorage.setItem('forex-strategy-lab-si-model', siModel);
@@ -2508,17 +2533,19 @@ export function Home() {
       <InstrumentHeading symbol={selectedSymbol}/>
       <div className="source-meta" title={activeDataset?.source ?? ''}>
         <span>{sourceName}</span><span className="source-hash">{activeDataset ? `${boundsStart}—${boundsEnd}` : '—'}</span><span className="source-hash">{activeDataset?.sourceSha256.slice(0, 12) ?? '—'}</span>
-        <button
-          type="button"
-          className="theme-toggle"
-          onClick={() => setTheme(value => value === 'dark' ? 'light' : 'dark')}
-          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          data-testid="button-theme-toggle"
-        >
-          {theme === 'dark' ? <Sun size={13}/> : <Moon size={13}/>}
-          <span>{theme === 'dark' ? 'LIGHT' : 'DARK'}</span>
-        </button>
+        <label className="theme-choice">
+          <span>THEME</span>
+          <select
+            value={themePreference}
+            onChange={event => setThemePreference(event.target.value as ThemePreference)}
+            aria-label="Color theme"
+            data-testid="button-theme-toggle"
+          >
+            <option value="system">SYSTEM</option>
+            <option value="light">LIGHT</option>
+            <option value="dark">DARK</option>
+          </select>
+        </label>
       </div>
     </header>
 
@@ -2553,6 +2580,13 @@ export function Home() {
           : 'ALL SOURCES OWNER-APPROVED'}
       </span>
     </section>
+    <nav className="workflow-rail" aria-label="Workstation responsibilities">
+      <span><b>01</b> DATA APPROVAL</span><i aria-hidden="true"/>
+      <span><b>02</b> ENGINE RUN</span><i aria-hidden="true"/>
+      <span><b>03</b> REPLAY</span><i aria-hidden="true"/>
+      <span><b>04</b> CHART &amp; REVIEW</span><i aria-hidden="true"/>
+      <span><b>05</b> SIMULATION / AUTOMATION</span>
+    </nav>
 
     <section className="querybar" aria-label="Historical review settings">
       <label className="compact-field" title="Chart display starts on this date and continues through the latest available data.">
@@ -2589,8 +2623,8 @@ export function Home() {
           setTimeframe(tf); clearReplay();
         }} data-testid={`button-timeframe-${tf.toLowerCase()}`}>{tf}</button>)}
       </div>
-      <button className="run-control" onClick={runReplay} disabled={!activeDataset?.ownerApproved || !validDates || dataset.isLoading || dataset.isError || startReplayMutation.isPending || (advanceReplayMutation.isPending && !playing) || candlesQuery.isLoading || replayLimitExceeded} aria-label={playing ? 'Stop simulation' : matchingSession ? 'Replay from start' : 'Run replay'} title={playing ? 'Stop simulation' : matchingSession ? 'Replay from start' : 'Run replay'} data-advance-busy={advanceReplayMutation.isPending ? 'true' : undefined} data-testid="button-run-smoke">
-        {playing ? <Square size={13} fill="currentColor"/> : <Play size={13} fill="currentColor"/>}{playing ? 'STOP SIMULATION' : startReplayMutation.isPending ? 'STARTING…' : matchingSession ? 'REPLAY FROM START' : 'RUN / REPLAY'}
+      <button className="run-control" onClick={runReplay} disabled={!activeDataset?.ownerApproved || !validDates || dataset.isLoading || dataset.isError || startReplayMutation.isPending || (advanceReplayMutation.isPending && !playing) || candlesQuery.isLoading || replayLimitExceeded} aria-label={playing ? 'Stop engine run' : matchingSession ? 'Restart engine run' : 'Run engine'} title={playing ? 'Stop engine run' : matchingSession ? 'Restart engine run' : 'Run engine'} data-advance-busy={advanceReplayMutation.isPending ? 'true' : undefined} data-testid="button-run-smoke">
+        {playing ? <Square size={13} fill="currentColor"/> : <Play size={13} fill="currentColor"/>}{playing ? 'STOP ENGINE' : startReplayMutation.isPending ? 'STARTING ENGINE…' : matchingSession ? 'RESTART ENGINE' : 'RUN ENGINE'}
       </button>
       <span className="loaded-state" data-testid="status-dataset"><b data-testid="status-selected-symbol">{selectedSymbol}</b> · {dataset.isError ? 'SOURCE ERROR' : dataset.isLoading ? 'SOURCE…' : `${totalCandles.toLocaleString()} CANDLES ${timeframe === 'M1' ? 'AVAILABLE' : 'LOADED'}`}</span>
       {activeDataset && !activeDataset.ownerApproved && <div className="m1-notice" role="status" data-testid="notice-pending-owner-review">{selectedSymbol} is pending owner approval. Replay and scoring remain disabled until the manifest is approved.</div>}
@@ -2606,6 +2640,7 @@ export function Home() {
     </section>
 
     <section className="replay-bar" aria-label="Replay controls">
+      <span className="replay-control-label">PLAYBACK</span>
       <div className="replay-buttons">
         <button className="transport" disabled={!replayReady} onClick={resetWindow} aria-label="Reset replay to first candle" title="Reset to first candle"><SkipBack size={15}/></button>
         <button className="transport" disabled={!replayReady || cursor <= 0 || advanceReplayMutation.isPending} data-advance-busy={advanceReplayMutation.isPending && replayReady && cursor > 0 ? 'true' : undefined} onClick={() => { void stepTo(cursor - 1); }} aria-label="Previous candle" data-testid="button-previous-candle"><ChevronLeft size={17}/></button>
@@ -2714,55 +2749,56 @@ export function Home() {
             onChange={selectSwingDirectionVersion}
           />
           <button type="button" className={`overlay-toggle${showWickPressure ? ' active' : ''}`} aria-pressed={showWickPressure} aria-label="Wick Pressure overlay" onClick={() => setShowWickPressure(value => !value)} data-testid="toggle-overlay-wick-pressure">WP</button>
-          {!isGoldV2 && <>
-            <button type="button" className={`overlay-toggle${showDc ? ' active' : ''}`} aria-pressed={showDc} aria-label="Directional Change shadow overlay" onClick={() => setShowDc(value => !value)} data-testid="toggle-overlay-dc">DC</button>
-            <button type="button" className={`overlay-toggle${showHier ? ' active' : ''}`} aria-pressed={showHier} aria-label="Hierarchical Swings shadow overlay" onClick={() => setShowHier(value => !value)} data-testid="toggle-overlay-hier">HIER</button>
-          </>}
-          <div className="swing-controls" role="group" aria-label="Swing labels">
-            <button
-              type="button"
-              className={`overlay-toggle${showSwings ? ' active' : ''}`}
-              aria-pressed={showSwings}
-              aria-expanded={showSwings}
-              aria-label="Show swing labels"
-              onClick={() => setShowSwings(value => !value)}
-              data-testid="toggle-overlay-swings"
-            >SWINGS</button>
-          </div>
           <button type="button" className={`overlay-toggle${showAlertMarkers ? ' active' : ''}`} aria-pressed={showAlertMarkers} aria-label="Alert markers" onClick={() => setShowAlertMarkers(value => !value)} data-testid="toggle-overlay-alerts">ALERTS</button>
-          <button type="button" className={`overlay-toggle${showStrengthLabels ? ' active' : ''}`} aria-pressed={showStrengthLabels} aria-label="S/N/W strength labels" onClick={() => setShowStrengthLabels(value => !value)} data-testid="toggle-overlay-strength">S/N/W</button>
-          <button type="button" className={`overlay-toggle${showCrosshair ? ' active' : ''}`} aria-pressed={showCrosshair} aria-label="Crosshair" title="Toggle chart crosshair" onClick={() => setShowCrosshair(value => !value)} data-testid="toggle-crosshair">CROSSHAIR</button>
-          <button type="button" className={`overlay-toggle${showTradeLevels ? ' active' : ''}`} aria-pressed={showTradeLevels} aria-label="Trade levels overlay" onClick={() => setShowTradeLevels(value => !value)} data-testid="toggle-trade-levels">TRADE LEVELS</button>
-          <DrawingToolbar
-            tool={drawingTool}
-            onTool={setDrawingTool}
-            onClear={requestClearSelectedDrawings}
-            showPrices={showAnnotationPrices}
-            onTogglePrices={() => setShowAnnotationPrices(value => !value)}
-          />
           <div className="chart-nav-controls" role="group" aria-label="Chart navigation">
-            {showSwings && (
-              <div className="swing-family-controls" role="group" aria-label="Swing families">
-                {SWING_FAMILY_CHOICES.map(({ family, label }) => (
-                  <label key={family}>
-                    <input
-                      type="checkbox"
-                      checked={swingFamilies[family]}
-                      aria-label={`${label} swing labels`}
-                      data-testid={`toggle-swing-family-${family.toLowerCase()}`}
-                      onChange={event => {
-                        const checked = event.currentTarget.checked;
-                        setSwingFamilies(current => ({
-                          ...current,
-                          [family]: checked,
-                        }));
-                      }}
-                    />
-                    <span>{label}</span>
-                  </label>
-                ))}
+            <details className="chart-options" data-testid="chart-analysis-options">
+              <summary>ANALYSIS OPTIONS</summary>
+              <div className="chart-options-content">
+                {!isGoldV2 && <>
+                  <button type="button" className={`overlay-toggle${showDc ? ' active' : ''}`} aria-pressed={showDc} aria-label="Directional Change shadow overlay" onClick={() => setShowDc(value => !value)} data-testid="toggle-overlay-dc">DC SHADOW</button>
+                  <button type="button" className={`overlay-toggle${showHier ? ' active' : ''}`} aria-pressed={showHier} aria-label="Hierarchical Swings shadow overlay" onClick={() => setShowHier(value => !value)} data-testid="toggle-overlay-hier">HIER SHADOW</button>
+                </>}
+                <button
+                  type="button"
+                  className={`overlay-toggle${showSwings ? ' active' : ''}`}
+                  aria-pressed={showSwings}
+                  aria-expanded={showSwings}
+                  aria-label="Show swing labels"
+                  onClick={() => setShowSwings(value => !value)}
+                  data-testid="toggle-overlay-swings"
+                >SWINGS</button>
+                <button type="button" className={`overlay-toggle${showStrengthLabels ? ' active' : ''}`} aria-pressed={showStrengthLabels} aria-label="S/N/W strength labels" onClick={() => setShowStrengthLabels(value => !value)} data-testid="toggle-overlay-strength">S/N/W</button>
+                <button type="button" className={`overlay-toggle${showCrosshair ? ' active' : ''}`} aria-pressed={showCrosshair} aria-label="Crosshair" title="Toggle chart crosshair" onClick={() => setShowCrosshair(value => !value)} data-testid="toggle-crosshair">CROSSHAIR</button>
+                <button type="button" className={`overlay-toggle${showTradeLevels ? ' active' : ''}`} aria-pressed={showTradeLevels} aria-label="Trade levels overlay" onClick={() => setShowTradeLevels(value => !value)} data-testid="toggle-trade-levels">TRADE LEVELS</button>
+                {!isGoldV2 && <div className="swing-family-controls" role="group" aria-label="Swing families">
+                  {SWING_FAMILY_CHOICES.map(({ family, label }) => (
+                    <label key={family}>
+                      <input
+                        type="checkbox"
+                        checked={swingFamilies[family]}
+                        aria-label={`${label} swing labels`}
+                        data-testid={`toggle-swing-family-${family.toLowerCase()}`}
+                        onChange={event => {
+                          const checked = event.currentTarget.checked;
+                          setSwingFamilies(current => ({
+                            ...current,
+                            [family]: checked,
+                          }));
+                        }}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>}
+                <DrawingToolbar
+                  tool={drawingTool}
+                  onTool={setDrawingTool}
+                  onClear={requestClearSelectedDrawings}
+                  showPrices={showAnnotationPrices}
+                  onTogglePrices={() => setShowAnnotationPrices(value => !value)}
+                />
               </div>
-            )}
+            </details>
             <button type="button" className="overlay-toggle" onClick={() => zoomChartAt(0.5, 1.3)} aria-label="Zoom out" title="Zoom out" data-testid="button-chart-zoom-out">−</button>
             <button type="button" className="overlay-toggle" onClick={() => zoomChartAt(0.5, 0.75)} aria-label="Zoom in" title="Zoom in" data-testid="button-chart-zoom-in">+</button>
             <button
@@ -2861,17 +2897,22 @@ export function Home() {
           <select value={strength} onChange={e => setStrength(e.target.value)} aria-label="Strength filter" data-testid="filter-alert-strength"><option value="ALL">ALL STRENGTH</option><option value="STRONG">STRONG</option><option value="NEUTRAL">NEUTRAL</option><option value="WEAK">WEAK</option></select>
           <select value={variantFilter} onChange={e => setVariantFilter(e.target.value as 'ALL' | 'A' | 'B')} aria-label="Variant filter" data-testid="filter-alert-variant"><option value="ALL">ALL VAR</option><option value="A">A</option><option value="B">B</option></select>
           <select value={wickPressureFilter} onChange={e => setWickPressureFilter(e.target.value as 'ALL' | WickPressure)} aria-label="Wick pressure filter" data-testid="filter-alert-wick-pressure"><option value="ALL">ALL WP</option><option value="up-pressure">UP</option><option value="balanced">BALANCED</option><option value="down-pressure">DOWN</option></select>
-          <select className="filter-engulfing" value={engulfingOnly ? 'ENGULF' : 'ALL'} onChange={e => setEngulfingOnly(e.target.value === 'ENGULF')} aria-label="Engulfing filter" data-testid="filter-alert-engulfing"><option value="ALL">ALL ENGULF</option><option value="ENGULF">ENGULF</option></select>
-          <button
-            type="button"
-            className={`filter-mtf${mtfAgreementOnly ? ' active' : ''}`}
-            aria-pressed={mtfAgreementOnly}
-            aria-label="Show only MTF trend-agreeing alerts"
-            title={timeframe === 'M5' ? 'Filter to alerts agreeing with the last closed M15 CST' : 'MTF filter is available on M5'}
-            disabled={timeframe !== 'M5'}
-            onClick={() => setMtfAgreementOnly(value => !value)}
-            data-testid="filter-alert-mtf"
-          >{mtfAgreementOnly ? 'MTF ONLY' : 'MTF ALL'}</button>
+          <details className="alert-advanced" data-testid="alert-advanced-filters">
+            <summary>MORE ALERT FILTERS</summary>
+            <div className="alert-advanced-content">
+              <select className="filter-engulfing" value={engulfingOnly ? 'ENGULF' : 'ALL'} onChange={e => setEngulfingOnly(e.target.value === 'ENGULF')} aria-label="Engulfing filter" data-testid="filter-alert-engulfing"><option value="ALL">ALL ENGULF</option><option value="ENGULF">ENGULF</option></select>
+              <button
+                type="button"
+                className={`filter-mtf${mtfAgreementOnly ? ' active' : ''}`}
+                aria-pressed={mtfAgreementOnly}
+                aria-label="Show only MTF trend-agreeing alerts"
+                title={timeframe === 'M5' ? 'Filter to alerts agreeing with the last closed M15 CST' : 'MTF filter is available on M5'}
+                disabled={timeframe !== 'M5'}
+                onClick={() => setMtfAgreementOnly(value => !value)}
+                data-testid="filter-alert-mtf"
+              >{mtfAgreementOnly ? 'MTF ONLY' : 'MTF ALL'}</button>
+            </div>
+          </details>
           <div className="si-filter-row">
             <AiFilterToggle
               enabled={aiFilterEnabled}
