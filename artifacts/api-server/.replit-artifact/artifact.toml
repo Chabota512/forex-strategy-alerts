@@ -10,23 +10,18 @@ name = "API Server"
 paths = ["/api"]
 
 [services.development]
-run = "pnpm --filter @workspace/api-server run dev"
+run = "cd ../..; uv run --locked python -m lab.server"
 
 [services.production]
 
 [services.production.build]
-args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
-
-[services.production.build.env]
-NODE_ENV = "production"
+args = ["uv", "sync", "--locked", "--no-dev"]
 
 [services.production.run]
-# we don't run through pnpm to make startup faster in production
-args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
+args = ["uv", "run", "--locked", "--no-dev", "python", "-m", "lab.server"]
 
 [services.production.run.env]
 PORT = "8080"
-NODE_ENV = "production"
 
 [services.production.health.startup]
 path = "/api/healthz"
