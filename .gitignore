@@ -1,0 +1,34 @@
+# Installable dependencies — never committed
+node_modules/
+.venv/
+venv/
+.pythonlibs/
+
+# Build output
+dist/
+out-tsc/
+*.tsbuildinfo
+.next/
+.turbo/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+.idea/
+
+# Replit local state
+.cache/
+.local/
+.config/
+.upm/
+.replit.local
+
+# Persistent research output generated at runtime
+/lab/output/system-intelligence/
+
