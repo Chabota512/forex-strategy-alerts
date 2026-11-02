@@ -25,7 +25,12 @@ GBPJPY, AUDJPY).
 - `python -m lab.resample --all` — regenerate all derived monthly files from raws
 - `python lab/populate_snapshots.py` — rebuild alert snapshots + digest from a full run
 - `python -m lab.query --help` — query snapshots by feature combination
-- App: start the managed Replit workflows (Python API on :8080 + control-room UI)
+- App: use the managed Replit workflows (Python API on :8080 + control-room UI).
+- If the UI shows “Dataset unavailable,” restart `artifacts/api-server: API Server`
+  first, then `artifacts/forex-control-room: web`. The API must be the Python
+  `lab.server`; a stale Express process can keep returning 404s until restarted.
+- Verify with `curl -sS http://localhost:80/api/lab/dataset?symbol=XAUUSD`;
+  it should return HTTP 200 and `"ownerApproved": true` before replay.
 - `pnpm run typecheck` / `pnpm run build` — workspace checks
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API clients from OpenAPI
 
