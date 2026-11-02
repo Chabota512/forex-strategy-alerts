@@ -1,0 +1,71 @@
+.simulation-panel {
+  margin:12px auto 24px; padding:0 18px 16px; border-color:#3a4652; border-radius:8px;
+  background:linear-gradient(180deg,#171e26 0%,#151a20 100%);
+}
+.sim-head { min-height:auto; padding:18px 2px 16px; }
+.sim-eyebrow { font-size:9px; letter-spacing:.1em; }
+.sim-head h2 { margin:7px 0 4px; font-size:18px; font-weight:600; }
+.sim-head p { font-size:10px; line-height:1.5; }
+.sim-head p.sim-active-mode { display:inline-block; margin-top:9px; padding:4px 7px; border-radius:4px; background:var(--accent-soft); color:var(--accent-label); }
+.sim-enable { min-height:36px; padding:7px 10px; border:1px solid var(--line-strong); border-radius:6px; background:var(--surface-raised); font-size:9px; }
+.sim-settings { min-height:auto; padding:14px 0; gap:12px; }
+.sim-settings.is-geometry,.sim-settings.is-swept { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.sim-settings label { gap:7px; font-size:9px; letter-spacing:.035em; }
+.sim-settings select { height:34px; padding:0 9px; border:1px solid var(--control-border); border-radius:4px; color:var(--text-input); background:var(--control-bg); font:10px var(--app-font-mono); }
+.sim-exit-settings { grid-column:span 2; gap:8px; }
+.sim-exit-model-label select { height:34px; font-size:10px; }
+.sim-method-panel { min-height:92px; gap:9px; padding:10px; border-radius:6px; }
+.sim-method-title { font-size:9px; }
+.sim-formula-row { flex-wrap:wrap; gap:7px; font-size:9px; white-space:normal; }
+.sim-formula-row input { width:58px; height:30px; border-radius:4px; font-size:10px; }
+.sim-entry-fixed { font-size:9px; }
+.sim-settings.is-geometry .sim-settings-action { grid-column:4; }
+.sim-settings.is-swept .sim-settings-action { grid-column:1/-1; }
+.sim-settings-action { gap:8px; }
+.sim-settings-action button { min-height:34px; padding:0 12px; border-radius:4px; font-size:9px; font-weight:500; }
+.sim-reset-note { border-radius:3px; font-size:9px; }
+.sim-input-wrap { height:34px; border-radius:4px; }
+.sim-input-wrap input { font-size:11px; }
+.sim-dashboard { grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; padding:14px 0; border-bottom:1px solid var(--line-soft); }
+.sim-balance-block,.sim-equity-block,.sim-metric { min-height:96px; padding:12px 13px; border:1px solid var(--line-soft); border-radius:6px; background:var(--surface-raised); }
+.sim-label,.sim-metric>span,.equity-caption { font-size:9px; }
+.sim-balance-block strong { font-size:22px; }
+.sim-metric strong { margin-top:13px; font-size:15px; }
+.sim-balance-block small,.sim-metric small { font-size:9px; }
+.equity-empty { font-size:9px; }
+.sim-cost-row { min-height:0; gap:8px; padding:12px 0; border-bottom:1px solid var(--line-soft); background:transparent; }
+.sim-cost-item { padding:10px 12px; border:1px solid var(--line-soft); border-radius:6px; background:var(--surface-raised); }
+.sim-cost-row b { font-size:9px; }
+.sim-cost-row strong { font-size:12px; }
+.sim-trades-heading,.sim-trades-heading-toggle { min-height:56px; }
+.sim-trades-heading-title { font-size:12px; }
+.sim-trades-heading-subtitle,.sim-trade-count { font-size:9px; }
+.sim-trades-toggle { padding:6px 9px; border-radius:4px; font-size:9px; }
+.sim-table-wrap { border-radius:5px; }
+.sim-trade-table { font-size:10px; }
+.sim-trade-table th { height:36px; font-size:8px; }
+.sim-trade-table td { padding:10px 12px; }
+.sim-empty-cell { font-size:10px; }
+.sim-footer-note { padding:12px 1px 3px; font-size:9px; }
+@media (max-width:950px) {
+  .sim-settings.is-geometry,.sim-settings.is-swept { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .sim-exit-settings,.sim-settings.is-geometry .sim-settings-action,.sim-settings.is-swept .sim-settings-action { grid-column:1/-1; }
+  .sim-dashboard { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:720px) {
+  .simulation-panel { margin:10px 0 30px; padding:0 12px 12px; }
+  .sim-head { gap:12px; padding:14px 0; }
+  .sim-settings { grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:9px; }
+  .sim-exit-settings,.sim-settings-action { grid-column:1/-1!important; }
+  .sim-dashboard { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .sim-balance-block,.sim-equity-block,.sim-metric { min-height:82px; padding:10px; }
+  .sim-cost-row { grid-template-columns:1fr; gap:7px; }
+  .sim-trades-actions { gap:7px; }
+  .sim-trades-toggle { font-size:8px; }
+}
+@media (max-width:480px) {
+  .sim-head { align-items:flex-start; flex-direction:column; }
+  .sim-enable { align-self:flex-start; }
+  .sim-trades-heading-subtitle { max-width:190px; }
+  .sim-trades-toggle { padding:5px 6px; }
+}
