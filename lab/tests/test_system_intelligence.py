@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 from typing import Any
+from unittest.mock import patch
 
 from lab.autoevolve import AutoevolveManager
 from lab.evolve_jobs import EvolveJobManager
@@ -402,7 +403,8 @@ def test_autoevolve_round_feeds_a_case_to_system_intelligence(
         poll_seconds=0.005,
     )
 
-    manager.start()
+    with patch("lab.autoevolve.load_approved_market_data"):
+        manager.start()
     try:
         assert case_seen.wait(timeout=5)
         assert round_finished.wait(timeout=5)

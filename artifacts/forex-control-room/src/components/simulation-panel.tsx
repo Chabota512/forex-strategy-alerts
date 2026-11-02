@@ -232,7 +232,7 @@ export function SimulationPanel({
           </p>
           <p className="sim-filter-scope-note">
             <span>REPLAY NOTE</span>
-            Changes apply to new alerts; existing trades stay unchanged. Rewinding rebuilds with the current filters.
+            Changes apply to new alerts; existing trades remain unchanged. Rewinding rebuilds with the current filters.
           </p>
         </div>}
       </div>

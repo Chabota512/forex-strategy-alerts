@@ -74,7 +74,10 @@ class MonthlySourcePathTests(unittest.TestCase):
                 ),
             ):
                 with self.assertRaisesRegex(ValueError, "manifest missing"):
-                    LabService(data_path=monthly_path)
+                    LabService(
+                        data_path=monthly_path,
+                        output_dir=Path(temporary) / "output",
+                    )
 
     def test_gold_derived_validation_does_not_resolve_merged_m1_path(self):
         with tempfile.TemporaryDirectory() as temporary:
