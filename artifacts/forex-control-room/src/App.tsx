@@ -1365,12 +1365,18 @@ export function Home() {
     ? chartViewSize
     : Math.min(chartViewSize, Math.max(1, displayEnd + 1));
   const maxChartStart = Math.max(0, displayEnd - visibleViewSize + 1);
+  // Replay candles after the cursor are intentionally hidden. Keep the
+  // viewport start at or before the cursor so zooming/panning into that
+  // hidden future can never make the whole chart appear empty.
+  const chartStartLimit = replayReady
+    ? Math.min(maxChartStart, Math.max(0, cursor))
+    : maxChartStart;
   const followChartStart = replayReady
     ? followCursorChartStart(cursor, displayEnd, visibleViewSize)
     : maxChartStart;
   const chartStartIndex = Math.max(
     0,
-    Math.min(followLatest ? followChartStart : chartStart ?? maxChartStart, maxChartStart),
+    Math.min(followLatest ? followChartStart : chartStart ?? chartStartLimit, chartStartLimit),
   );
   const chartEndIndex = displayEnd >= chartStartIndex
     ? Math.min(displayEnd, chartStartIndex + visibleViewSize - 1)
@@ -1799,11 +1805,11 @@ export function Home() {
       return;
     }
     setChartStart(current => {
-      const clamped = Math.min(current ?? maxChartStart, maxChartStart);
+      const clamped = Math.min(current ?? chartStartLimit, chartStartLimit);
       chartStartRef.current = clamped;
       return clamped;
     });
-  }, [followLatest, chartStartIndex, maxChartStart]);
+  }, [followLatest, chartStartIndex, chartStartLimit]);
   const boundsStart = activeDataset?.startDate.slice(0, 10) ?? '2023-01-01';
   const boundsEnd = activeDataset?.endDate.slice(0, 10) ?? '2025-12-31';
   const validDates = Boolean(from && to && from <= to && from >= boundsStart && to <= boundsEnd);
@@ -2569,7 +2575,7 @@ export function Home() {
   const chartHasCurrentCandle = cursor >= chartStartIndex && cursor <= chartEndIndex;
   const panChartTo = (start: number) => {
     setFollowLatest(false);
-    const next = Math.max(0, Math.min(start, maxChartStart));
+    const next = Math.max(0, Math.min(start, chartStartLimit));
     chartStartRef.current = next;
     setChartStart(next);
   };
@@ -2583,9 +2589,12 @@ export function Home() {
       ? nextSize
       : Math.min(nextSize, Math.max(1, displayEnd + 1));
     const nextMaxStart = Math.max(0, displayEnd + 1 - nextVisibleSize);
+    const nextStartLimit = replayReady
+      ? Math.min(nextMaxStart, Math.max(0, cursor))
+      : nextMaxStart;
     const nextStart = Math.max(0, Math.min(
       Math.round(anchor - Math.max(0, Math.min(1, anchorFraction)) * nextVisibleSize),
-      nextMaxStart,
+      nextStartLimit,
     ));
     setFollowLatest(false);
     chartViewSizeRef.current = nextSize;
