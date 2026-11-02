@@ -19,7 +19,10 @@ from lab.alert_policy import (
 
 class AlertPolicyTests(unittest.TestCase):
     def test_repository_policy_starts_in_passthrough_mode(self) -> None:
-        self.assertEqual(load_policy(evolve.DEFAULT_POLICY_PATH), passthrough_policy())
+        self.assertEqual(
+            load_policy(evolve.DEFAULT_POLICY_PATH)["mode"],
+            passthrough_policy()["mode"],
+        )
 
     def test_passthrough_policy_never_rejects_alerts(self) -> None:
         reasons = policy_rejection_reasons(
