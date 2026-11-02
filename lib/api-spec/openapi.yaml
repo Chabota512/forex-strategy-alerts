@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: fx
+    description: Foreign exchange rates
 paths:
   /healthz:
     get:
@@ -24,6 +26,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /fx/rates:
+    get:
+      operationId: getFxRates
+      tags: [fx]
+      summary: Get historical exchange rates
+      description: Returns daily historical exchange rates for a currency pair from Frankfurter.
+      parameters:
+        - name: base
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}$"
+        - name: quote
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}$"
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Daily exchange-rate observations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FxRatesResponse"
+        "400":
+          description: Invalid currency or date range
+        "502":
+          description: Rate provider unavailable
 components:
   schemas:
     HealthStatus:
@@ -33,4 +77,41 @@ components:
           type: string
       required:
         - status
+    FxRatePoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        rate:
+          type: number
+      required:
+        - date
+        - rate
+    FxRatesResponse:
+      type: object
+      properties:
+        base:
+          type: string
+        quote:
+          type: string
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        source:
+          type: string
+        rates:
+          type: array
+          items:
+            $ref: "#/components/schemas/FxRatePoint"
+      required:
+        - base
+        - quote
+        - from
+        - to
+        - source
+        - rates
 
