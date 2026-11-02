@@ -2723,6 +2723,7 @@ export function Home() {
               type="button"
               className={`overlay-toggle${showSwings ? ' active' : ''}`}
               aria-pressed={showSwings}
+              aria-expanded={showSwings}
               aria-label="Show swing labels"
               onClick={() => setShowSwings(value => !value)}
               data-testid="toggle-overlay-swings"
@@ -2740,7 +2741,7 @@ export function Home() {
             onTogglePrices={() => setShowAnnotationPrices(value => !value)}
           />
           <div className="chart-nav-controls" role="group" aria-label="Chart navigation">
-            {!isGoldV2 && (
+            {showSwings && (
               <div className="swing-family-controls" role="group" aria-label="Swing families">
                 {SWING_FAMILY_CHOICES.map(({ family, label }) => (
                   <label key={family}>
