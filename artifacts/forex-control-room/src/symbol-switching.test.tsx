@@ -126,8 +126,10 @@ function alertPayload() {
 }
 
 beforeEach(() => {
+  window.localStorage.clear();
   window.sessionStorage.clear();
   const datasets = new Map<InstrumentSymbol, ReturnType<typeof datasetFor>>();
+  const candleResponses = new Map<string, ReturnType<typeof api.candles>>();
   api.policy.mockReturnValue({
     data: { mode: 'passthrough' },
     isLoading: false,
@@ -151,6 +153,16 @@ beforeEach(() => {
     to: string;
     chunkMonth: string;
   }) => {
+    const cacheKey = JSON.stringify([
+      params.symbol,
+      params.timeframe,
+      params.from,
+      params.to,
+      params.chunkMonth,
+      (params as { chunkOffset?: number }).chunkOffset ?? 0,
+    ]);
+    const cached = candleResponses.get(cacheKey);
+    if (cached) return cached;
     const base = params.symbol === 'GBPUSD' ? 1.25 : 2000;
     const month = params.chunkMonth;
     const goldChunks = [
@@ -158,7 +170,7 @@ beforeEach(() => {
       { month: '2023-02', startIndex: 1, count: 1 },
     ];
     const chunkOffset = params.symbol === 'XAUUSD' && month === '2023-02' ? 1 : 0;
-    return {
+    const response = {
       data: {
         symbol: params.symbol,
         timeframe: params.timeframe,
@@ -210,6 +222,8 @@ beforeEach(() => {
       isError: false,
       refetch: vi.fn(),
     };
+    candleResponses.set(cacheKey, response);
+    return response;
   });
   api.start.mockImplementation(async (request: {
     data: {
@@ -351,7 +365,10 @@ describe('symbol switching session', () => {
 
     const toggle = await screen.findByTestId('filter-alert-ai');
     expect(toggle.textContent).toBe('SYSTEM INTELLIGENCE OFF');
-    fireEvent.click(screen.getByTestId('button-run-smoke'));
+    const runButton = screen.getByTestId('button-run-smoke') as HTMLButtonElement;
+    expect(runButton.disabled).toBe(false);
+    fireEvent.click(runButton);
+    expect(api.start).toHaveBeenCalled();
     await waitFor(() => expect(screen.getByTestId('status-run').textContent).toContain('INCREMENTAL SESSION'));
     fireEvent.click(screen.getByTestId('button-next-candle'));
 
