@@ -127,13 +127,18 @@ function alertPayload() {
 
 beforeEach(() => {
   window.sessionStorage.clear();
+  const datasets = new Map<InstrumentSymbol, ReturnType<typeof datasetFor>>();
   api.policy.mockReturnValue({
     data: { mode: 'passthrough' },
     isLoading: false,
     isError: false,
   });
   api.dataset.mockImplementation((params: { symbol: InstrumentSymbol }) => ({
-    data: datasetFor(params.symbol),
+    data: datasets.get(params.symbol) ?? (() => {
+      const data = datasetFor(params.symbol);
+      datasets.set(params.symbol, data);
+      return data;
+    })(),
     isLoading: false,
     isFetching: false,
     isError: false,
