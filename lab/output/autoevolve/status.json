@@ -22,8 +22,8 @@
   "phase": "training",
   "round": 4,
   "running": true,
-  "state": "running",
-  "stop_requested": false,
+  "state": "stopping",
+  "stop_requested": true,
   "swing_version": "V2",
-  "updated_at_utc": "2026-11-02T01:46:35.605190Z"
+  "updated_at_utc": "2026-11-02T01:55:08.952225Z"
 }
