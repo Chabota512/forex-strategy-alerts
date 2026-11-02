@@ -2727,8 +2727,21 @@ export function Home() {
               onClick={() => setShowSwings(value => !value)}
               data-testid="toggle-overlay-swings"
             >SWINGS</button>
+          </div>
+          <button type="button" className={`overlay-toggle${showAlertMarkers ? ' active' : ''}`} aria-pressed={showAlertMarkers} aria-label="Alert markers" onClick={() => setShowAlertMarkers(value => !value)} data-testid="toggle-overlay-alerts">ALERTS</button>
+          <button type="button" className={`overlay-toggle${showStrengthLabels ? ' active' : ''}`} aria-pressed={showStrengthLabels} aria-label="S/N/W strength labels" onClick={() => setShowStrengthLabels(value => !value)} data-testid="toggle-overlay-strength">S/N/W</button>
+          <button type="button" className={`overlay-toggle${showCrosshair ? ' active' : ''}`} aria-pressed={showCrosshair} aria-label="Crosshair" title="Toggle chart crosshair" onClick={() => setShowCrosshair(value => !value)} data-testid="toggle-crosshair">CROSSHAIR</button>
+          <button type="button" className={`overlay-toggle${showTradeLevels ? ' active' : ''}`} aria-pressed={showTradeLevels} aria-label="Trade levels overlay" onClick={() => setShowTradeLevels(value => !value)} data-testid="toggle-trade-levels">TRADE LEVELS</button>
+          <DrawingToolbar
+            tool={drawingTool}
+            onTool={setDrawingTool}
+            onClear={requestClearSelectedDrawings}
+            showPrices={showAnnotationPrices}
+            onTogglePrices={() => setShowAnnotationPrices(value => !value)}
+          />
+          <div className="chart-nav-controls" role="group" aria-label="Chart navigation">
             {!isGoldV2 && (
-              <div className="swing-family-controls" aria-label="Swing families">
+              <div className="swing-family-controls" role="group" aria-label="Swing families">
                 {SWING_FAMILY_CHOICES.map(({ family, label }) => (
                   <label key={family}>
                     <input
@@ -2749,19 +2762,6 @@ export function Home() {
                 ))}
               </div>
             )}
-          </div>
-          <button type="button" className={`overlay-toggle${showAlertMarkers ? ' active' : ''}`} aria-pressed={showAlertMarkers} aria-label="Alert markers" onClick={() => setShowAlertMarkers(value => !value)} data-testid="toggle-overlay-alerts">ALERTS</button>
-          <button type="button" className={`overlay-toggle${showStrengthLabels ? ' active' : ''}`} aria-pressed={showStrengthLabels} aria-label="S/N/W strength labels" onClick={() => setShowStrengthLabels(value => !value)} data-testid="toggle-overlay-strength">S/N/W</button>
-          <button type="button" className={`overlay-toggle${showCrosshair ? ' active' : ''}`} aria-pressed={showCrosshair} aria-label="Crosshair" title="Toggle chart crosshair" onClick={() => setShowCrosshair(value => !value)} data-testid="toggle-crosshair">CROSSHAIR</button>
-          <button type="button" className={`overlay-toggle${showTradeLevels ? ' active' : ''}`} aria-pressed={showTradeLevels} aria-label="Trade levels overlay" onClick={() => setShowTradeLevels(value => !value)} data-testid="toggle-trade-levels">TRADE LEVELS</button>
-          <DrawingToolbar
-            tool={drawingTool}
-            onTool={setDrawingTool}
-            onClear={requestClearSelectedDrawings}
-            showPrices={showAnnotationPrices}
-            onTogglePrices={() => setShowAnnotationPrices(value => !value)}
-          />
-          <div className="chart-nav-controls" role="group" aria-label="Chart navigation">
             <button type="button" className="overlay-toggle" onClick={() => zoomChartAt(0.5, 1.3)} aria-label="Zoom out" title="Zoom out" data-testid="button-chart-zoom-out">−</button>
             <button type="button" className="overlay-toggle" onClick={() => zoomChartAt(0.5, 0.75)} aria-label="Zoom in" title="Zoom in" data-testid="button-chart-zoom-in">+</button>
             <button
