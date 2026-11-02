@@ -1062,6 +1062,7 @@ export function Home() {
   const [timeframe, setTimeframe] = useState<Timeframe>('M15');
   const [from, setFrom] = useState(() => defaultDateWindow('XAUUSD').from);
   const [to, setTo] = useState(() => defaultDateWindow('XAUUSD').to);
+  const [hasCustomSimulationEnd, setHasCustomSimulationEnd] = useState(false);
   const [swingDirectionVersion, setSwingDirectionVersion] = useState<SwingDirectionVersion>('V2');
   const [viewMonth, setViewMonth] = useState('2023-01');
   const [replaySession, setReplaySession] = useState<ReplaySessionStartResult | null>(null);
@@ -1171,8 +1172,8 @@ export function Home() {
   const [scrubbing, setScrubbing] = useState(false);
   const [scrubPosition, setScrubPosition] = useState(0);
   const [chartViewSize, setChartViewSize] = useState(100);
-  const [chartStart, setChartStart] = useState<number | null>(null);
-  const [followLatest, setFollowLatest] = useState(true);
+  const [chartStart, setChartStart] = useState<number | null>(0);
+  const [followLatest, setFollowLatest] = useState(false);
   const [monthChunkState, setMonthChunkState] = useState<{
     windowKey: string;
     chunks: CandleMonthChunk[];
@@ -1191,6 +1192,7 @@ export function Home() {
     error?: string;
   }>({ active: false, loaded: 0, total: 0, chunkIndex: 0, chunkCount: 0, capped: false });
   const windowStreamAbort = useRef<AbortController | null>(null);
+  const autoStreamWindowKey = useRef('');
   const initializedMonthWindow = useRef('');
   const resumeAfterScrub = useRef(false);
   const scrubPositionRef = useRef(0);
@@ -1232,10 +1234,10 @@ export function Home() {
     && (replaySession.siModel ?? 'evidence') === siModel
     && Math.abs((replaySession.siBlendWeight ?? 0.5) - siBlendWeight) < 1e-9
     ? replaySession : null;
-  const anticipatedChunk = storedMonthChunks.find(chunk => chunk.month === viewMonth);
-  const anticipatedDisplayEnd = anticipatedChunk
-    ? anticipatedChunk.startIndex + anticipatedChunk.count - 1
-    : -1;
+  const anticipatedDisplayEnd = storedMonthChunks.reduce(
+    (latestEnd, chunk) => Math.max(latestEnd, chunk.startIndex + chunk.count - 1),
+    -1,
+  );
   const anticipatedViewSize = Math.min(chartViewSize, Math.max(1, anticipatedDisplayEnd + 1));
   const anticipatedMaxStart = Math.max(0, anticipatedDisplayEnd - anticipatedViewSize + 1);
   const anticipatedChartStart = Math.max(0, Math.min(chartStart ?? anticipatedMaxStart, anticipatedMaxStart));
@@ -1339,9 +1341,10 @@ export function Home() {
     }
     return undefined;
   };
-  const displayEnd = activeMonthChunk
-    ? activeMonthChunk.startIndex + activeMonthChunk.count - 1
-    : -1;
+  const displayEnd = currentMonthChunks.reduce(
+    (latestEnd, chunk) => Math.max(latestEnd, chunk.startIndex + chunk.count - 1),
+    -1,
+  );
   // Keep candle spacing fixed while navigating the full display window.
   const visibleViewSize = replayReady
     ? chartViewSize
@@ -1387,9 +1390,7 @@ export function Home() {
         }
       : candle;
   });
-  const browseIndex = activeMonthChunk
-    ? activeMonthChunk.startIndex + activeMonthChunk.count - 1
-    : cursor;
+  const browseIndex = chartStartIndex;
   const activeCandle = matchingSession && cursor < simulationTotalCandles
     ? currentReplayCandle
     : getCandleAt(m1DataReplay || replayReady ? cursor : browseIndex) ?? null;
@@ -1497,6 +1498,28 @@ export function Home() {
       }
     }
   };
+  useEffect(() => {
+    const target = Math.min(dataTotalCandles, CANDLE_CACHE_SOFT_CAP);
+    if (
+      selectedSymbol !== 'XAUUSD'
+      || !activeDataset
+      || !currentMonthChunks.length
+      || !cachedWindowCandleCount
+      || cachedWindowCandleCount >= target
+      || windowStream.active
+      || autoStreamWindowKey.current === monthWindowKey
+    ) return;
+    autoStreamWindowKey.current = monthWindowKey;
+    void streamCandleWindow();
+  }, [
+    selectedSymbol,
+    activeDataset,
+    currentMonthChunks,
+    cachedWindowCandleCount,
+    dataTotalCandles,
+    windowStream.active,
+    monthWindowKey,
+  ]);
   const resetMonthChunks = () => {
     windowStreamAbort.current?.abort();
     windowStreamAbort.current = null;
@@ -1555,6 +1578,11 @@ export function Home() {
       { onSuccess: () => { void evolvePolicy.refetch(); } },
     );
   };
+  const anchorChartAtWindowStart = () => {
+    setFollowLatest(false);
+    chartStartRef.current = 0;
+    setChartStart(0);
+  };
   useEffect(() => {
     const version = evolvePolicy.data?.version;
     if (version === undefined) return;
@@ -1576,7 +1604,9 @@ export function Home() {
     const dateWindow = defaultDateWindow(symbol);
     setFrom(dateWindow.from);
     setTo(dateWindow.to);
+    setHasCustomSimulationEnd(false);
     setViewMonth(dateWindow.from.slice(0, 7));
+    anchorChartAtWindowStart();
     const nextSwingVersion: SwingDirectionVersion = symbol === 'XAUUSD' ? 'V2' : 'V1';
     setSimulationSettings(current => ({
       ...current,
@@ -1600,11 +1630,15 @@ export function Home() {
     const start = activeDataset.startDate.slice(0, 10);
     const end = activeDataset.endDate.slice(0, 10);
     setFrom(current => current < start || current > end ? start : current);
-    setTo(current => current < start || current > end ? end : current);
+    setTo(current => (
+      !hasCustomSimulationEnd || current < start || current > end
+        ? end
+        : current
+    ));
     const firstMonth = start.slice(0, 7);
     const lastMonth = end.slice(0, 7);
     if (viewMonth < firstMonth || viewMonth > lastMonth) setViewMonth(firstMonth);
-  }, [activeDataset, viewMonth]);
+  }, [activeDataset, viewMonth, hasCustomSimulationEnd]);
   useEffect(() => {
     if (!activeDataset || activeDataset.ownerApproved) return;
     const fallback = instrumentReviews.find(review => review.ownerApproved)?.symbol;
@@ -2425,17 +2459,18 @@ export function Home() {
     void startReplay(false, true);
   };
   const selectMonth = (month: string) => {
-    setViewMonth(month);
-    const chunk = currentMonthChunks.find(item => item.month === month);
-    if (!chunk) return;
-    if (replayReady) {
-      void stepTo(chunk.startIndex);
-      return;
+    if (!XAU_MONTHS.includes(month)) return;
+    const monthStart = `${month}-01`;
+    const nextFrom = monthStart < boundsStart ? boundsStart : monthStart;
+    if (nextFrom > boundsEnd) return;
+    setFrom(nextFrom);
+    if (nextFrom > to) {
+      setTo(boundsEnd);
+      setHasCustomSimulationEnd(false);
     }
-    cursorRef.current = chunk.startIndex;
-    setCursor(chunk.startIndex);
-    setFollowLatest(true);
-    setChartStart(null);
+    setViewMonth(month);
+    clearReplay();
+    anchorChartAtWindowStart();
   };
   const focusTrade = (trade: SimulatedTrade) => {
     if (focusedTrade?.tradeId === trade.tradeId) {
@@ -2591,16 +2626,16 @@ export function Home() {
     <section className="querybar" aria-label="Historical review settings">
       <label className="compact-field" title="Chart display starts on this date and continues through the latest available data.">
         <span>FROM · CHART START · UTC</span>
-        <input type="date" aria-label="From date: chart display start" min={boundsStart} max={boundsEnd} value={from} onChange={e => { setFrom(e.target.value); setViewMonth(e.target.value.slice(0, 7)); clearReplay(); }} data-testid="input-from-date"/>
+        <input type="date" aria-label="From date: chart display start" min={boundsStart} max={boundsEnd} value={from} onChange={e => { const value = e.target.value; setFrom(value); if (value > to) { setTo(boundsEnd); setHasCustomSimulationEnd(false); } setViewMonth(value.slice(0, 7)); clearReplay(); anchorChartAtWindowStart(); }} data-testid="input-from-date"/>
       </label>
       <label className="compact-field" title="Replay, generated alerts, and simulated trades stop on this date.">
         <span>TO · SIMULATION END · UTC</span>
-        <input type="date" aria-label="To date: simulation end" min={boundsStart} max={boundsEnd} value={to} onChange={e => { const value = e.target.value; setTo(value); if (value && viewMonth > displayTo.slice(0, 7)) setViewMonth(displayTo.slice(0, 7)); clearReplay(); }} data-testid="input-to-date"/>
+        <input type="date" aria-label="To date: simulation end" min={from} max={boundsEnd} value={to} onChange={e => { const value = e.target.value; setTo(value); setHasCustomSimulationEnd(true); if (value && viewMonth > displayTo.slice(0, 7)) setViewMonth(displayTo.slice(0, 7)); clearReplay(); anchorChartAtWindowStart(); }} data-testid="input-to-date"/>
       </label>
       <SymbolSelect symbol={selectedSymbol} reviews={instrumentReviews} onChange={selectSymbol}/>
       {selectedSymbol === 'XAUUSD' && <>
         <label className="compact-field month-field"><span>MONTH</span><select value={viewMonth} onChange={e => selectMonth(e.target.value)} data-testid="select-month">
-          {XAU_MONTHS.map(month => <option key={month} value={month} disabled={month < from.slice(0, 7) || month > displayTo.slice(0, 7)}>{month}</option>)}
+          {XAU_MONTHS.map(month => <option key={month} value={month} disabled={month < boundsStart.slice(0, 7) || month > displayTo.slice(0, 7)}>{month}</option>)}
         </select></label>
         <span className="month-status" role="status" data-testid="status-month-progress">
           {monthProgress} · {viewMonth} · {cachedWindowCandleCount.toLocaleString()} cached
