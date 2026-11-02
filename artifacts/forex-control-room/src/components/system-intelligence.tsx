@@ -1,7 +1,7 @@
 import { getGetSystemIntelligenceQueryKey, useGetSystemIntelligence } from '@workspace/api-client-react';
 import type { SystemIntelligence } from '@workspace/api-client-react';
 import { useEffect, useState } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ChevronDown, RefreshCw } from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -335,6 +335,7 @@ function LoadedIntelligence({ data, refresh }: {
 }
 
 export function SystemIntelligencePanel({ enabled = false }: { enabled?: boolean }) {
+  const [collapsed, setCollapsed] = useState(false);
   const query = useGetSystemIntelligence({
     query: { queryKey: getGetSystemIntelligenceQueryKey(), refetchInterval: 30000 },
   });
@@ -346,25 +347,37 @@ export function SystemIntelligencePanel({ enabled = false }: { enabled?: boolean
   }, [enabled, query.error, query.isError]);
   return <section className="system-intelligence" aria-label="System intelligence" data-testid="system-intelligence">
     <header className="intel-heading">
-      <div className="intel-title-group"><span className="intel-mark" aria-hidden="true">SI</span><div><span className="intel-kicker">XAUUSD · RESEARCH SURFACE</span><h2>SYSTEM INTELLIGENCE</h2></div></div>
-      <span className="intel-live-note"><i aria-hidden="true"/> READ-ONLY · REFRESHES EVERY 30 SEC</span>
+      <button
+        type="button"
+        className="intel-heading-toggle"
+        aria-expanded={!collapsed}
+        aria-controls="system-intelligence-content"
+        data-testid="toggle-system-intelligence"
+        onClick={() => setCollapsed(current => !current)}
+      >
+        <span className="intel-title-group"><span className="intel-mark" aria-hidden="true">SI</span><span><span className="intel-kicker">XAUUSD · RESEARCH SURFACE</span><span className="intel-heading-title" role="heading" aria-level={2}>SYSTEM INTELLIGENCE</span></span></span>
+        <span className="intel-live-note"><i aria-hidden="true"/> READ-ONLY · REFRESHES EVERY 30 SEC</span>
+        <ChevronDown className={`intel-collapse-icon${collapsed ? ' is-collapsed' : ''}`} size={14} aria-hidden="true"/>
+      </button>
     </header>
-    <div className="intel-disclaimer" role="note">
-      <AlertTriangle size={13} aria-hidden="true"/>
-      <strong>SIMULATION ONLY</strong>
-      <span>Historical XAUUSD research only. No live recommendations or order execution; parameters cannot be applied from this panel.</span>
-    </div>
-    {query.isLoading && !data ? <div className="intel-skeleton" role="status" aria-label="Loading system intelligence" data-testid="intel-loading"><i/><i/><i/></div>
-      : query.isError && !data ? <div className="intel-message" role="alert" data-testid="intel-error">
-        <div><strong>INTELLIGENCE UNAVAILABLE</strong><p>{query.error instanceof Error ? query.error.message : 'The research summary could not be loaded.'}</p></div>
-        <button type="button" onClick={() => void query.refetch()} data-testid="button-retry-intelligence"><RefreshCw size={11}/> RETRY</button>
+    <div id="system-intelligence-content" hidden={collapsed}>
+      <div className="intel-disclaimer" role="note">
+        <AlertTriangle size={13} aria-hidden="true"/>
+        <strong>SIMULATION ONLY</strong>
+        <span>Historical XAUUSD research only. No live recommendations or order execution; parameters cannot be applied from this panel.</span>
       </div>
-      : data ? <>
-        {data.caseCount === 0 && <div className="intel-message" data-testid="intel-empty">
-          <div><strong>NO XAUUSD CASES YET</strong><p>There is no historical sample to summarize. Seeded rules and bounded values remain visible below.</p></div>
-        </div>}
-        <LoadedIntelligence data={data} refresh={() => query.refetch()}/>
-      </> : null}
+      {query.isLoading && !data ? <div className="intel-skeleton" role="status" aria-label="Loading system intelligence" data-testid="intel-loading"><i/><i/><i/></div>
+        : query.isError && !data ? <div className="intel-message" role="alert" data-testid="intel-error">
+          <div><strong>INTELLIGENCE UNAVAILABLE</strong><p>{query.error instanceof Error ? query.error.message : 'The research summary could not be loaded.'}</p></div>
+          <button type="button" onClick={() => void query.refetch()} data-testid="button-retry-intelligence"><RefreshCw size={11}/> RETRY</button>
+        </div>
+        : data ? <>
+          {data.caseCount === 0 && <div className="intel-message" data-testid="intel-empty">
+            <div><strong>NO XAUUSD CASES YET</strong><p>There is no historical sample to summarize. Seeded rules and bounded values remain visible below.</p></div>
+          </div>}
+          <LoadedIntelligence data={data} refresh={() => query.refetch()}/>
+        </> : null}
+    </div>
   </section>;
 }
 

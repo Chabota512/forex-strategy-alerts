@@ -2363,6 +2363,9 @@ export function Home() {
       } else if (key === 's') {
         event.preventDefault();
         takeManualSide('SELL');
+      } else if (key === 'k') {
+        event.preventDefault();
+        skipManualSelection();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -2632,7 +2635,7 @@ export function Home() {
         <span>MANUAL MODE</span>
       </label>
       {manualMode ? <>
-        <p>Paused replay · N next · P previous · B/S take only the matching alert side · entries use the next candle open.</p>
+        <p>Paused replay · N next · P previous · B/S take the matching alert side · K skip the selected alert · entries use the next candle open.</p>
         <div className="manual-decision-actions">
           <textarea
             value={manualComment}
@@ -2659,7 +2662,7 @@ export function Home() {
             disabled={!matchingSession || !manualSelectedAlert}
             onClick={skipManualSelection}
             data-testid="button-manual-skip"
-          >SKIP ALERT</button>
+          >SKIP ALERT · K</button>
         </div>
         {manualActionError && <div role="alert" className="inline-error" data-testid="error-manual-decision">{manualActionError}</div>}
         <div className="manual-decision-log" aria-label="Manual decision log" data-testid="manual-decision-log">
