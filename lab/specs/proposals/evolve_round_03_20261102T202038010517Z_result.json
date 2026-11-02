@@ -1,0 +1,420 @@
+{
+  "baseline_version": "1.5.0",
+  "candidate_file": null,
+  "candidate_validation": null,
+  "champion_simulation_label": "NORMAL \u00b7 swept_level_atr \u00b7 R 2 \u00b7 swing V2",
+  "champion_swing_version": "V2",
+  "champion_training": {
+    "by_timeframe": {
+      "M15": {
+        "closed_trade_count": 12729,
+        "direction_mode": "normal",
+        "exit_model": "swept_level_atr",
+        "expectancy_after_costs": -0.18481354433683214,
+        "geometry_weights": null,
+        "invert_threshold": 0.5,
+        "losses": 8525,
+        "net_pnl_after_costs": -9999.999999827236,
+        "swing_version": "V2",
+        "system_intelligence_cases_added": 25458,
+        "total_net_r_after_costs": -2352.4916058635363,
+        "wins": 4204
+      },
+      "M5": {
+        "closed_trade_count": 37906,
+        "direction_mode": "normal",
+        "exit_model": "swept_level_atr",
+        "expectancy_after_costs": -0.3148712095300691,
+        "geometry_weights": null,
+        "invert_threshold": 0.5,
+        "losses": 25237,
+        "net_pnl_after_costs": -10000.0,
+        "swing_version": "V2",
+        "system_intelligence_cases_added": 75812,
+        "total_net_r_after_costs": -11935.508068446798,
+        "wins": 12669
+      }
+    },
+    "closed_trade_count": 50635,
+    "digest": {
+      "active_timeframes": [
+        "M5",
+        "M15"
+      ],
+      "estimated_tokens": 1994,
+      "expectancy_axis": "FOLLOW-vs-FADE",
+      "groups": [
+        {
+          "avg_r": 0.0,
+          "axis": "sim_direction_mode",
+          "capital_context": {
+            "balance_usd": 10000.0,
+            "lots": {
+              "XAUUSD": 0.01
+            },
+            "sizing": "RISK_PERCENT"
+          },
+          "expectancy_after_costs": -0.2822,
+          "expectancy_money": -0.39,
+          "follow_vs_fade": {
+            "fade_expectancy_after_costs": -0.1471,
+            "fade_expectancy_money": -0.22,
+            "fade_resolved": 50635,
+            "follow_expectancy_after_costs": -0.2822,
+            "follow_expectancy_money": -0.39,
+            "follow_resolved": 50635
+          },
+          "n": 50649,
+          "resolved": 50635,
+          "value": "normal",
+          "win_rate_pct": 33.32,
+          "wins": 16873
+        },
+        {
+          "avg_r": 0.0,
+          "axis": "sim_exit_model",
+          "capital_context": {
+            "balance_usd": 10000.0,
+            "lots": {
+              "XAUUSD": 0.01
+            },
+            "sizing": "RISK_PERCENT"
+          },
+          "expectancy_after_costs": -0.2822,
+          "expectancy_money": -0.39,
+          "follow_vs_fade": {
+            "fade_expectancy_after_costs": -0.1471,
+            "fade_expectancy_money": -0.22,
+            "fade_resolved": 50635,
+            "follow_expectancy_after_costs": -0.2822,
+            "follow_expectancy_money": -0.39,
+            "follow_resolved": 50635
+          },
+          "n": 50649,
+          "resolved": 50635,
+          "value": "swept_level_atr",
+          "win_rate_pct": 33.32,
+          "wins": 16873
+        },
+        {
+          "avg_r": 0.0005,
+          "axis": "mtf_cct_agree",
+          "capital_context": {
+            "balance_usd": 10000.0,
+            "lots": {
+              "XAUUSD": 0.01
+            },
+            "sizing": "RISK_PERCENT"
+          },
+          "expectancy_after_costs": -0.28,
+          "expectancy_money": -0.4,
+          "follow_vs_fade": {
+            "fade_expectancy_after_costs": -0.1464,
+            "fade_expectancy_money": -0.23,
+            "fade_resolved": 48129,
+            "follow_expectancy_after_costs": -0.28,
+            "follow_expectancy_money": -0.4,
+            "follow_resolved": 48129
+          },
+          "n": 48143,
+          "resolved": 48129,
+          "value": "False",
+          "win_rate_pct": 33.34,
+          "wins": 16045
+        },
+        {
+          "avg_r": 0.0007,
+          "axis": "variant",
+          "capital_context": {
+            "balance_usd": 10000.0,
+            "lots": {
+              "XAUUSD": 0.01
+            },
+            "sizing": "RISK_PERCENT"
+          },
+          "expectancy_after_costs": -0.2814,
+          "expectancy_money": -0.39,
+          "follow_vs_fade": {
+            "fade_expectancy_after_costs": -0.147,
+            "fade_expectancy_money": -0.23,
+            "fade_resolved": 42287,
+            "follow_expectancy_after_costs": -0.2814,
+            "follow_expectancy_money": -0.39,
+            "follow_resolved": 42287
+          },
+          "n": 42301,
+          "resolved": 42287,
+          "value": "A",
+          "win_rate_pct": 33.34,
+          "wins": 14100
+        },
+        {
+          "avg_r": 0.0042,
+          "axis": "mtf_wp_agree",
+          "capital_context": {
+            "balance_usd": 10000.0,
+            "lots": {
+              "XAUUSD": 0.01
+            },
+            "sizing": "RISK_PERCENT"
+          },
+          "expectancy_after_costs": -0.2684,
+          "expectancy_money": -0.36,
+          "follow_vs_fade": {
+            "fade_expectancy_after_costs": -0.1446,
+            "fade_expectancy_money": -0.25,
+            "fade_resolved": 41513,
+            "follow_expectancy_after_costs": -0.2684,
+            "follow_expectancy_money": -0.36,
+            "follow_resolved": 41513
+          },
+          "n": 41525,
+          "resolved": 41513,
+          "value": "False",
+          "win_rate_pct": 33.47,
+          "wins": 13895
+        },
+        {
+          "avg_r": -0.0051,
+          "axis": "mtf_trend_agree",
+          "capital_context": {
+            "balance_usd": 10000.0,
+            "lots": {
+              "XAUUSD": 0.01
+            },
+            "sizing": "RISK_PERCENT"
+          },
+          "expectancy_after_costs": -0.3166,
+          "expectancy_money": -0.33,
+          "follow_vs_fade": {
+            "fade_expectancy_after_costs": -0.1583,
+            "fade_expectancy_money": -0.14,
+            "fade_resolved": 11217,
+            "follow_expectancy_after_costs": -0.3166,
+            "follow_expectancy_money": -0.33,
+            "follow_resolved": 11217
+          },
+          "n": 11221,
+          "resolved": 11217,
+          "value": "True",
+          "win_rate_pct": 33.16,
+          "wins": 3719
+        },
+        {
+          "avg_r": 0.0066,
+          "axis": "dual_tf_alert",
+          "capital_context": {
+            "balance_usd": 10000.0,
+            "lots": {
+              "XAUUSD": 0.01
+            },
+            "sizing": "RISK_PERCENT"
+          },
+          "expectancy_after_costs": -0.3004,
+          "expectancy_money": -0.14,
+          "follow_vs_fade": {
+            "fade_expectancy_after_costs": -0.1615,
+            "fade_expectancy_money": -0.19,
+            "fade_resolved": 9358,
+            "follow_expectancy_after_costs": -0.3004,
+            "follow_expectancy_money": -0.14,
+            "follow_resolved": 9358
+          },
+          "n": 9358,
+          "resolved": 9358,
+          "value": "True",
+          "win_rate_pct": 33.55,
+          "wins": 3140
+        },
+        {
+          "avg_r": -0.019,
+          "axis": "mtf_wp_agree",
+          "capital_context": {
+            "balance_usd": 10000.0,
+            "lots": {
+              "XAUUSD": 0.01
+            },
+            "sizing": "RISK_PERCENT"
+          },
+          "expectancy_after_costs": -0.3449,
+          "expectancy_money": -0.55,
+          "follow_vs_fade": {
+            "fade_expectancy_after_costs": -0.1584,
+            "fade_expectancy_money": -0.09,
+            "fade_resolved": 9122,
+            "follow_expectancy_after_costs": -0.3449,
+            "follow_expectancy_money": -0.55,
+            "follow_resolved": 9122
+          },
+          "n": 9124,
+          "resolved": 9122,
+          "value": "True",
+          "win_rate_pct": 32.65,
+          "wins": 2978
+        },
+        {
+          "avg_r": -0.0088,
+          "axis": "mtf_cct_agree",
+          "capital_context": {
+            "balance_usd": 10000.0,
+            "lots": {
+              "XAUUSD": 0.01
+            },
+            "sizing": "RISK_PERCENT"
+          },
+          "expectancy_after_costs": -0.3243,
+          "expectancy_money": -0.39,
+          "follow_vs_fade": {
+            "fade_expectancy_after_costs": -0.1599,
+            "fade_expectancy_money": -0.03,
+            "fade_resolved": 2506,
+            "follow_expectancy_after_costs": -0.3243,
+            "follow_expectancy_money": -0.39,
+            "follow_resolved": 2506
+          },
+          "n": 2506,
+          "resolved": 2506,
+          "value": "True",
+          "win_rate_pct": 33.04,
+          "wins": 828
+        }
+      ],
+      "period": "2023-01 through 2024-12",
+      "sample_floor": 30,
+      "schema_version": 1,
+      "snapshot_count": 50649,
+      "swing_direction_version": "V2",
+      "swing_direction_versions": [
+        "V2"
+      ],
+      "truncated_cells": 73
+    },
+    "direction_mode": "normal",
+    "exit_model": "swept_level_atr",
+    "expectancy_after_costs": -0.28217635379303513,
+    "geometry_weights": null,
+    "net_pnl_after_costs": -19999.999999827236,
+    "period": "2023-01 through 2024-12",
+    "signals_by_month": {
+      "2023-01": 2046,
+      "2023-02": 2012,
+      "2023-03": 2263,
+      "2023-04": 1914,
+      "2023-05": 2175,
+      "2023-06": 2209,
+      "2023-07": 2125,
+      "2023-08": 2360,
+      "2023-09": 2011,
+      "2023-10": 2027,
+      "2023-11": 2097,
+      "2023-12": 1882,
+      "2024-01": 2076,
+      "2024-02": 2061,
+      "2024-03": 1882,
+      "2024-04": 2095,
+      "2024-05": 2388,
+      "2024-06": 1942,
+      "2024-07": 2242,
+      "2024-08": 2179,
+      "2024-09": 2092,
+      "2024-10": 2342,
+      "2024-11": 2142,
+      "2024-12": 2087
+    }
+  },
+  "champion_validation": {
+    "by_timeframe": {
+      "M15": {
+        "closed_trade_count": 6440,
+        "direction_mode": "normal",
+        "exit_model": "swept_level_atr",
+        "expectancy_after_costs": -0.08145547305891249,
+        "geometry_weights": null,
+        "invert_threshold": 0.5,
+        "losses": 4299,
+        "net_pnl_after_costs": -9970.560987890978,
+        "swing_version": "V2",
+        "total_net_r_after_costs": -524.5732464993964,
+        "wins": 2141
+      },
+      "M5": {
+        "closed_trade_count": 19727,
+        "direction_mode": "normal",
+        "exit_model": "swept_level_atr",
+        "expectancy_after_costs": -0.14242297685300137,
+        "geometry_weights": null,
+        "invert_threshold": 0.5,
+        "losses": 13163,
+        "net_pnl_after_costs": -9999.999999998965,
+        "swing_version": "V2",
+        "total_net_r_after_costs": -2809.578064379158,
+        "wins": 6564
+      }
+    },
+    "closed_trade_count": 26167,
+    "direction_mode": "normal",
+    "exit_model": "swept_level_atr",
+    "expectancy_after_costs": -0.12741817215877077,
+    "geometry_weights": null,
+    "net_pnl_after_costs": -19970.56098788994,
+    "period": "2025-01 through 2025-12"
+  },
+  "comparison": null,
+  "decision": "request_error",
+  "eligible": false,
+  "key_index": 2,
+  "market_source": "dukascopy",
+  "market_source_sha256": "21de3e092ab6b24c37ead1790e83814d294a092f1dfe9eac192721757aab361c",
+  "proposal": null,
+  "proposal_file": "/home/runner/workspace/lab/specs/proposals/evolve_round_03_20261102T202038010517Z_proposal.json",
+  "provider": "groq",
+  "provider_attempts": [
+    {
+      "attempt": 1,
+      "category": "unknown",
+      "key_index": 1,
+      "message": "error code: 1010",
+      "provider": "groq",
+      "status": "failed"
+    },
+    {
+      "attempt": 2,
+      "category": "unknown",
+      "key_index": 2,
+      "message": "error code: 1010",
+      "provider": "groq",
+      "status": "failed"
+    }
+  ],
+  "reason": "LLM request failed (unknown).",
+  "request_error_detail": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "category": "unknown",
+        "key_index": 1,
+        "message": "error code: 1010",
+        "provider": "groq",
+        "status": "failed"
+      },
+      {
+        "attempt": 2,
+        "category": "unknown",
+        "key_index": 2,
+        "message": "error code: 1010",
+        "provider": "groq",
+        "status": "failed"
+      }
+    ],
+    "category": "unknown",
+    "key_index": 2,
+    "message": "error code: 1010",
+    "provider": "groq"
+  },
+  "result_file": "/home/runner/workspace/lab/specs/proposals/evolve_round_03_20261102T202038010517Z_result.json",
+  "round": 3,
+  "seed_sha256": "dc4b73c09cc16eceae907263d84f8543991b364c2817ff66189f845183425fd4",
+  "swing_version": "V2",
+  "timestamp_utc": "2026-11-02T20:21:34.680407Z",
+  "token_usage": null
+}

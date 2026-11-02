@@ -1,5 +1,5 @@
 {
-  "active_job_id": "c14e1883-33d1-455a-8f5b-f03a0a68ed86",
+  "active_job_id": "b0c8f64f-b939-4688-a4c6-d2e22b3c0678",
   "alerts": [
     {
       "created_at_utc": "2026-11-02T15:44:53.832962Z",
@@ -17,13 +17,13 @@
     "key1": "unknown",
     "key2": "unknown"
   },
-  "last_result_file": "evolve_round_01_20261102T145412613636Z_result.json",
-  "last_verdict": "failed",
+  "last_result_file": "evolve_round_09_20261102T203027113820Z_result.json",
+  "last_verdict": "request_error",
   "phase": "training",
-  "round": 2,
+  "round": 10,
   "running": true,
   "state": "running",
   "stop_requested": false,
   "swing_version": "V2",
-  "updated_at_utc": "2026-11-02T19:52:49.046790Z"
+  "updated_at_utc": "2026-11-02T20:35:09.804631Z"
 }

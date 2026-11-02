@@ -279,3 +279,91 @@ separate and unfrozen until the owner explicitly approves a candidate.
 - Proposal: `evolve_round_01_20261101T105546382392Z_proposal.json`
 - Result: `evolve_round_01_20261101T105546382392Z_result.json`
 
+## Round 2 — 2026-11-02T20:20:27.855418Z
+
+- Baseline version: `1.5.0`
+- Objective: validation expectancy_after_costs (R per trade); total P&L is context only.
+- Champion training net P&L: `-19999.999999827236`
+- Candidate validation net P&L: `n/a`
+- Decision: **request_error**
+- Reason: LLM request failed (unknown).
+- Proposal: `evolve_round_02_20261102T193559847270Z_proposal.json`
+- Result: `evolve_round_02_20261102T193559847270Z_result.json`
+
+## Round 3 — 2026-11-02T20:21:34.680407Z
+
+- Baseline version: `1.5.0`
+- Objective: validation expectancy_after_costs (R per trade); total P&L is context only.
+- Champion training net P&L: `-19999.999999827236`
+- Candidate validation net P&L: `n/a`
+- Decision: **request_error**
+- Reason: LLM request failed (unknown).
+- Proposal: `evolve_round_03_20261102T202038010517Z_proposal.json`
+- Result: `evolve_round_03_20261102T202038010517Z_result.json`
+
+## Round 4 — 2026-11-02T20:22:47.983226Z
+
+- Baseline version: `1.5.0`
+- Objective: validation expectancy_after_costs (R per trade); total P&L is context only.
+- Champion training net P&L: `-19999.999999827236`
+- Candidate validation net P&L: `n/a`
+- Decision: **request_error**
+- Reason: LLM request failed (unknown).
+- Proposal: `evolve_round_04_20261102T202154774520Z_proposal.json`
+- Result: `evolve_round_04_20261102T202154774520Z_result.json`
+
+## Round 5 — 2026-11-02T20:24:08.090244Z
+
+- Baseline version: `1.5.0`
+- Objective: validation expectancy_after_costs (R per trade); total P&L is context only.
+- Champion training net P&L: `-19999.999999827236`
+- Candidate validation net P&L: `n/a`
+- Decision: **request_error**
+- Reason: LLM request failed (unknown).
+- Proposal: `evolve_round_05_20261102T202318123918Z_proposal.json`
+- Result: `evolve_round_05_20261102T202318123918Z_result.json`
+
+## Round 6 — 2026-11-02T20:25:41.019421Z
+
+- Baseline version: `1.5.0`
+- Objective: validation expectancy_after_costs (R per trade); total P&L is context only.
+- Champion training net P&L: `-19999.999999827236`
+- Candidate validation net P&L: `n/a`
+- Decision: **request_error**
+- Reason: LLM request failed (unknown).
+- Proposal: `evolve_round_06_20261102T202448134385Z_proposal.json`
+- Result: `evolve_round_06_20261102T202448134385Z_result.json`
+
+## Round 7 — 2026-11-02T20:27:23.159126Z
+
+- Baseline version: `1.5.0`
+- Objective: validation expectancy_after_costs (R per trade); total P&L is context only.
+- Champion training net P&L: `-19999.999999827236`
+- Candidate validation net P&L: `n/a`
+- Decision: **request_error**
+- Reason: LLM request failed (unknown).
+- Proposal: `evolve_round_07_20261102T202631036194Z_proposal.json`
+- Result: `evolve_round_07_20261102T202631036194Z_result.json`
+
+## Round 8 — 2026-11-02T20:29:15.518891Z
+
+- Baseline version: `1.5.0`
+- Objective: validation expectancy_after_costs (R per trade); total P&L is context only.
+- Champion training net P&L: `-19999.999999827236`
+- Candidate validation net P&L: `n/a`
+- Decision: **request_error**
+- Reason: LLM request failed (unknown).
+- Proposal: `evolve_round_08_20261102T202823194565Z_proposal.json`
+- Result: `evolve_round_08_20261102T202823194565Z_result.json`
+
+## Round 9 — 2026-11-02T20:33:01.172954Z
+
+- Baseline version: `1.5.0`
+- Objective: validation expectancy_after_costs (R per trade); total P&L is context only.
+- Champion training net P&L: `-19999.999999827236`
+- Candidate validation net P&L: `n/a`
+- Decision: **request_error**
+- Reason: LLM request failed (unknown).
+- Proposal: `evolve_round_09_20261102T203027113820Z_proposal.json`
+- Result: `evolve_round_09_20261102T203027113820Z_result.json`
+
