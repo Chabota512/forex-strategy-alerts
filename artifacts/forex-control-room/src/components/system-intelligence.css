@@ -7,7 +7,7 @@
   --intel-muted: var(--text-muted, #9ba6b1);
   --intel-accent: var(--accent, #b9a365);
   width: 100%;
-  margin: 12px 0;
+  margin: 12px 0 180px;
   border: 1px solid var(--intel-line);
   background: var(--intel-panel);
   color: var(--intel-copy);
