@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -35,7 +36,7 @@ def _alert(alert_id: str, direction: str) -> dict:
         "cct": "uptrend",
         "cst_v2_state": "uptrend",
         "candle": {
-            "time": "2025-01-01T00:00:00Z",
+            "time": datetime(2025, 1, 1, tzinfo=timezone.utc),
             "open": "100",
             "high": "101",
             "low": "99",
@@ -110,6 +111,9 @@ def test_take_and_skip_persist_comments_fingerprints_and_manual_trade() -> None:
         )
         finalized = session.decide_manually(candle_index=0, action="finalize")
         session.simulation.process_candle(1)
+
+        for response in (taken, skipped, finalized):
+            json.dumps(response, allow_nan=False)
 
         trade = session.simulation.trades_at(1)[0]
         assert trade["direction"] == "BUY"

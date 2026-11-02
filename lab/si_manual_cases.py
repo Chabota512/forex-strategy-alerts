@@ -92,6 +92,9 @@ def record_manual_decision(
     }
     if trade_direction is not None:
         row["tradeDirection"] = trade_direction
+    # Return the same JSON-safe shape that is persisted. Replay alerts may
+    # contain datetime values, which the API response encoder cannot serialize.
+    row = json.loads(_canonical(row))
     with _LOCK:
         rows = _read_rows(path)
         for existing in rows:
